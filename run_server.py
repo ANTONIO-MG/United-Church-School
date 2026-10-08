@@ -14,11 +14,11 @@ to use two different accounts on ONE computer, open a second browser or an
 Incognito/Private window.
 
 First time on a machine:
-    1) bash .setup                         # .environment + requirements + PostgreSQL + database
-    2) source .environment/bin/activate
-    3) python run_server.py                # start serving the LAN
-(.setup installs the school structure and shop; python .admin_wipe_and_create.py
-resets the database with the four base accounts, python .demo_seed.py adds demo data.)
+    1) python3 .01_install.py     # Python, .environment, requirements
+    2) python3 .02_setup.py       # PostgreSQL, database, school structure and shop
+    3) python3 .03_admin.py       # (DESTRUCTIVE) the five base accounts
+    4) python3 .04_demo_seed.py   # (optional) demo data
+    5) python run_server.py       # start serving the LAN
 """
 import os
 import socket

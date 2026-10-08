@@ -31,7 +31,7 @@ python manage.py collectstatic --noinput
 # ---------------------------------------------------------------------------
 # 3. Database
 #
-# RUN_DB_WIPE is the one-shot switch for a first deploy: .admin_wipe_and_create.py
+# RUN_DB_WIPE is the one-shot switch for a first deploy: .03_admin.py
 # DROPS EVERY TABLE, re-runs the migrations, installs the academic spine and
 # creates the four base accounts. --yes skips its "Type 'WIPE' to continue"
 # prompt, which nothing can answer in a build container.
@@ -47,7 +47,7 @@ if [ "${RUN_DB_WIPE:-false}" = "true" ]; then
     echo " Set RUN_DB_WIPE=false in the Render dashboard after this deploy."
     echo "══════════════════════════════════════════════════════════════════"
     # The script runs makemigrations + migrate itself, so no separate migrate.
-    python .admin_wipe_and_create.py --yes
+    python .03_admin.py --yes
 else
     python manage.py migrate --noinput
 fi

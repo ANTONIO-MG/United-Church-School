@@ -5,8 +5,8 @@ The school, its twelve grades, the CAPS subjects offered in each grade, each
 grade's 2026 fee schedule, the year's class per grade and the school calendar.
 The *facts* live in :mod:`core.school` (from www.ucs.org.za and the UCS
 Application Form 2026); this module turns them into rows.
-``.admin_wipe_and_create.py`` installs it as part of a fresh build and
-``.demo_seed.py`` enrols its demo learners and teachers into what it created.
+``.03_admin.py`` installs it as part of a fresh build and
+``.04_demo_seed.py`` enrols its demo learners and teachers into what it created.
 
 What ``seed()`` creates
 -----------------------
@@ -47,7 +47,7 @@ Using it
     result = academic_spine.seed(calendar_years=[2026, 2027, 2028])  # these calendars
     result = academic_spine.seed(calendar=False)         # spine only, fast
 
-    # putting people on it (see .demo_seed.py)
+    # putting people on it (see .04_demo_seed.py)
     for person, programme in academic_spine.allocate_students(students):
         academic_spine.enrol_student(person, programme)
 

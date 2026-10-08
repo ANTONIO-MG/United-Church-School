@@ -100,7 +100,7 @@ _e('SYS-9002', 'Unclassified handled error',
    severity='warning')
 _e('SYS-7001', 'Required setting missing',
    'A setting the code depends on is empty or absent from the environment.',
-   'Check the project .env against .env.example; the event context names the setting.',
+   'Check the project .env (compare with `git diff .env`); the event context names the setting.',
    'Report to an administrator — this is a server configuration problem, not something you can fix.',
    severity='critical')
 _e('SYS-7002', 'Optional dependency not installed',

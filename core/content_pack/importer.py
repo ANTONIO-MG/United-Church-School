@@ -91,7 +91,7 @@ def _resolve_topic(pack):
 
     The pack names its module by the institution's own code (``TAX``) and its
     grade by full code (``UCS-GR10``); both must already exist — the
-    academic spine is installed by ``.admin_wipe_and_create.py`` and a content
+    academic spine is installed by ``.03_admin.py`` and a content
     pack is never allowed to invent one. The *topic* may be created, because a
     new topic is content, not structure.
     """

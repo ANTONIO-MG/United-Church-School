@@ -201,37 +201,41 @@ daily register and decide promotion. The time zone is **Africa/Johannesburg**.
 
 ## 🚀 Getting started
 
-### 🆕 A new computer: `bash .setup`
+### 🆕 A new computer: four numbered scripts, in order
 
 ```bash
 cd United-Church-School
-bash .setup            # everything below, checked step by step
-bash .setup --demo     # …and load demo learners, teachers and parents
-bash .setup --check    # only verify an existing setup
-bash .setup --reset    # ⚠️ wipe the database and rebuild it
+python3 .01_install.py      # 1. Python 3.12–3.14 (offers to install it), .environment, requirements.txt
+python3 .02_setup.py        # 2. .env, PostgreSQL, database + user, migrations, school data, verification
+python3 .03_admin.py        # 3. ⚠️ wipe the database and create the five base accounts
+python3 .04_demo_seed.py    # 4. (optional) demo learners, teachers, parents and finances
+python run.py               # start the platform
 ```
 
-`.setup` (macOS with Homebrew / the EDB PostgreSQL installer / Postgres.app, or Debian/Ubuntu):
+They are plain Python scripts. Start the first with any `python3`: it checks the version
+Django 6 needs and offers to install the newest supported Python if needed (Homebrew or pyenv,
+otherwise the official python.org installer on macOS or apt on Debian/Ubuntu). Every script then
+re-runs itself inside **`.environment`**, so there is nothing to activate first. Each one ends with
+a **report** of what was done, what was installed and what failed or was not installed (saved to
+`reports/`), then offers to run the next one.
 
-1. checks `.env` (all database settings are read from it);
-2. finds Python 3.12+ (installs it if missing);
-3. creates and activates the virtual environment **`.environment`**;
-4. installs `requirements.txt` into it (falls back to `.install_requirements.py` package by package);
-5. finds PostgreSQL, or installs it when the `.env` database is on this computer, and starts it;
-6. creates the database user and database named in `.env` (`POSTGRES_DB=united_church_school_db`,
-   `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`, or `DATABASE_URL`) —
-   with the EDB installer it asks once for the `postgres` administrator password (or reads
+`.02_setup.py` (macOS with Homebrew / the EDB PostgreSQL installer / Postgres.app, or Debian/Ubuntu):
+
+1. checks `.env` (committed with the code) and writes a random `SECRET_KEY` if it is blank;
+2. checks the `.environment` Python and the core packages;
+3. finds PostgreSQL, or installs it when the `.env` database is on this computer, and starts it;
+4. creates the database user and database named in `.env` (`POSTGRES_DB=united_church_school_db`,
+   `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`, or `DATABASE_URL`).
+   With the EDB installer it asks once for the `postgres` administrator password (or reads
    `POSTGRES_ADMIN_PASSWORD`) if the `.env` user does not exist yet;
-7. checks Redis when `USE_REDIS=true`;
-8. migrates, installs the school structure (`seed_school_structure`: grades, subjects, fees, a class
-   per grade, the 2026 + 2027 calendars), the shop (`seed_shop`) and the demo lessons
-   (`seed_lessons`), collects static files, and offers to create the five base accounts;
-9. verifies the environment, the database connection, migrations, the school data (calendars,
-   lessons, class teachers), the time zone, the SA-SAMS EMIS number and the landing page, and
-   prints how to start the app.
+5. checks Redis when `USE_REDIS=true`;
+6. migrates, installs the school structure (`seed_school_structure`: grades, subjects, fees, a class
+   per grade, the 2026 + 2027 calendars), the shop (`seed_shop`), content packs and the demo lessons
+   (`seed_lessons`), and collects static files;
+7. verifies the database connection, migrations, the school data, the time zone, accounts and the
+   landing page.
 
-The complete install order, step by step, is printed at the top of `.install_requirements.py`
-(and at the end of every run of it).
+`python3 .02_setup.py --check` only verifies an existing setup and changes nothing.
 
 It is safe to run again — every step checks first and only does what is missing.
 
@@ -254,7 +258,7 @@ Landing page: `/social/landing/` · Django admin: `/admin/`.
 
 ```bash
 python3.12 -m venv .environment && source .environment/bin/activate
-pip install -r requirements.txt            # or: python .install_requirements.py
+pip install -r requirements.txt            # or: python .01_install.py
 # create the PostgreSQL database and user named in .env, then:
 python manage.py migrate
 python manage.py seed_school_structure     # Grade 1 – 12, CAPS subjects, 2026 fees, calendar
@@ -268,7 +272,7 @@ python manage.py collectstatic --noinput
 ⚠️ **Destructive** — drops and rebuilds every table in the `.env` database:
 
 ```bash
-python .admin_wipe_and_create.py    # wipe → migrate → school, grades, subjects, fees, shop + base accounts
+python .03_admin.py    # wipe → migrate → school, grades, subjects, fees, shop + base accounts
 ```
 
 The five base accounts (all verified, password `Password@99`) are `admin@ucs.org.za` (superuser:
@@ -279,12 +283,12 @@ Grade 10 learner with an admitted application and admission/LURITS numbers) and 
 
 ### 🎭 Demo data
 
-`.demo_seed.py` fills a running instance with a realistic dataset. It is **non-destructive**, safe
+`.04_demo_seed.py` fills a running instance with a realistic dataset. It is **non-destructive**, safe
 to re-run, and `--wipe` removes it again.
 
 ```bash
-python .demo_seed.py         # seed learners, teachers and graded activity
-python .demo_seed.py --wipe  # remove all of it
+python .04_demo_seed.py         # seed learners, teachers and graded activity
+python .04_demo_seed.py --wipe  # remove all of it
 ```
 
 ### 🌐 Running it for the network
@@ -385,7 +389,7 @@ are in `static/images/brand/` (`ucs-logo.png`, `ucs-logo-white.png`, `ucs-mark.p
 United-Church-School/
 ├── README.md · NEW_FEATURES.md
 ├── manage.py · requirements.txt · .env · .strings.json
-├── .setup · .install_requirements.py · .admin_wipe_and_create.py · .demo_seed.py
+├── .01_install.py · .02_setup.py · .03_admin.py · .04_demo_seed.py
 ├── run.py · run_server.py · render-build.sh
 ├── config/        # settings · urls · asgi/wsgi
 ├── core/          # branding · school details · academic spine · roles · scoping · db router

@@ -86,7 +86,7 @@ way to log in. That is what step 3 is for.
 
 ## 3. First deploy: build the database
 
-`.admin_wipe_and_create.py` drops every table, re-runs the migrations, installs
+`.03_admin.py` drops every table, re-runs the migrations, installs
 the academic spine (institutions, programmes, modules, cohorts, calendars) and
 creates the four base accounts. `render-build.sh` runs it with `--yes`, which
 skips the interactive `Type 'WIPE' to continue:` prompt that nothing could
@@ -115,7 +115,7 @@ Sign in at `https://<your-service>.onrender.com/` with any of the four accounts
 | `parent@ucs.org.za` | parent, linked to the student |
 
 To add the demonstration data as well, set `RUN_DB_WIPE=true` again and add
-`python .demo_seed.py` to `render-build.sh` — the seed assumes the wipe has just
+`python .04_demo_seed.py` to `render-build.sh` — the seed assumes the wipe has just
 run.
 
 ---

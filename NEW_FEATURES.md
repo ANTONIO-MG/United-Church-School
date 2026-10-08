@@ -401,9 +401,9 @@ and status; feeds the dashboard "My tasks" widget and deadline reminders.
 - **Dependencies** — `requirements.txt`; LTI/SCORM/xAPI use `cryptography` + `PyJWT` + `requests`
   + `defusedxml` (all listed) and no other new packages. `scorm-again` and `SortableJS` load from
   a CDN (vendor into `static/` for air-gapped/CSP builds); `anthropic` powers the admin AI; the
-  local AI extras (`crewai`, `faster-whisper`, …) are optional. `python .install_requirements.py`
+  local AI extras (`crewai`, `faster-whisper`, …) are optional. `python .01_install.py`
   installs from `requirements.txt`.
-- **Reset/seed** — `.admin_wipe_and_create.py` wipes, migrates, creates the superusers **and a
+- **Reset/seed** — `.03_admin.py` wipes, migrates, creates the superusers **and a
   roster of dev/test users** (educators, students, a parent, staff — all password `Password@99`),
   seeds the org, a **playable course** and the **SCORM/LTI/LRS integration records** (LTI Tool +
   Platform registrations with auto-generated keys, an xAPI credential).

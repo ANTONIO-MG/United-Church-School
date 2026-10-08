@@ -1,7 +1,7 @@
 """Django settings for the United Church School learning platform.
 
 Configuration is environment-driven: values are read from ``.env`` next to ``manage.py``
-(see ``.env.example``) with development-friendly defaults so the project runs
+(committed with the code) with development-friendly defaults so the project runs
 out of the box. Notable choices:
 
 * PostgreSQL is the primary database (``default``); a MySQL ``backup``
@@ -32,7 +32,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load .env, but remember whether it actually existed. A missing .env (e.g.
-# accidentally deleted or never copied from .env.example) is the single most
+# accidentally deleted) is the single most
 # common cause of a cryptic "fe_sendauth: no password supplied" crash deep
 # inside a management command — see the POSTGRES_PASSWORD guard below.
 ENV_FILE = BASE_DIR / '.env'
@@ -81,8 +81,7 @@ RENDER_EXTERNAL_NETLOC = (
 if not ENV_FILE_FOUND:
     warnings.warn(
         f"No .env file found at {ENV_FILE}; using process environment only. "
-        f"For a local checkout run `cp .env.example .env` and fill it in, or "
-        f"restore a previous one from git.",
+        f"Restore it from git: `git checkout -- .env`.",
         stacklevel=2,
     )
 
@@ -140,9 +139,11 @@ SCHOOL_EMIS_NUMBER = os.getenv('SCHOOL_EMIS_NUMBER', '').strip()  # GDE EMIS num
 # ---------------------------------------------------------
 # SECURITY SETTINGS
 # ---------------------------------------------------------
-SECRET_KEY = os.getenv(
-    'SECRET_KEY',
-    'django-insecure-bq5ce)%1j-iqh@snbr6=3ddq-p(s!_n@ue8hm$lu1-cy(88amz',
+# ``or``, not a getenv default: a blank ``SECRET_KEY=`` line in .env
+# sets the variable to "" and would otherwise crash every manage.py command with
+# "The SECRET_KEY setting must not be empty". .02_setup.py writes a real key.
+SECRET_KEY = os.getenv('SECRET_KEY', '').strip() or (
+    'django-insecure-bq5ce)%1j-iqh@snbr6=3ddq-p(s!_n@ue8hm$lu1-cy(88amz'
 )
 
 # On a hosting platform the default flips to False, and only a DEBUG set in the
@@ -706,8 +707,7 @@ if not DATABASES['default'].get('PASSWORD'):
     elif not ENV_FILE_FOUND:
         _hint = (
             f"No .env file exists at {ENV_FILE}. Restore it "
-            "(`git show <commit>:.env > .env`) or start from the "
-            "template (`cp .env.example .env`) and set DATABASE_URL or "
+            "from git (`git checkout -- .env`) and set DATABASE_URL or "
             "POSTGRES_PASSWORD."
         )
     else:

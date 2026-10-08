@@ -3,7 +3,7 @@
     python manage.py import_seed_packs
 
 These are validated ``thrive-pack`` JSON files (e.g. the Grade 10 Mathematics
-material) saved so the content SURVIVES a destructive reset. ``.admin_wipe_and_create``
+material) saved so the content SURVIVES a destructive reset. ``.03_admin.py``
 drops all tables and reseeds only the academic *structure* — it creates no
 coursework — so this command re-lays the packed content onto the fresh spine.
 

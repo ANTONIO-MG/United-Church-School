@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-.demo_seed.py  —  load the hub with a realistic demo *student body*.
+.04_demo_seed.py  —  STEP 4 of 4 (optional): load the hub with a realistic demo *student body*.
 
-Unlike ``.admin_wipe_and_create.py`` this script is **non-destructive**: it never
+Unlike ``.03_admin.py`` this script is **non-destructive**: it never
 drops tables. It only *adds*, and every record it creates is tagged so ``--wipe``
 can take it all back out again.
 
@@ -11,7 +11,7 @@ What it seeds — and what it deliberately does not
 This script seeds **people and the records people generate**. It does not invent
 any academic structure of its own: institutions, programmes, modules, cohorts and
 calendars all come from :mod:`core.academic_spine`, installed by
-``.admin_wipe_and_create.py``. There is one definition of the academic world and
+``.03_admin.py``. There is one definition of the academic world and
 this is not it.
 
 It seeds:
@@ -44,9 +44,9 @@ Everything is deterministic (``random.seed``), so re-running gives the same hub.
 
 Usage (from the directory containing ``manage.py``)::
 
-    python .demo_seed.py              # seed (safe to re-run — it tops up)
-    python .demo_seed.py --wipe       # remove every record this script created
-    python .demo_seed.py --wipe --yes # ... without the confirmation prompt
+    python .04_demo_seed.py              # seed (safe to re-run — it tops up)
+    python .04_demo_seed.py --wipe       # remove every record this script created
+    python .04_demo_seed.py --wipe --yes # ... without the confirmation prompt
 
 All demo accounts share the password below and use ``demo.*@ucs.org.za``
 e-mails, e.g. ``demo.student01@ucs.org.za`` / ``demo.educator1@ucs.org.za``.
@@ -61,7 +61,12 @@ from decimal import Decimal
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
+os.chdir(BASE_DIR)
 sys.path.insert(0, str(BASE_DIR))
+
+from core.setup_report import Abort, Report, use_project_venv  # noqa: E402
+
+use_project_venv(__file__)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 import django  # noqa: E402
@@ -85,7 +90,7 @@ from core import academic_spine, hub_guide, seed_builders, seed_media  # noqa: E
 
 User = get_user_model()
 
-# The same password as the four base accounts in .admin_wipe_and_create.py, so
+# The same password as the four base accounts in .03_admin.py, so
 # there is one password to remember across the whole hub.
 PASSWORD = "Password@99"
 DEMO_PREFIX = "demo."             # every demo account's e-mail starts with this.
@@ -356,7 +361,7 @@ def seed_parents(students):
 # ---------------------------------------------------------------------------
 # 2. onto the academic spine — the school's grades and subjects
 #
-# The spine belongs to ``.admin_wipe_and_create.py`` (which installs it from
+# The spine belongs to ``.03_admin.py`` (which installs it from
 # ``core.academic_spine``); this only puts people on it. If it is missing —
 # someone ran the demo seed against a database that was never built — it is
 # installed here rather than leaving the demo learners with no school.
@@ -375,7 +380,7 @@ def seed_spine_enrolments(students, educators):
     """
     if not Programme.objects.exists():
         print("  → academic spine missing — installing it first "
-              "(normally .admin_wipe_and_create.py does this) ...")
+              "(normally .03_admin.py does this) ...")
         academic_spine.seed(indent="     ")
 
     from apps.admissions.models import Application
@@ -791,55 +796,71 @@ def main():
         if not confirm("Remove ALL demo data (users, registrations, invoices, chat)?"):
             print("Aborted.")
             return
-        with transaction.atomic():
-            wipe()
-        print("Done.\n")
-        return
+        report = Report("United Church School — Step 4 of 4: remove demo data", "04_demo_seed")
+        try:
+            with transaction.atomic():
+                report.task("remove demo data", wipe,
+                            detail="demo users and everything hanging off them; the base install stayed")
+        except Abort:
+            pass
+        sys.exit(report.finish())
 
+    report = Report("United Church School — Step 4 of 4: demo seed", "04_demo_seed")
     print("\nSeeding demo data (safe to re-run — it tops up rather than duplicates)\n")
 
-    with transaction.atomic():
-        students = seed_students()
-        educators = seed_educators()
-        per_programme = seed_spine_enrolments(students, educators)
-        parents = seed_parents(students)
+    per_programme = {}
+    try:
+        # One transaction: if any step fails, nothing half-seeded is left behind.
+        with transaction.atomic():
+            students = report.step("demo students", seed_students)
+            report.installed("demo students", f"{len(students)} account(s)")
+            educators = report.step("demo educators", seed_educators)
+            report.installed("demo educators", f"{len(educators)} account(s)")
+            per_programme = report.step("grade + subject enrolments", seed_spine_enrolments,
+                                        students, educators)
+            report.done("grade + subject enrolments", f"{len(per_programme)} grade(s)")
+            parents = report.step("demo parents", seed_parents, students)
+            report.installed("demo parents", f"{len(parents)} account(s), linked to their children")
 
-        everyone = students + educators + parents
-        seed_faces(everyone)
+            everyone = students + educators + parents
+            report.task("profile pictures", seed_faces, everyone)
 
-        print("  → financial records ...")
-        seed_finances(per_programme)
-        seed_classes_and_results(per_programme, educators)
+            print("  → financial records ...")
+            report.task("finances", seed_finances, per_programme,
+                        detail="invoices: paid, pending and overdue")
+            report.task("classes + results", seed_classes_and_results, per_programme, educators)
 
-        print("  → conversations ...")
-        groups, group_msgs = seed_cohort_chats(per_programme, educators)
-        dm_groups, dm_msgs = seed_direct_messages(students)
-        print(f"     {groups} cohort chat group(s) with {group_msgs} messages · "
-              f"{dm_groups} direct conversation(s) ({dm_msgs} messages)")
+            print("  → conversations ...")
+            groups, group_msgs = report.step("class chats", seed_cohort_chats, per_programme, educators)
+            report.done("class chats", f"{groups} group(s), {group_msgs} message(s)")
+            dm_groups, dm_msgs = report.step("direct messages", seed_direct_messages, students)
+            report.done("direct messages", f"{dm_groups} conversation(s), {dm_msgs} message(s)")
 
-        print("  → walls and reminders ...")
-        wall_posts, wall_replies = seed_walls(students)
-        tasks = seed_tasks(students, educators)
-        print(f"     {wall_posts} personal post(s) with {wall_replies} comments + likes · "
-              f"{tasks} reminder(s) assigned")
+            print("  → walls and reminders ...")
+            wall_posts, wall_replies = report.step("wall posts", seed_walls, students)
+            report.done("wall posts", f"{wall_posts} post(s), {wall_replies} comment(s) + likes")
+            tasks = report.step("reminders", seed_tasks, students, educators)
+            report.done("reminders", f"{tasks} assigned")
 
-        print("  → welcome notifications ...")
-        print(f"     {seed_welcomes(everyone)} sent (each written for the reader's role)")
+            print("  → welcome notifications ...")
+            sent = report.step("welcome notifications", seed_welcomes, everyone)
+            report.done("welcome notifications", f"{sent} sent, each written for the reader's role")
+    except Abort:
+        report.warn("demo data", "rolled back — nothing from this run was kept")
+    except KeyboardInterrupt:
+        report.fail("interrupted", "stopped with Ctrl+C — rolled back, nothing was kept")
 
-    grades = sorted(per_programme, key=lambda p: p.grade or 0)
-    print("\n" + "=" * 70)
-    print("  Demo hub ready.")
-    print("=" * 70)
-    print(f"  Students   demo.student01@ucs.org.za … demo.student{STUDENT_COUNT:02d}@ucs.org.za")
-    print(f"  Educators  demo.educator1@ucs.org.za … demo.educator{len(EDUCATORS)}@ucs.org.za")
-    print(f"  Parents    demo.parent1@ucs.org.za … demo.parent{len(PARENTS)}@ucs.org.za")
-    print(f"  Password   {PASSWORD}   (all e-mails pre-verified)")
-    print(f"  Placed     {grades[0].display_name if grades else '—'} to "
-          f"{grades[-1].display_name if grades else '—'} — grades and subjects from core/school.py")
-    print("  Money      most paid (payment + proof recorded), some pending payment,")
-    print("             the rest outstanding — Finance, Admissions and the due list have real rows")
-    print("  No teaching material is seeded: subject content belongs to whoever authors it.")
-    print(f"\n  Undo with:  python .demo_seed.py --wipe\n")
+    if not report.failed:
+        grades = sorted(per_programme, key=lambda p: p.grade or 0)
+        print(f"\n  Students   demo.student01@ucs.org.za … demo.student{STUDENT_COUNT:02d}@ucs.org.za")
+        print(f"  Educators  demo.educator1@ucs.org.za … demo.educator{len(EDUCATORS)}@ucs.org.za")
+        print(f"  Parents    demo.parent1@ucs.org.za … demo.parent{len(PARENTS)}@ucs.org.za")
+        print(f"  Password   {PASSWORD}   (all e-mails pre-verified)")
+        print(f"  Placed     {grades[0].display_name if grades else '—'} to "
+              f"{grades[-1].display_name if grades else '—'} — grades and subjects from core/school.py")
+        print("  No teaching material is seeded: subject content belongs to whoever authors it.")
+    sys.exit(report.finish(
+        next_hint="python run.py   (start the platform)  ·  undo with: python3 .04_demo_seed.py --wipe"))
 
 
 if __name__ == "__main__":

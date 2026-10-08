@@ -1,6 +1,6 @@
 """Shared builders for the two seed scripts.
 
-``.admin_wipe_and_create.py`` (the clean base install) and ``.demo_seed.py``
+``.03_admin.py`` (the clean base install) and ``.04_demo_seed.py``
 (the populated demonstration) both need to do the same things: turn a written
 lesson spec into real ``Lesson``/``LessonSection``/``LessonBlock`` rows, verify
 an account's e-mail, give a person a face, and compose a welcome notification.

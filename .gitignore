@@ -3,7 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Virtual environments (.environment is the one .setup creates)
+# Virtual environments (.environment is the one .01_install.py creates)
 .environment/
 .venv/
 venv/
@@ -11,13 +11,9 @@ env/
 ENV/
 
 # Environment / secrets
-# .env holds real credentials (database, e-mail, API keys) and this repository
-# is public — it is NEVER committed. Copy it to a new computer by hand; the
-# template that documents every setting is .env.example.
-.env
+# .env is committed on purpose: it is the project's single settings file.
+# Other local variants (.env.local, .env.prod, …) stay out of git.
 .env.*
-# ...but the template that documents them is meant to be committed.
-!.env.example
 
 # Django runtime
 *.sqlite3
@@ -52,3 +48,6 @@ user_activity.log
 
 # Client copy of the README (kept on this computer only)
 /United Church School - Learning Platform.pdf
+
+# Setup reports written by .01_install.py … .04_demo_seed.py
+/reports/

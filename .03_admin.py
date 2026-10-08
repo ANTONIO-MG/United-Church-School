@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-.admin_wipe_and_create.py  —  DESTRUCTIVE database reset utility.
+.03_admin.py  —  STEP 3 of 4: DESTRUCTIVE database reset + the five base accounts.
 
 For every database configured in ``config.settings.DATABASES`` this script:
 
@@ -14,7 +14,7 @@ For every database configured in ``config.settings.DATABASES`` this script:
      grade for the year, and the school calendar (terms, holidays, fee
      deadlines, public holidays, template exam windows). Then the **school
      shop** (uniform and additional fees, 2026 prices). This is the same data
-     ``.demo_seed.py`` enrols its demo learners into: it is defined once, and
+     ``.04_demo_seed.py`` enrols its demo learners into: it is defined once, and
      neither script keeps a copy of it.
   4. Creates exactly **five accounts**, one per role — administrator, office
      staff, educator, student and parent — each with a verified e-mail, a
@@ -37,7 +37,7 @@ For every database configured in ``config.settings.DATABASES`` this script:
 
 This is the clean base install: the full academic structure, one usable login per
 role, and no people in it. It deliberately creates **no sample coursework and no
-student body** — run ``.demo_seed.py`` afterwards when you want a populated hub
+student body** — run ``.04_demo_seed.py`` afterwards when you want a populated hub
 to demonstrate.
 
 The platform logs in by e-mail, but Django's ``User`` model still keeps an
@@ -57,17 +57,19 @@ THE ACCOUNTS (all five share the password ``Password@99``):
     student@ucs.org.za      a Grade 10 learner, subjects unlocked
     parent@ucs.org.za       linked to the learner, sees their child and nothing else
 
-SETUP ORDER (run from the directory that contains ``manage.py``) — the full
-list is at the top of ``.install_requirements.py``; in short:
+SETUP ORDER (run from the directory that contains ``manage.py``):
 
-    1) bash .setup                         # environment, packages, PostgreSQL, database
-    2) source .environment/bin/activate    # the virtual environment is .environment
-    3) python .admin_wipe_and_create.py    # (DESTRUCTIVE) reset + the five accounts
-    4) python .demo_seed.py                # (optional) add the demonstration data
-    5) python run.py                       # start the platform
+    python3 .01_install.py      # 1. Python 3.12–3.14, .environment, requirements.txt
+    python3 .02_setup.py        # 2. .env, PostgreSQL, database, migrations, school data
+    python3 .03_admin.py        # 3. (DESTRUCTIVE) wipe + the five base accounts
+    python3 .04_demo_seed.py    # 4. (optional) demo learners, teachers, parents
+    python run.py               # start the platform
 
-    python .admin_wipe_and_create.py          # asks for confirmation first
-    python .admin_wipe_and_create.py --yes     # skip the confirmation prompt
+    python3 .03_admin.py          # asks for confirmation first (type WIPE)
+    python3 .03_admin.py --yes    # skip the confirmation prompt
+
+It re-runs itself inside .environment, and prints a report at the end of what
+was done and created (also saved to reports/03_admin.txt).
 
 INTENDED FOR LOCAL / DEVELOPMENT USE ONLY.
 """
@@ -76,7 +78,12 @@ import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
+os.chdir(BASE_DIR)
 sys.path.insert(0, str(BASE_DIR))
+
+from core.setup_report import Abort, Report, offer_next, use_project_venv  # noqa: E402
+
+use_project_venv(__file__)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 import django  # noqa: E402
@@ -489,7 +496,7 @@ def copy_avatars():
 # The academic spine — the school, its grades, subjects, fees and calendar
 #
 # Defined once in ``core.academic_spine`` (facts in ``core/school.py``) and
-# installed here. ``.demo_seed.py`` then enrols its demo learners into exactly
+# installed here. ``.04_demo_seed.py`` then enrols its demo learners into exactly
 # these rows.
 # ---------------------------------------------------------------------------
 def seed_academic_spine():
@@ -700,73 +707,101 @@ def main():
         print("Aborted. No changes made.")
         sys.exit(1)
 
+    report = Report("United Church School — Step 3 of 4: admin (wipe + base accounts)", "03_admin")
     aliases = list(settings.DATABASES.keys())
+    steps = [
+        "1/8  Prepare the database (create if missing, drop everything)",
+        "2/8  Migrations",
+        "3/8  Runtime folders + profile pictures",
+        "4/8  Academic spine (school · grades · subjects · fees · calendar · shop)",
+        "5/8  The five accounts",
+        "6/8  Onboarding guide",
+        "7/8  Chat rooms",
+        "8/8  Welcome notifications",
+    ]
+    remaining = list(steps)
 
-    print("\n[1/8] Preparing the database (create if missing, then drop everything)")
-    for alias in aliases:
-        created = ensure_database(alias)
-        if not created:
-            # A database we just created has nothing in it to drop, and DROP
-            # SCHEMA on a brand-new one would only churn.
-            drop_all_tables(alias)
+    def begin():
+        Report.heading(remaining[0])
 
-    print("\n[2/8] Running migrations")
-    make_migrations()
-    for alias in aliases:
-        migrate(alias)
+    def finished():
+        remaining.pop(0)
 
-    print("\n[3/8] Preparing runtime dirs + profile pictures")
-    sync_site()
-    prepare_runtime_dirs()
-    avatars = copy_avatars()
-
-    print("\n[4/8] Building the academic spine "
-          "(school · grades · subjects · fees · calendar · shop)")
-    spine = seed_academic_spine()
-
-    print("\n[5/8] Creating the five accounts (admin · staff · educator · student · parent)")
-    people = create_accounts(avatars)
-    place_accounts_on_spine(people)
-
-    print("\n[6/8] Publishing the onboarding guide")
-    seed_onboarding_guide(people)
-
-    print("\n[7/8] Ensuring chat rooms")
-    seed_chatrooms()
-
-    print("\n[8/8] Sending welcome notifications")
-    send_welcomes()
-
-    # Re-lay any bundled content packs (core/seed_packs/) onto the fresh spine so
-    # imported lesson material survives a wipe. Best-effort: a pack whose subject
-    # isn't on the spine is skipped, and any failure here never aborts the
-    # otherwise-complete reset.
-    print("\n[+] Importing bundled content packs (core/seed_packs/)")
+    spine = None
     try:
-        from django.core.management import call_command
-        call_command('import_seed_packs')
-    except Exception as exc:  # noqa: BLE001
-        print(f"    (skipped: {exc})")
+        begin()
+        for alias in aliases:
+            created = report.step(f"database '{alias}'", ensure_database, alias)
+            if not created:
+                # A database we just created has nothing in it to drop, and DROP
+                # SCHEMA on a brand-new one would only churn.
+                report.step(f"wipe '{alias}'", drop_all_tables, alias)
+            report.done(f"database '{alias}'", "created" if created else "wiped (all tables dropped)")
+        finished()
 
-    print("\n" + "=" * 70)
-    print("All done. The academic spine is installed and five accounts, one per")
-    print(f"role, are e-mail-verified and signing in with the password '{PASSWORD}'.")
-    print("=" * 70)
-    print(f"  School        {spine['institution'].name}")
-    print(f"  Grades        {len(spine['programmes'])} · {len(spine['offerings'])} subject offerings "
-          f"· {len(spine['modules'])} subjects")
-    print(f"  Calendar      {spine['events_total']} dated event(s) for {spine['year']}")
-    print()
-    for email, first, last, role, is_super in ACCOUNTS:
-        tag = " · superuser · /admin/" if is_super else ""
-        print(f"  {email:24} {first} {last:9} ({role}){tag}")
-    print(f"  {'':24} {PARENT_EMAIL.split('@')[0]} is linked to "
-          f"{STUDENT_EMAIL.split('@')[0]}")
-    print("\nThe onboarding guide — 'Getting Started with the UCS Learning Platform' —")
-    print("has five areas, each with a separate lesson for learners, for")
-    print("educators/staff, and for parents. Each role only sees its own.")
-    print("\nNext:  python .demo_seed.py     # add people, chat history and financials")
-    print("Start: python run.py")
+        begin()
+        report.step("makemigrations", make_migrations)
+        for alias in aliases:
+            report.step(f"migrate '{alias}'", migrate, alias)
+            report.done(f"migrations on '{alias}'", "applied from scratch")
+        finished()
+
+        begin()
+        report.task("site domain", sync_site, critical=False)
+        report.task("runtime folders", prepare_runtime_dirs, critical=False)
+        avatars = report.step("profile pictures", copy_avatars, critical=False) or []
+        report.done("profile pictures", f"{len(avatars)} picture(s)")
+        finished()
+
+        begin()
+        spine = report.step("academic spine", seed_academic_spine)
+        report.installed("academic spine",
+                         f"{spine['institution'].name} · {len(spine['programmes'])} grades · "
+                         f"{len(spine['offerings'])} subject offerings · "
+                         f"{spine['events_total']} calendar event(s) for {spine['year']}")
+        finished()
+
+        begin()
+        people = report.step("accounts", create_accounts, avatars)
+        report.step("place accounts on the spine", place_accounts_on_spine, people)
+        for email, first, last, role, is_super in ACCOUNTS:
+            report.installed(f"account {email}", f"{first} {last} ({role})"
+                             + (" · superuser" if is_super else ""))
+        finished()
+
+        begin()
+        report.task("onboarding guide", seed_onboarding_guide, people, critical=False,
+                    detail="Getting Started with the UCS Learning Platform")
+        finished()
+
+        begin()
+        report.task("chat rooms", seed_chatrooms, critical=False)
+        finished()
+
+        begin()
+        report.task("welcome notifications", send_welcomes, critical=False,
+                    detail="sent to every account")
+        finished()
+
+        # Re-lay any bundled content packs (core/seed_packs/) onto the fresh spine
+        # so imported lesson material survives a wipe. Best-effort.
+        Report.heading("+    Bundled content packs (core/seed_packs/)")
+        report.task("content packs", call_command, "import_seed_packs", critical=False,
+                    detail="imported")
+    except Abort:
+        report.not_run(remaining[1:])
+    except KeyboardInterrupt:
+        report.fail("interrupted", "stopped with Ctrl+C")
+        report.not_run(remaining[1:])
+
+    if not report.failed:
+        print(f"\nAll five accounts sign in with the password '{PASSWORD}'.")
+        print(f"{PARENT_EMAIL} is linked to {STUDENT_EMAIL}.")
+    code = report.finish(next_hint="python3 .04_demo_seed.py   (optional demo data)  ·  then: python run.py")
+    if code == 0:
+        offer_next(".04_demo_seed.py", "Run step 4 now (.04_demo_seed.py — optional demo learners, "
+                   "teachers, parents and finances)?")
+    sys.exit(code)
 
 
 if __name__ == "__main__":

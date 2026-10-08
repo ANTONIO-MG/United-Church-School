@@ -11,7 +11,7 @@ The number is the one the student gave on the contact step of registration
 wants. WhatsApp is the number people actually answer, which is the whole point
 of having it alongside e-mail.
 
-Configuration (all via the environment — see ``.env.example``)::
+Configuration (all via the environment — see ``.env``)::
 
     WHATSAPP_ENABLED=True
     WHATSAPP_PHONE_NUMBER_ID=...     # Meta → WhatsApp → API setup

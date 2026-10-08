@@ -18,7 +18,7 @@ Before serving, this starts and verifies everything the app needs:
     5. staticfiles  — collectstatic when the directory is missing
     6. media dirs   — created so a first upload / SCORM / H5P import cannot fail
 
-First time on this computer? Run  bash .setup  — it creates .environment,
+First time on this computer? Run  python3 .02_setup.py  — it creates .environment,
 installs the requirements and PostgreSQL, and creates the database from .env.
 
 Serves through gunicorn + the uvicorn ASGI worker — the same stack render.yaml
@@ -155,7 +155,7 @@ def ensure_services_macos():
                 break
             time.sleep(1)
         ok = _tcp_open(host, port)
-        _step('postgresql', ok, how if ok else 'not running — start PostgreSQL (or run bash .setup)')
+        _step('postgresql', ok, how if ok else 'not running — start PostgreSQL (or run python3 .02_setup.py)')
     else:
         _step('postgresql', False, f'{host}:{port} does not answer')
     if _redis_wanted():
@@ -384,7 +384,7 @@ def main():
         _fail(
             f'{GUNICORN} not found.\n'
             '       The virtualenv is .environment — set this computer up first:\n'
-            '         bash .setup\n'
+            '         python3 .02_setup.py\n'
             '       (or by hand: python3.12 -m venv .environment &&\n'
             '         .environment/bin/python -m pip install -r requirements.txt)'
         )
