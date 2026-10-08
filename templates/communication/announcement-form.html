@@ -1,0 +1,400 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% comment %}
+The broadcast composer (admin / staff). Four steps — message, media & files,
+audience, delivery — with a live preview and a live "who will get this" count on
+the right. The audience pickers are plain <select multiple>s enhanced by the
+script below, so the form still posts correctly without JavaScript.
+{% endcomment %}
+{% block additional_css %}
+<link rel="stylesheet" href="{% static 'css/commerce.css' %}">
+<link rel="stylesheet" href="{% static 'css/broadcast.css' %}?v=1">
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Notifications centre</span><h3>{{ page_title }}</h3>
+      <p>Write it once — it lands in the bell, the inbox and (for people who opted in) WhatsApp.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'communication:announcements' %}"><i class="bi bi-clock-history me-1"></i>Sent &amp; scheduled</a>
+    </div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" id="bcForm" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="tc-alert tc-alert--danger mb-3">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+    <div class="bc-layout">
+      <div>
+        {# 1 — Message #}
+        <section class="tc-card bc-card">
+          <h5 class="bc-step"><span class="bc-step__n">1</span>Message</h5>
+          <div class="mb-3">
+            <label class="bc-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+            {{ form.title }}
+            {% for e in form.title.errors %}<div class="bc-err">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="mb-3">
+            <label class="bc-label" for="{{ form.body.id_for_label }}">{{ form.body.label }}</label>
+            {{ form.body }}
+            <div class="bc-hint"><span id="bcChars">0</span> characters · web links become clickable</div>
+            {% for e in form.body.errors %}<div class="bc-err">{{ e }}</div>{% endfor %}
+          </div>
+          <span class="bc-label">{{ form.level.label }}</span>
+          <div class="bc-seg bc-seg--tone">
+            {% for r in form.level %}{{ r.tag }}<label for="{{ r.id_for_label }}">{{ r.choice_label }}</label>{% endfor %}
+          </div>
+        </section>
+
+        {# 2 — Media, links & files #}
+        <section class="tc-card bc-card">
+          <h5 class="bc-step"><span class="bc-step__n">2</span>Video, link &amp; files <small>optional</small></h5>
+          <div class="mb-3">
+            <label class="bc-label" for="{{ form.media_url.id_for_label }}">{{ form.media_url.label }}</label>
+            {{ form.media_url }}
+            <div class="bc-hint">YouTube and Vimeo links play inside the notification.</div>
+            {% for e in form.media_url.errors %}<div class="bc-err">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-8">
+              <label class="bc-label" for="{{ form.url.id_for_label }}">{{ form.url.label }}</label>
+              {{ form.url }}
+              {% for e in form.url.errors %}<div class="bc-err">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-4">
+              <label class="bc-label" for="{{ form.url_label.id_for_label }}">{{ form.url_label.label }}</label>
+              {{ form.url_label }}
+            </div>
+          </div>
+          <span class="bc-label">Pictures, videos &amp; documents</span>
+          <label class="bc-drop" id="bcDrop" for="bcFiles">
+            <i class="bi bi-cloud-arrow-up"></i>
+            <b>Drop files here or click to choose</b>
+            <div class="small">Images, short videos, PDFs, Word, Excel, PowerPoint · up to {{ max_files }} files, 100&nbsp;MB each</div>
+          </label>
+          <input type="file" id="bcFiles" name="attachments" multiple class="d-none"
+                 accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp,.zip">
+          <div class="bc-files" id="bcFileList">
+            {% for att in existing_attachments %}
+            <div class="bc-file" data-existing="{{ att.pk }}">
+              <div class="bc-file__thumb">{% if att.kind == 'image' %}<img src="{{ att.file.url }}" alt="">{% elif att.kind == 'video' %}<i class="bi bi-film"></i>{% else %}<i class="bi bi-file-earmark-text"></i>{% endif %}</div>
+              <div class="bc-file__name">{{ att.original_name }}<small>{{ att.size|filesizeformat }}</small></div>
+              <label class="bc-file__x" title="Remove"><input type="checkbox" name="remove_attachment" value="{{ att.pk }}" class="d-none">&times;</label>
+            </div>
+            {% endfor %}
+            {% for att in copied_attachments %}
+            <div class="bc-file" data-copied="{{ att.pk }}">
+              <div class="bc-file__thumb">{% if att.kind == 'image' %}<img src="{{ att.file.url }}" alt="">{% elif att.kind == 'video' %}<i class="bi bi-film"></i>{% else %}<i class="bi bi-file-earmark-text"></i>{% endif %}</div>
+              <div class="bc-file__name">{{ att.original_name }}<small>from the original</small></div>
+              <input type="hidden" name="keep_copy_{{ att.pk }}" value="1">
+              <button type="button" class="bc-file__x" title="Remove" data-drop-copy>&times;</button>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+
+        {# 3 — Audience #}
+        <section class="tc-card bc-card">
+          <h5 class="bc-step"><span class="bc-step__n">3</span>Who gets it</h5>
+          <div class="bc-seg mb-3">
+            {% for r in form.audience %}{{ r.tag }}<label for="{{ r.id_for_label }}">{% if r.data.value == 'all' %}<i class="bi bi-globe2"></i>{% else %}<i class="bi bi-funnel"></i>{% endif %}{{ r.choice_label }}</label>{% endfor %}
+          </div>
+          {% for e in form.audience.errors %}<div class="bc-err mb-2">{{ e }}</div>{% endfor %}
+
+          <div id="bcTargets" class="mb-3">
+            <div class="bc-pickers">
+              {% for f in form %}{% if f.name in 'institutions programmes cohorts modules users' %}
+              <div class="bc-pick-wrap">
+                <span class="bc-label">{% if f.name == 'users' %}People{% else %}{{ f.label }}{% endif %}</span>
+                {{ f }}
+                {% for e in f.errors %}<div class="bc-err">{{ e }}</div>{% endfor %}
+              </div>
+              {% endif %}{% endfor %}
+            </div>
+            <div class="bc-hint">Anyone in <em>any</em> of these is included. Schools, grades and classes include their educators; subjects include enrolled students and the subject's educators.</div>
+          </div>
+
+          <span class="bc-label">{{ form.roles.label }} <span class="text-lowercase fw-normal">(none ticked = every role)</span></span>
+          <div class="bc-roles mb-2">
+            {% for r in form.roles %}{{ r.tag }}<label for="{{ r.id_for_label }}">{{ r.choice_label }}</label>{% endfor %}
+          </div>
+          <div class="bc-switch" id="bcParentsRow">
+            {{ form.include_parents }}
+            <div><b>{{ form.include_parents.label }}</b><small>{{ form.include_parents.help_text }}</small></div>
+          </div>
+        </section>
+
+        {# 4 — Delivery #}
+        <section class="tc-card bc-card">
+          <h5 class="bc-step"><span class="bc-step__n">4</span>Delivery</h5>
+          <div class="bc-switch">
+            {{ form.send_email }}
+            <div><b>{{ form.send_email.label }}</b><small>Respects each person's e-mail preference. Documents under 10&nbsp;MB are attached.</small></div>
+          </div>
+          <div class="bc-switch">
+            {{ form.is_important }}
+            <div><b>{{ form.is_important.label }}</b><small>Use for venue changes, exam-day notices and similar. Overuse trains people to ignore it.</small></div>
+          </div>
+          <div class="bc-switch flex-column">
+            <div class="bc-seg w-100">
+              {% for r in form.when %}{{ r.tag }}<label for="{{ r.id_for_label }}">{% if r.data.value == 'now' %}<i class="bi bi-send"></i>{% elif r.data.value == 'later' %}<i class="bi bi-calendar-event"></i>{% else %}<i class="bi bi-pencil"></i>{% endif %}{{ r.choice_label }}</label>{% endfor %}
+            </div>
+            <div id="bcWhen" class="mt-2" style="max-width:18rem">
+              <label class="bc-label" for="{{ form.scheduled_for.id_for_label }}">{{ form.scheduled_for.label }}</label>
+              {{ form.scheduled_for }}
+              {% for e in form.scheduled_for.errors %}<div class="bc-err">{{ e }}</div>{% endfor %}
+              {% if not scheduler_ok %}<div class="tc-alert tc-alert--danger mt-2 small"><i class="bi bi-exclamation-triangle me-1"></i>The background scheduler isn't running on this server, so scheduled notifications won't go out on their own yet. Use “Send now”, or ask for the scheduler to be switched on.</div>{% endif %}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {# Right column: live preview + reach + submit #}
+      <aside class="bc-side">
+        <div class="tc-card">
+          <div class="bc-preview__bar"><i class="bi bi-eye"></i>Preview</div>
+          <div class="bc-preview__body">
+            <span class="tc-chip tc-chip--primary" id="pvTone"><i class="bi bi-megaphone"></i>Update</span>
+            <div class="bc-preview__title" id="pvTitle">Your headline</div>
+            <div class="bc-preview__text" id="pvBody">Your message appears here.</div>
+            <div class="bc-preview__media d-none" id="pvVideo"></div>
+            <div class="bc-preview__thumbs" id="pvThumbs"></div>
+            <div class="bc-preview__cta d-none" id="pvCta"><span class="btn btn-sm btn-primary mb-0"></span></div>
+          </div>
+        </div>
+        <div class="tc-card bc-reach" id="bcReach">
+          <span class="bc-label">Will reach</span>
+          <div class="bc-reach__n"><span id="reachN">—</span><small>people</small></div>
+          <div class="bc-reach__roles" id="reachRoles"></div>
+          <div class="bc-reach__sample" id="reachSample"></div>
+        </div>
+        <button class="btn btn-primary btn-lg w-100 mb-0" id="bcSubmit"><i class="bi bi-send me-1"></i><span>Send now</span></button>
+        <a href="{% if announcement %}{% url 'communication:announcement-detail' announcement.pk %}{% else %}{% url 'communication:announcements' %}{% endif %}" class="btn btn-light w-100 mb-0">Cancel</a>
+      </aside>
+    </div>
+  </form>
+</div></div>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+(function () {
+  'use strict';
+  var form = document.getElementById('bcForm');
+  if (!form) return;
+  var csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
+  var PREVIEW_URL = "{% url 'communication:announcement-audience' %}";
+  var PEOPLE_URL = "{% url 'communication:announcement-people' %}";
+  var ROLE_NAMES = {student: 'Students', educator: 'Educators', parent: 'Parents', staff: 'Staff', admin: 'Admins'};
+
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
+  function checked(name) { var el = form.querySelector('[name="' + name + '"]:checked'); return el ? el.value : ''; }
+
+  // ---- Pickers: <select multiple> → chips + search ----------------------
+  function picker(select) {
+    var remote = select.dataset.pick === 'person';
+    select.classList.add('d-none');
+    var wrap = document.createElement('div'); wrap.className = 'bc-pick';
+    var box = document.createElement('div'); box.className = 'bc-pick__box';
+    var input = document.createElement('input'); input.type = 'text';
+    input.placeholder = remote ? 'Search by name or e-mail…' : 'Type to search…';
+    input.setAttribute('aria-label', 'Search ' + select.dataset.pick);
+    var list = document.createElement('div'); list.className = 'bc-pick__list'; list.setAttribute('role', 'listbox');
+    box.appendChild(input); wrap.appendChild(box); wrap.appendChild(list);
+    select.parentNode.insertBefore(wrap, select.nextSibling);
+    var active = -1, items = [];
+
+    function chips() {
+      box.querySelectorAll('.bc-chipx').forEach(function (c) { c.remove(); });
+      Array.prototype.forEach.call(select.selectedOptions, function (o) {
+        var c = document.createElement('span'); c.className = 'bc-chipx';
+        c.innerHTML = '<span>' + esc(o.textContent) + '</span><button type="button" aria-label="Remove">&times;</button>';
+        c.querySelector('button').onclick = function (e) { e.stopPropagation(); o.selected = false; chips(); changed(); };
+        box.insertBefore(c, input);
+      });
+    }
+    function render(opts) {
+      items = opts; active = -1;
+      if (!opts.length) {
+        list.innerHTML = '<div class="bc-pick__empty">' + (remote && input.value.trim().length < 2 ? 'Type at least two letters' : 'No matches') + '</div>';
+      } else {
+        list.innerHTML = opts.map(function (o, i) {
+          return '<div class="bc-pick__opt' + (o.picked ? ' is-picked' : '') + '" role="option" data-i="' + i + '"><span>' +
+            (o.avatar ? '<img class="bc-pick__ava" src="' + esc(o.avatar) + '" alt="">' : '') + esc(o.label) + '</span><small>' + (o.picked ? '<i class="bi bi-check2"></i>' : esc(o.extra || '')) + '</small></div>';
+        }).join('');
+      }
+      list.classList.add('is-open');
+    }
+    function localSearch() {
+      var q = input.value.trim().toLowerCase(), words = q.split(/\s+/).filter(Boolean);
+      var out = [];
+      Array.prototype.forEach.call(select.options, function (o) {
+        var t = o.textContent.toLowerCase();
+        if (words.every(function (w) { return t.indexOf(w) > -1; })) out.push({value: o.value, label: o.textContent, picked: o.selected});
+      });
+      render(out.slice(0, 60));
+    }
+    var remoteSearch = debounce(function () {
+      var q = input.value.trim();
+      if (q.length < 2) { render([]); return; }
+      fetch(PEOPLE_URL + '?q=' + encodeURIComponent(q), {credentials: 'same-origin'})
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          render(d.results.map(function (p) {
+            var o = select.querySelector('option[value="' + p.id + '"]');
+            return {value: String(p.id), label: p.name, extra: p.role || '', avatar: p.avatar, picked: !!(o && o.selected)};
+          }));
+        });
+    }, 220);
+    function search() { remote ? remoteSearch() : localSearch(); }
+    function pick(i) {
+      var it = items[i]; if (!it) return;
+      var o = select.querySelector('option[value="' + it.value + '"]');
+      if (!o) { o = new Option(it.label, it.value); select.add(o); }
+      o.selected = !o.selected; chips(); changed(); search(); input.focus();
+    }
+    box.addEventListener('click', function () { input.focus(); });
+    input.addEventListener('focus', search);
+    input.addEventListener('input', search);
+    input.addEventListener('keydown', function (e) {
+      var opts = list.querySelectorAll('.bc-pick__opt');
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault(); active = Math.max(0, Math.min(opts.length - 1, active + (e.key === 'ArrowDown' ? 1 : -1)));
+        opts.forEach(function (el, i) { el.classList.toggle('is-active', i === active); });
+        if (opts[active]) opts[active].scrollIntoView({block: 'nearest'});
+      } else if (e.key === 'Enter') { e.preventDefault(); if (active > -1) pick(active); }
+      else if (e.key === 'Escape') { list.classList.remove('is-open'); }
+      else if (e.key === 'Backspace' && !input.value && select.selectedOptions.length) {
+        select.selectedOptions[select.selectedOptions.length - 1].selected = false; chips(); changed();
+      }
+    });
+    list.addEventListener('mousedown', function (e) {
+      var opt = e.target.closest('.bc-pick__opt'); if (!opt) return;
+      e.preventDefault(); pick(+opt.dataset.i);
+    });
+    document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) list.classList.remove('is-open'); });
+    chips();
+  }
+  form.querySelectorAll('select[data-pick]').forEach(picker);
+
+  // ---- Show / hide dependent sections -----------------------------------
+  var targets = document.getElementById('bcTargets');
+  var whenBox = document.getElementById('bcWhen');
+  var submit = document.getElementById('bcSubmit');
+  function toggles() {
+    targets.style.display = checked('audience') === 'targeted' ? '' : 'none';
+    var when = checked('when');
+    whenBox.style.display = when === 'later' ? '' : 'none';
+    var label = {now: ['send', 'Send now'], later: ['calendar-check', 'Schedule'], draft: ['save', 'Save draft']}[when] || ['send', 'Send now'];
+    submit.innerHTML = '<i class="bi bi-' + label[0] + ' me-1"></i><span>' + label[1] + '</span>';
+  }
+
+  // ---- Audience preview --------------------------------------------------
+  var reach = document.getElementById('bcReach');
+  var refreshReach = debounce(function () {
+    var fd = new FormData();
+    ['audience', 'include_parents'].forEach(function (n) { var v = checked(n) || (form.querySelector('[name=' + n + ']:checked') ? 'on' : ''); if (v) fd.append(n, v); });
+    form.querySelectorAll('[name=roles]:checked').forEach(function (el) { fd.append('roles', el.value); });
+    ['institutions', 'programmes', 'cohorts', 'modules', 'users'].forEach(function (n) {
+      var s = form.querySelector('select[name=' + n + ']');
+      if (s) Array.prototype.forEach.call(s.selectedOptions, function (o) { fd.append(n, o.value); });
+    });
+    reach.classList.add('is-loading');
+    fetch(PREVIEW_URL, {method: 'POST', body: fd, credentials: 'same-origin', headers: {'X-CSRFToken': csrf}})
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        reach.classList.remove('is-loading');
+        document.getElementById('reachN').textContent = d.total.toLocaleString();
+        document.getElementById('reachRoles').innerHTML = Object.keys(d.by_role).map(function (k) {
+          return '<span class="tc-chip">' + esc(ROLE_NAMES[k] || k) + ' · ' + d.by_role[k] + '</span>';
+        }).join('');
+        document.getElementById('reachSample').textContent = d.total ? 'Including ' + d.sample.join(', ') + (d.total > d.sample.length ? '…' : '') : 'Nobody yet — pick an audience.';
+      })
+      .catch(function () { reach.classList.remove('is-loading'); });
+  }, 300);
+  function changed() { toggles(); refreshReach(); }
+
+  // ---- Content preview ---------------------------------------------------
+  var TONES = {info: ['primary', 'megaphone', 'Update'], success: ['success', 'stars', 'Good news'],
+               warning: ['warning', 'alarm', 'Reminder'], error: ['danger', 'exclamation-octagon', 'Urgent']};
+  function embed(url) {
+    var m = /(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/.exec(url || '');
+    if (m) return 'https://www.youtube-nocookie.com/embed/' + m[1] + '?rel=0';
+    m = /vimeo\.com\/(?:video\/)?(\d+)/.exec(url || '');
+    return m ? 'https://player.vimeo.com/video/' + m[1] : '';
+  }
+  var lastEmbed = null;
+  function preview() {
+    var title = form.querySelector('[name=title]').value.trim();
+    var body = form.querySelector('[name=body]').value;
+    document.getElementById('pvTitle').textContent = title || 'Your headline';
+    document.getElementById('pvBody').textContent = body.trim() || 'Your message appears here.';
+    document.getElementById('bcChars').textContent = body.length;
+    var t = TONES[checked('level')] || TONES.info;
+    var important = form.querySelector('[name=is_important]').checked;
+    document.getElementById('pvTone').className = 'tc-chip tc-chip--' + t[0];
+    document.getElementById('pvTone').innerHTML = '<i class="bi bi-' + t[1] + '"></i>' + esc(t[2]) + (important ? ' · Important' : '');
+    var src = embed(form.querySelector('[name=media_url]').value.trim()), v = document.getElementById('pvVideo');
+    if (src !== lastEmbed) {
+      lastEmbed = src;
+      v.innerHTML = src ? '<iframe src="' + esc(src) + '" title="Video preview" allow="encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe>' : '';
+      v.classList.toggle('d-none', !src);
+    }
+    var url = form.querySelector('[name=url]').value.trim(), cta = document.getElementById('pvCta');
+    cta.classList.toggle('d-none', !url);
+    cta.querySelector('span').textContent = form.querySelector('[name=url_label]').value.trim() || 'Open';
+  }
+
+  // ---- Files -------------------------------------------------------------
+  var fileInput = document.getElementById('bcFiles'), fileList = document.getElementById('bcFileList');
+  var drop = document.getElementById('bcDrop'), picked = new DataTransfer();
+  function sizeOf(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+  function renderFiles() {
+    fileList.querySelectorAll('[data-new]').forEach(function (el) { el.remove(); });
+    var thumbs = [];
+    Array.prototype.forEach.call(picked.files, function (f, i) {
+      var isImg = /^image\//.test(f.type), isVid = /^video\//.test(f.type), url = (isImg || isVid) ? URL.createObjectURL(f) : '';
+      var el = document.createElement('div'); el.className = 'bc-file'; el.dataset.new = i;
+      el.innerHTML = '<div class="bc-file__thumb">' + (isImg ? '<img src="' + url + '" alt="">' : isVid ? '<video src="' + url + '" muted></video>' : '<i class="bi bi-file-earmark-text"></i>') +
+        '</div><div class="bc-file__name">' + esc(f.name) + '<small>' + sizeOf(f.size) + '</small></div><button type="button" class="bc-file__x" title="Remove">&times;</button>';
+      el.querySelector('button').onclick = function () {
+        var keep = new DataTransfer();
+        Array.prototype.forEach.call(picked.files, function (g, j) { if (j !== i) keep.items.add(g); });
+        picked = keep; fileInput.files = picked.files; renderFiles();
+      };
+      fileList.appendChild(el);
+      thumbs.push(isImg ? '<span><img src="' + url + '" alt=""></span>' : '<span><i class="bi bi-' + (isVid ? 'film' : 'paperclip') + '"></i></span>');
+    });
+    fileList.querySelectorAll('[data-existing]:not(.is-removed) img, [data-copied] img').forEach(function (img) { thumbs.unshift('<span><img src="' + img.src + '" alt=""></span>'); });
+    document.getElementById('pvThumbs').innerHTML = thumbs.join('');
+  }
+  function addFiles(files) {
+    Array.prototype.forEach.call(files, function (f) { if (picked.files.length < {{ max_files }}) picked.items.add(f); });
+    fileInput.files = picked.files; renderFiles();
+  }
+  fileInput.addEventListener('change', function () { var f = Array.prototype.slice.call(fileInput.files); picked = new DataTransfer(); addFiles(f); });
+  ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('is-over'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('is-over'); }); });
+  drop.addEventListener('drop', function (e) { addFiles(e.dataTransfer.files); });
+  fileList.addEventListener('change', function (e) {
+    if (e.target.name === 'remove_attachment') { e.target.closest('.bc-file').classList.toggle('is-removed', e.target.checked); renderFiles(); }
+  });
+  fileList.addEventListener('click', function (e) {
+    if (e.target.matches('[data-drop-copy]')) { e.target.closest('.bc-file').remove(); renderFiles(); }
+  });
+
+  // ---- Wire up -----------------------------------------------------------
+  form.addEventListener('input', preview);
+  form.addEventListener('change', function (e) {
+    preview();
+    if (/^(audience|roles|include_parents|when)$/.test(e.target.name)) changed();
+  });
+  form.addEventListener('submit', function () {
+    submit.disabled = true;
+    submit.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Working…';
+  });
+  toggles(); preview(); renderFiles(); refreshReach();
+})();
+</script>
+{% endblock %}

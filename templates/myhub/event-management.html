@@ -1,0 +1,66 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+
+{% block additional_css %}
+<link rel="stylesheet" href="{% static 'myhub/vendor/fullcalendar/css/fullcalendar.min.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <h3 class="mb-3">{{ page_title|default:"Calendar" }}</h3>
+  <div class="row g-3">
+    <div class="col-lg-9">
+      <div class="card"><div class="card-body">
+        <div id="orgCalendar"></div>
+      </div></div>
+    </div>
+    <div class="col-lg-3">
+      <div class="card mb-3"><div class="card-body">
+        <h6 class="mb-3"><i class="bi bi-bell"></i> Add a reminder</h6>
+        <form method="post" action="{% url 'myhub:add-reminder' %}">
+          {% csrf_token %}
+          <div class="mb-2"><input class="form-control form-control-sm" name="title" placeholder="Reminder title" required></div>
+          <div class="mb-2"><input class="form-control form-control-sm" type="datetime-local" name="start" required></div>
+          <button class="btn btn-primary btn-sm w-100">Remind me</button>
+        </form>
+      </div></div>
+      <div class="card"><div class="card-body">
+        <h6 class="mb-3">Legend</h6>
+        <ul class="list-unstyled small mb-0">
+          <li><span class="badge" style="background:#3a87ad">&nbsp;</span> School events</li>
+          <li><span class="badge" style="background:#6f42c1">&nbsp;</span> 🔔 My reminders</li>
+          <li><span class="badge" style="background:#0dcaf0">&nbsp;</span> 📘 Lessons</li>
+          <li><span class="badge" style="background:#198754">&nbsp;</span> ✅ Task deadlines</li>
+          <li><span class="badge" style="background:#dc3545">&nbsp;</span> 📝 Assessments closing</li>
+          <li><span class="badge" style="background:#20c997">&nbsp;</span> 🎥 Meetings / live sessions</li>
+          <li><span class="badge" style="background:#fd7e14">&nbsp;</span> 🏖 Holidays</li>
+        </ul>
+      </div></div>
+    </div>
+  </div>
+</div></div>
+
+{% comment %}HTMX (Phase 5): init in the content block so the calendar renders on a
+boosted swap-in — not only a full load. The old DOMContentLoaded listener never
+fired after a boost (that event had already passed). whenReady runs the init on
+both paths; ensureScript loads FullCalendar once with no async race. Each swap
+gets a fresh #orgCalendar, so a new Calendar is built each time.{% endcomment %}
+<script>
+Thrive.whenReady(function () {
+  Thrive.ensureScript('{% static 'myhub/vendor/fullcalendar/js/fullcalendar.min.js' %}', function () {
+    var el = document.getElementById('orgCalendar');
+    if (!el || typeof FullCalendar === 'undefined') return;
+    var calendar = new FullCalendar.Calendar(el, {
+      initialView: 'dayGridMonth',
+      headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listWeek' },
+      height: 'auto',
+      events: '{% url "myhub:events-feed" %}',
+      eventClick: function (info) {
+        if (info.event.url) { window.location.href = info.event.url; info.jsEvent.preventDefault(); }
+      }
+    });
+    calendar.render();
+  });
+});
+</script>
+{% endblock %}

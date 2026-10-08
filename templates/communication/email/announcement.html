@@ -1,0 +1,26 @@
+{% extends 'communication/email/base_email.html' %}{% load org_branding %}
+{% comment %}Broadcast notification. Context: announcement, recipient, and — from the
+composer — open_url (the recipient's own notification page), attachment_list and
+attached (whether the files are attached to this e-mail or only listed).{% endcomment %}
+{% block heading %}{{ announcement.title }}{% endblock %}
+{% block content %}
+  {% if recipient %}<p style="margin:0 0 14px">Hi {{ recipient|greeting_name }},</p>{% endif %}
+  <p style="margin:0 0 8px;color:#97a2da">{% if announcement.is_important %}Important · {% endif %}Announcement{% if announcement.sender %} from {{ announcement.sender|greeting_name }}{% endif %}</p>
+  <div style="margin:0 0 14px">{{ announcement.body|urlize|linebreaksbr }}</div>
+  {% if announcement.media_url %}
+  <p style="margin:0 0 14px">&#9654;&#xFE0E; <a href="{{ announcement.media_url }}" style="color:#506bec;font-weight:bold">Watch the video</a></p>
+  {% endif %}
+  {% if link_url and open_url %}
+  <p style="margin:0 0 14px">&#128279; <a href="{{ link_url }}" style="color:#506bec;font-weight:bold">{{ announcement.url_label|default:"Open the link" }}</a></p>
+  {% endif %}
+  {% if attachment_list %}
+  <div style="margin:0 0 14px;padding:12px 14px;border:1px solid #e3e7f3;border-radius:10px">
+    <p style="margin:0 0 6px;font-weight:bold">{{ attachment_list|length }} file{{ attachment_list|length|pluralize }} {% if attached %}attached{% else %}— open the notification to view or download{% endif %}</p>
+    {% for f in attachment_list %}<p style="margin:0;color:#57607a">&#128206; {{ f.original_name }} <span style="color:#97a2da">({{ f.size|filesizeformat }})</span></p>{% endfor %}
+  </div>
+  {% endif %}
+{% endblock %}
+{% block cta %}
+  {% if open_url %}{% include 'communication/email/_button.html' with url=open_url label="OPEN ON THE PLATFORM" %}
+  {% else %}{% include 'communication/email/_button.html' with url=announcement.url label="VIEW DETAILS" %}{% endif %}
+{% endblock %}

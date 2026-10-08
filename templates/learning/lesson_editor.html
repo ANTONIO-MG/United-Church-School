@@ -1,0 +1,379 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static %}
+{% comment %}
+The lesson builder. The main window is the lesson itself: **one continuous body**
+written like a blog post. Elements (text, image, video, quiz…) stack in the order
+you drop them, and a "Dropdown section" is just another element — one that holds
+its own blocks and collapses for the learner.
+
+The side rail is the toolkit, always there: the element palette at the top and a
+Format panel underneath that binds to whichever block is selected (font, size,
+weight, colour, alignment, width, spacing, borders). Below that: AI authoring,
+the audience buttons, attachments, references and export.
+
+Everything autosaves; the Save button just flushes immediately. All calls go over
+fetch → JsonResponse in apps/learning/authoring.py; the logic is
+static/js/lesson-editor.js.
+{% endcomment %}
+
+{% block additional_css %}
+<link rel="stylesheet" href="{% static 'css/lesson.css' %}">
+<link rel="stylesheet" href="{% static 'css/lesson-builder.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  {% csrf_token %}
+
+  <div class="le-topbar">
+    <div class="me-auto">
+      <a href="{% url 'learning:lesson-manage' %}" class="small text-muted text-decoration-none">
+        <i class="bi bi-arrow-left me-1"></i>All lessons</a>
+      <h4 class="mb-0 mt-1" id="leTitleEcho">{{ lesson.title }}</h4>
+      <div class="small text-muted">{{ lesson.module }}</div>
+    </div>
+    <span id="leSaveChip" class="le-savechip saved"><i class="bi bi-check-circle"></i>All changes saved</span>
+    <span class="badge bg-secondary-soft text-secondary text-capitalize" id="leStatusBadge">{{ lesson.status }}</span>
+    <button id="leSaveBtn" type="button" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-save me-1"></i>Save</button>
+    <a href="{% url 'learning:lesson-view' lesson.id %}" target="_blank" class="btn btn-sm btn-primary">
+      <i class="bi bi-eye me-1"></i>Preview as learner</a>
+  </div>
+
+  <div class="le-shell">
+    <div class="le-main vstack gap-3">
+
+      <div class="card"><div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-8"><label class="form-label small text-muted mb-1">Lesson title</label>
+            <input id="meta_title" class="form-control" value="{{ lesson.title }}"></div>
+          <div class="col-md-4"><label class="form-label small text-muted mb-1">Est. minutes</label>
+            <input id="meta_estimated_minutes" type="number" min="1" class="form-control" value="{{ lesson.estimated_minutes }}"></div>
+          <div class="col-12"><label class="form-label small text-muted mb-1">Subtitle</label>
+            <input id="meta_subtitle" class="form-control" value="{{ lesson.subtitle }}" placeholder="A one-line summary of the lesson"></div>
+        </div>
+        <details class="le-details mt-3">
+          <summary><i class="bi bi-person-badge me-1"></i>Author / lecturer</summary>
+          <div class="row g-3 pt-3">
+            <div class="col-md-6"><label class="form-label small text-muted mb-1">Name</label>
+              <input id="meta_author_name" class="form-control form-control-sm" value="{{ lesson.author_name }}"></div>
+            <div class="col-md-6"><label class="form-label small text-muted mb-1">Role / title</label>
+              <input id="meta_author_role" class="form-control form-control-sm" value="{{ lesson.author_role }}" placeholder="e.g. Senior Lecturer"></div>
+            <div class="col-12"><label class="form-label small text-muted mb-1">Short bio</label>
+              <textarea id="meta_author_bio" class="form-control form-control-sm" rows="2">{{ lesson.author_bio }}</textarea></div>
+          </div>
+        </details>
+      </div></div>
+
+      <div class="card le-bodycard">
+        <div class="card-header d-flex align-items-center">
+          <h6 class="mb-0"><i class="bi bi-file-richtext text-primary me-2"></i>Lesson body</h6>
+          <span class="ms-auto small text-muted">
+            <span id="leBlockCount">0</span> element(s) · click one to format it ·
+            drag <i class="bi bi-grip-vertical"></i> to reorder
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="le-blocks le-drop le-body" id="leBody" data-section=""
+               data-empty="Start writing: pick an element from the toolkit, or drag one here"></div>
+          <p class="le-tip text-center mt-3 mb-0" id="leBodyHint">
+            <i class="bi bi-hand-index-thumb me-1"></i>
+            Pick an element from the toolkit on the right, or drag one in here.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="le-side vstack gap-3">
+
+      <div class="card le-toolcard"><div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-plus-square text-primary me-2"></i>Elements</h6></div>
+        <div class="card-body">
+          <p class="le-tip"><i class="bi bi-hand-index me-1"></i>Click to add at the end, or drag exactly where you want it.</p>
+          <div id="lePalette" class="le-palette">
+            <button draggable="true" data-add="heading"><i class="bi bi-type-h2"></i>Heading</button>
+            <button draggable="true" data-add="text"><i class="bi bi-text-paragraph"></i>Text</button>
+            <button draggable="true" data-add="image"><i class="bi bi-image"></i>Image</button>
+            <button draggable="true" data-add="video"><i class="bi bi-camera-video"></i>Video</button>
+            <button draggable="true" data-add="audio"><i class="bi bi-music-note-beamed"></i>Audio</button>
+            <button draggable="true" data-add="embed"><i class="bi bi-window"></i>Embed page</button>
+            <button draggable="true" data-add="file"><i class="bi bi-paperclip"></i>File</button>
+            <button draggable="true" data-add="table"><i class="bi bi-table"></i>Table</button>
+            <button draggable="true" data-add="diagram"><i class="bi bi-diagram-3"></i>Diagram</button>
+            <button draggable="true" data-add="callout"><i class="bi bi-info-circle"></i>Callout</button>
+            <button draggable="true" data-add="reference"><i class="bi bi-quote"></i>Reference</button>
+            <button draggable="true" data-add="divider"><i class="bi bi-dash-lg"></i>Divider</button>
+            <button draggable="true" data-add="quiz"><i class="bi bi-ui-checks"></i>Quiz / test</button>
+            <button draggable="true" data-add="meeting"><i class="bi bi-camera-video-fill"></i>Live session</button>
+            <button draggable="true" data-add="section" class="le-pal-section"><i class="bi bi-chevron-bar-expand"></i>Dropdown section</button>
+          </div>
+          <div class="mt-2">
+            <label class="form-label small text-muted mb-1">…or attach an existing quiz</label>
+            <select id="leQuizPick" class="form-select form-select-sm">
+              <option value="">— new quiz —</option>
+              {% for q in quizzes %}<option value="{{ q.id }}">{{ q.title }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {% comment %}
+      Binds to whichever block is selected in the body. Every control maps to one
+      whitelisted key in apps/learning/styles.py — the panel and the renderer read
+      the same table, so a control can never produce styling the player drops.
+      {% endcomment %}
+      <div class="card le-fmtcard" id="leFormat">
+        <div class="card-header d-flex align-items-center">
+          <h6 class="mb-0"><i class="bi bi-sliders text-primary me-2"></i>Format</h6>
+          <span class="ms-auto small text-muted" id="leFmtTarget">nothing selected</span>
+        </div>
+        <div class="card-body">
+          <p class="le-tip mb-2" id="leFmtEmpty"><i class="bi bi-cursor me-1"></i>Click any element in the body to style it.</p>
+
+          <div id="leFmtBody" hidden>
+            <div class="le-fmtgroup" data-group="type">
+              <label class="le-fmtlabel">Text</label>
+              <select class="form-select form-select-sm mb-2" data-style="font_family">
+                {% for f in style_fonts %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
+              </select>
+              <div class="le-fmtrow">
+                <input type="number" class="form-control form-control-sm" data-style="font_size"
+                       data-unit="px" min="8" max="199" placeholder="Size">
+                <select class="form-select form-select-sm" data-style="font_weight">
+                  <option value="">Weight</option>
+                  <option value="300">Light</option><option value="400">Regular</option>
+                  <option value="500">Medium</option><option value="600">Semibold</option>
+                  <option value="700">Bold</option><option value="800">Extra bold</option>
+                </select>
+              </div>
+              <div class="le-fmtrow mt-2">
+                <select class="form-select form-select-sm" data-style="font_style">
+                  <option value="">Style</option><option value="normal">Normal</option>
+                  <option value="italic">Italic</option>
+                </select>
+                <select class="form-select form-select-sm" data-style="text_transform">
+                  <option value="">Caps</option><option value="none">As typed</option>
+                  <option value="uppercase">UPPERCASE</option><option value="capitalize">Capitalise</option>
+                </select>
+              </div>
+              <div class="le-fmtrow mt-2">
+                <input type="number" class="form-control form-control-sm" data-style="line_height"
+                       step="0.05" min="0.8" max="3" placeholder="Line height">
+                <input type="number" class="form-control form-control-sm" data-style="letter_spacing"
+                       data-unit="px" step="0.1" min="-9" max="9" placeholder="Spacing">
+              </div>
+            </div>
+
+            <div class="le-fmtgroup" data-group="align">
+              <label class="le-fmtlabel">Alignment &amp; position</label>
+              <div class="le-fmtseg" data-style="align">
+                <button type="button" data-value="left" title="Left"><i class="bi bi-text-left"></i></button>
+                <button type="button" data-value="center" title="Centre"><i class="bi bi-text-center"></i></button>
+                <button type="button" data-value="right" title="Right"><i class="bi bi-text-right"></i></button>
+                <button type="button" data-value="justify" title="Justify"><i class="bi bi-justify"></i></button>
+              </div>
+              <div class="le-fmtseg mt-2" data-style="float">
+                <button type="button" data-value="none" title="In the flow"><i class="bi bi-align-top"></i></button>
+                <button type="button" data-value="left" title="Wrap text on the right"><i class="bi bi-box-arrow-left"></i></button>
+                <button type="button" data-value="right" title="Wrap text on the left"><i class="bi bi-box-arrow-right"></i></button>
+              </div>
+            </div>
+
+            <div class="le-fmtgroup" data-group="size">
+              <label class="le-fmtlabel">Size</label>
+              <div class="le-fmtrow">
+                <input type="range" class="form-range" data-style="width" data-unit="%" min="10" max="100" step="5">
+                <output class="le-fmtout" data-out="width">100%</output>
+              </div>
+            </div>
+
+            <div class="le-fmtgroup" data-group="colour">
+              <label class="le-fmtlabel">Colour</label>
+              <div class="le-fmtrow">
+                <label class="le-swatch" title="Text colour">
+                  <i class="bi bi-type"></i>
+                  <input type="color" data-style="color" value="#212529">
+                </label>
+                <label class="le-swatch" title="Background">
+                  <i class="bi bi-paint-bucket"></i>
+                  <input type="color" data-style="background" value="#ffffff">
+                </label>
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" data-style-clear="color,background">
+                  Clear</button>
+              </div>
+            </div>
+
+            <div class="le-fmtgroup" data-group="box">
+              <label class="le-fmtlabel">Spacing &amp; frame</label>
+              <div class="le-fmtrow">
+                <input type="number" class="form-control form-control-sm" data-style="margin_top"
+                       data-unit="px" min="0" max="99" placeholder="Space above">
+                <input type="number" class="form-control form-control-sm" data-style="margin_bottom"
+                       data-unit="px" min="0" max="99" placeholder="Space below">
+              </div>
+              <div class="le-fmtrow mt-2">
+                <input type="number" class="form-control form-control-sm" data-style="padding"
+                       data-unit="px" min="0" max="99" placeholder="Padding">
+                <input type="number" class="form-control form-control-sm" data-style="radius"
+                       data-unit="px" min="0" max="99" placeholder="Corners">
+              </div>
+              <div class="le-fmtrow mt-2">
+                <select class="form-select form-select-sm" data-style="border">
+                  <option value="">Border</option>
+                  {% for b in style_borders %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
+                </select>
+                <select class="form-select form-select-sm" data-style="shadow">
+                  <option value="">Shadow</option>
+                  {% for s in style_shadows %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-2" id="leFmtReset">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>Reset this element's formatting</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card le-aicard"><div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-stars text-primary me-2"></i>Build with AI</h6></div>
+        <div class="card-body">
+          {% if ai_enabled %}
+          <p class="le-tip">Describe what to add and Claude drafts the sections straight into this lesson. Nothing is published — review and edit first.</p>
+          <textarea id="leAiPrompt" class="form-control form-control-sm" rows="4"
+                    placeholder="e.g. Add three sections covering audit sampling: statistical vs non-statistical, sample size factors, and evaluating misstatements — with a worked example and a summary table."></textarea>
+          <button id="leAiRun" type="button" class="btn btn-sm btn-primary w-100 mt-2">
+            <i class="bi bi-stars me-1"></i>Generate sections</button>
+          <a href="{% url 'learning:lesson-ai-import' %}" class="btn btn-sm btn-link w-100 mt-1 text-decoration-none">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Start a new lesson from a document</a>
+          {% else %}
+          <p class="le-tip mb-0"><i class="bi bi-info-circle me-1"></i>AI authoring is off on this server.
+            Set <code>ADMIN_AI_ENABLED</code> and <code>ANTHROPIC_API_KEY</code> to enable it.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card"><div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-people text-primary me-2"></i>Who gets this lesson</h6></div>
+        <div class="card-body vstack gap-2">
+          <div class="le-audience" id="leAudience">
+            <button type="button" data-aud="individual" class="{% if lesson.visibility == 'individual' %}active{% endif %}">
+              <i class="bi bi-person"></i><span>Student</span></button>
+            <button type="button" data-aud="programme" class="{% if lesson.visibility == 'programme' %}active{% endif %}">
+              <i class="bi bi-people"></i><span>Grade</span></button>
+            <button type="button" data-aud="module" class="{% if lesson.visibility != 'individual' and lesson.visibility != 'programme' %}active{% endif %}">
+              <i class="bi bi-journal-bookmark"></i><span>Subject</span></button>
+          </div>
+
+          <div class="le-audbody" data-aud-body="individual">
+            <label class="form-label small text-muted mb-1">Students in your subjects</label>
+            <input id="leStudentFilter" class="form-control form-control-sm mb-1" placeholder="Filter by name…">
+            <select id="pubUsers" class="form-select form-select-sm" multiple size="7">
+              {% for u in students %}
+              <option value="{{ u.id }}" {% if u.id in target_user_ids %}selected{% endif %}>{{ u|person_name }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text small">Hold Ctrl / ⌘ to pick more than one.</div>
+          </div>
+
+          <div class="le-audbody" data-aud-body="programme">
+            <label class="form-label small text-muted mb-1">Grades you teach</label>
+            <select id="pubProgrammes" class="form-select form-select-sm" multiple size="6">
+              {% for p in programmes %}
+              <option value="{{ p.id }}" {% if p.id in target_programme_ids %}selected{% endif %}>{{ p.name }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text small">Everyone registered for the grade gets it automatically.</div>
+          </div>
+
+          <div class="le-audbody" data-aud-body="module">
+            <label class="form-label small text-muted mb-1">Subjects</label>
+            <select id="pubModules" class="form-select form-select-sm" multiple size="6">
+              {% for s in modules %}
+              <option value="{{ s.id }}" {% if s.id in target_module_ids %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text small">Leave empty to use this lesson's own subject ({{ lesson.module.name }}).</div>
+          </div>
+
+          <div><label class="form-label small text-muted mb-1">Status</label>
+            <select id="pubStatus" class="form-select form-select-sm">
+              {% for val,label in status_choices %}<option value="{{ val }}" {% if lesson.status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select></div>
+          <input type="hidden" id="pubVisibility" value="{{ lesson.visibility }}">
+          <button id="lePublishBtn" class="btn btn-primary w-100 mt-1" data-loading>
+            <i class="bi bi-send me-1"></i>Save &amp; publish</button>
+        </div>
+      </div>
+
+      <div class="card"><div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-paperclip text-primary me-2"></i>Attachments</h6></div>
+        <div class="card-body">
+          <label class="le-dropzone" id="leAttachZone">
+            <i class="bi bi-cloud-arrow-up fs-4 d-block mb-1"></i>
+            Drop PDFs, images or text files here
+            <input type="file" id="leAttachInput" multiple hidden>
+          </label>
+          <div class="le-uploadbar" id="leAttachBar"><i></i></div>
+          <ul class="le-attachlist" id="leAttachments">
+            {% for a in attachments %}
+            <li data-id="{{ a.id }}">
+              <i class="bi bi-file-earmark"></i>
+              <a href="{% if a.file %}{{ a.file.url }}{% else %}{{ a.url }}{% endif %}" target="_blank" rel="noopener">{{ a.title|default:a.get_kind_display }}</a>
+              <em>{{ a.get_kind_display }}</em>
+              <button type="button" class="le-attdel" title="Remove"><i class="bi bi-x-lg"></i></button>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <div class="card"><div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-journal-bookmark text-primary me-2"></i>References</h6></div>
+        <div class="card-body">
+          <div id="leRefs"></div>
+          <button id="leAddRef" type="button" class="btn btn-sm btn-outline-secondary w-100">
+            <i class="bi bi-plus-lg me-1"></i>Add reference</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div></div>
+{% endblock %}
+
+{% block additional_js %}
+<script src="{% static 'js/sortable-lite.js' %}"></script>
+<script>
+window.LESSON_EDITOR = {
+  lessonId: {{ lesson.id }},
+  csrf: '{{ csrf_token }}',
+  blocks: {{ blocks_json|safe }},
+  sections: {{ sections_json|safe }},
+  references: {{ references_json|safe }},
+  styleFields: {{ block_style_fields|safe }},
+  sectionTypes: [{% for val,label in section_types %}["{{ val }}","{{ label|escapejs }}"]{% if not forloop.last %},{% endif %}{% endfor %}],
+  urls: {
+    blockAdd:      "{% url 'learning:block-add' 0 %}",
+    blockReorder:  "{% url 'learning:block-reorder' 0 %}",
+    blockSave:     "{% url 'learning:block-save' 0 %}",
+    blockMove:     "{% url 'learning:block-move' 0 %}",
+    blockDelete:   "{% url 'learning:block-delete' 0 %}",
+    upload:        "{% url 'learning:block-upload' 0 %}",
+    sectionAdd:    "{% url 'learning:section-add' 0 %}",
+    sectionSave:   "{% url 'learning:section-save' 0 %}",
+    sectionDelete: "{% url 'learning:section-delete' 0 %}",
+    sectionReorder:"{% url 'learning:section-reorder' 0 %}",
+    attachAdd:     "{% url 'learning:attachment-add' 0 %}",
+    attachDelete:  "{% url 'learning:attachment-delete' 0 %}",
+    attachQuiz:    "{% url 'learning:attach-quiz' 0 %}",
+    attachMeeting: "{% url 'learning:attach-meeting' 0 %}",
+    aiExtend:      "{% url 'learning:lesson-ai-extend' 0 %}",
+    meta:          "{% url 'learning:lesson-meta-save' 0 %}",
+    publish:       "{% url 'learning:lesson-publish' 0 %}",
+    builder:       "{% url 'assessments:builder' 0 %}"
+  }
+};
+</script>
+<script src="{% static 'js/lesson-editor.js' %}"></script>
+{% endblock %}

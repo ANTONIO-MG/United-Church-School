@@ -1,0 +1,17 @@
+{% load org_branding %}{% org_brand as brand %}Welcome to {{ brand.name|default:"United Church School" }}!
+
+Hi,
+
+Please confirm your e-mail address to finish setting up your account:
+
+{{ activate_url }}
+
+If you didn't deliberately sign up, please ignore this e-mail — no account
+will be activated and nothing else will happen.
+
+Kind regards,
+The {{ brand.name|default:"United Church School" }} team
+{% if brand.support_email %}Questions? E-mail {{ brand.support_email }}
+{% endif %}
+--
+{{ brand.copyright|default:"United Church School" }}

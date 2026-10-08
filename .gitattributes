@@ -1,0 +1,17 @@
+# Font and image binaries must never be line-ending normalised or re-encoded.
+# Every bundled icon font in the first commit had been mojibake-corrupted (read
+# as text, re-saved as UTF-8), which inflated each file ~1.8x and made every
+# icon render as an empty box. apps/myhub/checks.py:check_icon_fonts_intact
+# guards the working tree; these rules keep git out of the binaries entirely.
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.eot    binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.webp   binary
+*.pdf    binary

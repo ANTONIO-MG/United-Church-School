@@ -1,0 +1,57 @@
+/* exam-guard.css — the focus guard's on-screen parts.
+   Loaded by templates/assessments/take.html only when proctoring is on. */
+
+/* Notice shown above the paper before the student starts. */
+.guard-notice{ display:flex; gap:.75rem; align-items:flex-start; padding:.85rem 1rem;
+  border-radius:.75rem; background:#fff8ef; border:1px solid #f7d9ae; color:#7a4b00; }
+.guard-notice > i{ font-size:1.2rem; color:#fb8c00; }
+.guard-notice strong{ display:block; margin-bottom:.15rem; }
+.guard-notice ul{ margin:.35rem 0 0; padding-left:1.1rem; font-size:.82rem; }
+.guard-notice li{ margin-bottom:.15rem; }
+
+/* Live warning tally in the header. */
+.guard-count{ display:inline-flex; align-items:center; gap:.35rem; font-size:.78rem; font-weight:700;
+  padding:.28rem .7rem; border-radius:2rem; background:#eef1f6; color:#5b6580; }
+.guard-count::before{ content:"\F33A"; font-family:"bootstrap-icons"; }
+.guard-count.is-warn{ background:#fff3e0; color:#a35c00; }
+.guard-count.is-over{ background:#fdecee; color:#c31d43; }
+
+/* Transient message after each detected event. */
+.guard-banner{ position:fixed; left:50%; top:1rem; transform:translateX(-50%); z-index:1090;
+  max-width:min(640px,92vw); padding:.7rem 1.1rem; border-radius:.75rem; font-size:.85rem;
+  background:#344767; color:#fff; box-shadow:0 10px 30px rgba(20,30,60,.28); text-align:center; }
+.guard-banner.is-severe{ background:#c31d43; }
+.guard-banner[hidden]{ display:none; }
+
+/* Full-page cover while the window is not focused — stops the paper being read
+   from a second screen or a screenshot taken while the student is elsewhere. */
+.guard-overlay{ position:fixed; inset:0; z-index:1085; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:.6rem; text-align:center; padding:2rem;
+  background:rgba(23,32,56,.93); color:#fff; backdrop-filter:blur(6px); }
+.guard-overlay[hidden]{ display:none; }
+.guard-overlay i{ font-size:2.6rem; color:#fb8c00; }
+.guard-overlay h5{ margin:0; font-weight:700; }
+.guard-overlay p{ margin:0; max-width:34rem; font-size:.9rem; opacity:.85; }
+.guard-overlay.is-final{ background:rgba(84,12,28,.96); }
+.guard-overlay.is-final i{ color:#ff8fa5; }
+
+/* The questions themselves, blurred while the student is away. */
+.guard-blurred{ filter:blur(9px); pointer-events:none; user-select:none; }
+
+/* Educator's integrity report (marking screen / result). */
+.guard-report{ border:1px solid #f7d9ae; border-radius:.9rem; background:#fffdf9; overflow:hidden; }
+.guard-report--clean{ border-color:#cdeadd; background:#fbfffd; }
+.guard-report__head{ display:flex; align-items:center; gap:.6rem; padding:.75rem 1rem;
+  background:#fff8ef; border-bottom:1px solid #f7d9ae; }
+.guard-report--clean .guard-report__head{ background:#f3fbf7; border-bottom-color:#cdeadd; }
+.guard-report__head i{ font-size:1.15rem; color:#fb8c00; }
+.guard-report--clean .guard-report__head i{ color:#2dce89; }
+.guard-report__stats{ display:flex; flex-wrap:wrap; gap:.4rem; padding:.75rem 1rem 0; }
+.guard-stat{ display:inline-flex; align-items:center; gap:.35rem; font-size:.75rem; font-weight:600;
+  padding:.25rem .6rem; border-radius:2rem; background:#eef1f6; color:#5b6580; }
+.guard-log{ list-style:none; margin:.75rem 0 0; padding:0 1rem 1rem; max-height:16rem; overflow:auto; }
+.guard-log li{ display:flex; align-items:center; gap:.5rem; font-size:.78rem; color:#5b6580;
+  padding:.3rem 0; border-bottom:1px solid #f4f1ea; }
+.guard-log li:last-child{ border-bottom:0; }
+.guard-log .t{ margin-left:auto; font-variant-numeric:tabular-nums; color:#8a93a8; }
+.guard-log .muted{ opacity:.6; }

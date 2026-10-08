@@ -1,0 +1,35 @@
+{% load people %}{% load commerce %}<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Packing slip · {{ order.order_no }}</title>
+<style>
+  body{font:14px/1.5 Inter,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1f2d4b;margin:0;padding:32px;background:#fff}
+  .slip{max-width:720px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #34cafb;padding-bottom:16px}
+  h1{font-size:26px;margin:0;letter-spacing:.02em}
+  .muted{color:#67748e}.big{font-size:18px;font-weight:700}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:24px 0}
+  table{width:100%;border-collapse:collapse}th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#67748e;border-bottom:1px solid #dee1e2;padding:8px 0}
+  td{padding:10px 0;border-bottom:1px solid #eef0f1}td.q{width:60px;font-weight:700;font-size:16px}td.tick{width:40px}
+  .box{display:inline-block;width:16px;height:16px;border:2px solid #1f2d4b;border-radius:3px}
+  footer{margin-top:28px;font-size:12px;color:#67748e}
+  @media print{body{padding:0}.noprint{display:none}}
+</style></head>
+<body><div class="slip">
+  <p class="noprint"><button onclick="window.print()">Print</button></p>
+  <header>
+    <div><h1>PACKING SLIP</h1><div class="muted">{{ order.order_no }} · {{ order.created_at|date:"j F Y" }}</div></div>
+    <div style="text-align:right"><div class="big">{% if shipment.method == 'locker' %}PUDO LOCKER{% else %}DOOR TO DOOR{% endif %}</div><div class="muted">{{ order.delivery_label }}</div></div>
+  </header>
+  <div class="grid">
+    <div><div class="muted">SHIP TO</div>
+      <div class="big">{{ order.ship_to.recipient }}</div><div>{{ order.ship_to.phone }}</div>
+      {% if shipment.method == 'locker' %}<div>{{ shipment.locker_name|default:shipment.locker_code }}</div>
+      {% else %}<div>{% if order.ship_to.complex %}{{ order.ship_to.complex }}<br>{% endif %}{{ order.ship_to.street_address }}<br>{{ order.ship_to.suburb }}<br>{{ order.ship_to.city }}, {{ order.ship_to.province }} {{ order.ship_to.postal_code }}</div>{% endif %}
+    </div>
+    <div><div class="muted">WAYBILL</div><div class="big">{{ shipment.tracking_reference|default:"—" }}</div>
+      <div class="muted" style="margin-top:8px">BUYER</div><div>{{ order.buyer|person_name }}<br>{{ order.buyer.email }}</div></div>
+  </div>
+  <table><thead><tr><th></th><th>Qty</th><th>Item</th><th>SKU</th></tr></thead><tbody>
+    {% for item in items %}<tr><td class="tick"><span class="box"></span></td><td class="q">{{ item.quantity }}</td><td>{{ item.description }}</td><td class="muted">{{ item.variant.sku|default:item.product.sku }}</td></tr>{% endfor %}
+  </tbody></table>
+  <footer>Thank you for being part of {{ brand.name|default:"United Church School" }}. Questions about this parcel? Reply to your order e-mail.</footer>
+</div></body></html>

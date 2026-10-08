@@ -1,0 +1,4 @@
+<nav class="tc-aisles" aria-label="AI archive">
+  <a class="tc-aisle {% if section == 'reports' %}is-active{% endif %}" href="{% url 'staffdesk:ai-reports' %}"><i class="bi bi-file-earmark-text"></i>Reports<span class="tc-count">{{ counts.reports }}</span></a>
+  <a class="tc-aisle {% if section == 'insights' %}is-active{% endif %}" href="{% url 'staffdesk:ai-insights' %}"><i class="bi bi-lightbulb"></i>Insights<span class="tc-count" title="New">{{ counts.insights }}</span></a>
+</nav>

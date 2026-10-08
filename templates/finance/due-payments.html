@@ -1,0 +1,52 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% load custom_tags %}
+
+{% block content %}
+<div class="content-body">
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text"><h4>{{ page_title }}</h4></div>
+            </div>
+            <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex align-items-center">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'finance:invoices' %}">Finance</a></li>
+                    <li class="breadcrumb-item active"><a href="javascript:void(0);">{{ page_title }}</a></li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header"><h5 class="card-title">Outstanding balances</h5></div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead><tr><th>Invoice #</th><th>Customer</th><th>Due date</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th></th></tr></thead>
+                                <tbody>
+                                {% for inv in invoices %}
+                                    <tr class="{% if inv.is_overdue %}table-danger{% endif %}">
+                                    <td>{{ inv.number }}</td>
+                                    <td>{{ inv.customer.email|default:inv.customer }}</td>
+                                    <td>{{ inv.due_date|date:"d M Y"|default:"&mdash;" }}</td>
+                                    <td>{{ inv.total }}</td>
+                                    <td>{{ inv.amount_paid }}</td>
+                                    <td class="fw-bold text-danger">{{ inv.balance }}</td>
+                                    <td><span class="badge light badge-{% if inv.status == 'overdue' %}danger{% elif inv.status == 'partial' %}info{% else %}warning{% endif %}">{{ inv.get_status_display }}</span></td>
+                                    <td><a href="{% url 'finance:invoice-detail' inv.pk %}" class="btn btn-primary btn-xs">Pay / View</a></td>
+                                    </tr>
+                                {% empty %}
+                                    <tr><td colspan="8" class="text-center text-muted">Nothing due. 🎉</td></tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

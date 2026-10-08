@@ -1,0 +1,33 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}Printable receipt for a paid invoice.{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Receipt</h3>
+    <div class="d-flex gap-2">
+      <a href="{% url 'finance:invoice-detail' invoice.pk %}" class="btn btn-outline-secondary btn-sm">← Invoice</a>
+      <button onclick="window.print()" class="btn btn-primary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
+    </div>
+  </div>
+
+  <div class="card"><div class="card-body" id="receipt">
+    <div class="text-center mb-4">
+      <div class="display-6 text-success"><i class="bi bi-check-circle-fill"></i></div>
+      <h4 class="mb-0">Payment received</h4>
+      <p class="text-muted">{{ brand.invoice_name|default:brand.name|default:"United Church Schools" }}</p>
+    </div>
+    <div class="row mb-3">
+      <div class="col-6"><p class="small text-muted mb-1">Receipt for</p><strong>{{ invoice.customer|person_name }}</strong><br><span class="small text-muted">{{ invoice.customer.email }}</span></div>
+      <div class="col-6 text-end"><div class="small"><span class="text-muted">Invoice:</span> {{ invoice.number }}</div><div class="small"><span class="text-muted">Issued:</span> {{ invoice.issue_date }}</div></div>
+    </div>
+    <table class="table">
+      <thead class="table-light"><tr><th>Description</th><th class="text-center">Qty</th><th class="text-end">Amount</th></tr></thead>
+      <tbody>{% for item in invoice.items.all %}<tr><td>{{ item.description }}</td><td class="text-center">{{ item.quantity }}</td><td class="text-end">R{{ item.amount }}</td></tr>{% endfor %}</tbody>
+      <tfoot><tr class="fw-bold"><td colspan="2" class="text-end">Total paid</td><td class="text-end text-success">R{{ invoice.amount_paid }}</td></tr></tfoot>
+    </table>
+    <p class="small text-muted text-center mt-3">Thank you for your payment.</p>
+    <p class="small text-muted text-center mb-0">{{ brand.legal_name|default:brand.invoice_name }}{% if strings.school.registration %}<br>{{ strings.school.registration }}{% endif %}{% if strings.school.memberships %}<br>{{ strings.school.memberships }}{% endif %}</p>
+  </div></div>
+</div></div>
+{% endblock %}

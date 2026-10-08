@@ -1,0 +1,140 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/exam-guard.css' %}">{% endblock %}
+{% block content %}
+<div class="card mb-3"><div class="card-body">
+  <h1 class="h5 mb-1"><i class="bi bi-person-check text-primary me-2"></i>Mark: {{ attempt.assessment.title }}</h1>
+  <p class="mb-0 small text-muted">{{ attempt.student|person_name }} · attempt #{{ attempt.attempt_no }} · current score {{ attempt.score }}/{{ attempt.assessment.total_marks }}</p>
+</div></div>
+
+{% include 'assessments/_integrity_report.html' %}
+
+<form method="post" action="{% url 'assessments:mark-attempt' attempt.public_id %}">
+  {% csrf_token %}
+  {% for row in rows %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="d-flex justify-content-between">
+        <p class="fw-semibold mb-2">{{ forloop.counter }}. {{ row.question.text }}</p>
+        <span class="badge bg-light text-dark ms-2">out of {{ row.question.marks }}</span>
+      </div>
+
+      {% if row.question.guidance %}
+      <div class="alert alert-info py-2 small"><i class="bi bi-card-text me-1"></i><strong>Rubric / model answer:</strong> {{ row.question.guidance|linebreaksbr }}</div>
+      {% endif %}
+
+      <div class="border rounded p-2 mb-3 bg-light">
+        <div class="small text-muted mb-1">Student's answer</div>
+        {% if row.answer.file %}<a href="{{ row.answer.file.url }}" target="_blank"><i class="bi bi-paperclip me-1"></i>Uploaded file</a>
+        {% else %}<div style="white-space:pre-wrap">{{ row.answer.display_response|default:'—' }}</div>{% endif %}
+      </div>
+
+      {% comment %}Rubric assistance. Nothing is requested until the teacher asks,
+      and what comes back is a suggestion beside the answer — the mark box below
+      is still typed by a person. See apps.assessments.rubric_marking.
+      {% endcomment %}
+      {% if row.can_suggest %}
+      <div class="mb-3" data-suggest-block="{{ row.answer.id }}">
+        <button type="button" class="btn btn-sm btn-secondary-soft"
+                data-suggest="{% url 'assessments:suggest-marks' row.answer.id %}"
+                data-answer="{{ row.answer.id }}" data-marks="{{ row.question.marks }}">
+          <i class="bi bi-stars me-1"></i>Check against the rubric
+        </button>
+        <span class="small text-muted ms-2">Advisory — you still set the mark.</span>
+        <div class="mt-2 d-none" data-suggest-out="{{ row.answer.id }}"></div>
+      </div>
+      {% endif %}
+
+      <div class="row g-2 align-items-end">
+        <div class="col-auto">
+          <label class="form-label small">Marks</label>
+          <input type="number" step="0.5" min="0" max="{{ row.question.marks }}" name="marks_{{ row.answer.id }}"
+                 value="{{ row.answer.awarded_marks }}" class="form-control" style="width:120px"
+                 data-marks-for="{{ row.answer.id }}">
+        </div>
+        <div class="col">
+          <label class="form-label small">Feedback <span class="text-muted">(optional)</span></label>
+          <input type="text" name="feedback_{{ row.answer.id }}" value="{{ row.answer.feedback }}" class="form-control" placeholder="Comment for the student">
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="card"><div class="card-body text-center text-muted py-5">Nothing to mark on this attempt.</div></div>
+  {% endfor %}
+
+  {% if rows %}
+  <div class="d-flex justify-content-between mb-4">
+    <a href="{% url 'assessments:marking-queue' %}" class="btn btn-outline-secondary">Back to queue</a>
+    <button class="btn btn-primary btn-lg"><i class="bi bi-check2-circle me-1"></i>Save marks</button>
+  </div>
+  {% endif %}
+</form>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+/* Rubric assistance: ask for one answer, render the per-row verdicts, and offer
+   to fill the mark box. The teacher clicks "use" — nothing is ever set for them. */
+(function () {
+  function csrf() {
+    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  }
+  var TONE = { made: 'success', partial: 'warning', missed: 'secondary' };
+
+  document.querySelectorAll('[data-suggest]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var id = btn.getAttribute('data-answer');
+      var out = document.querySelector('[data-suggest-out="' + id + '"]');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Reading the answer…';
+
+      fetch(btn.getAttribute('data-suggest'), {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest' }
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-stars me-1"></i>Check against the rubric';
+        out.classList.remove('d-none');
+        if (!data.ok) {
+          out.innerHTML = '<div class="alert alert-warning py-2 small mb-0">' + data.error + '</div>';
+          return;
+        }
+        var html = '<div class="border rounded p-2 small">';
+        html += '<div class="d-flex justify-content-between align-items-center mb-2">'
+              + '<strong>Suggested ' + data.suggested + ' / ' + data.total + '</strong>'
+              + '<button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" data-use="'
+              + id + '" data-value="' + data.suggested + '">Use this mark</button></div>';
+        data.rows.forEach(function (row) {
+          html += '<div class="d-flex gap-2 mb-1">'
+                + '<span class="badge bg-' + (TONE[row.verdict] || 'secondary') + '-soft text-'
+                + (TONE[row.verdict] || 'secondary') + '" style="min-width:64px">' + row.verdict + '</span>'
+                + '<span class="text-muted" style="min-width:52px">' + row.awarded + '/' + row.marks + '</span>'
+                + '<span>' + row.label
+                + (row.quote ? '<div class="fst-italic text-muted">“' + row.quote + '”</div>' : '')
+                + (row.comment ? '<div class="text-muted">' + row.comment + '</div>' : '')
+                + '</span></div>';
+        });
+        if (data.overall) { html += '<div class="mt-2 text-muted">' + data.overall + '</div>'; }
+        html += '</div>';
+        out.innerHTML = html;
+
+        var use = out.querySelector('[data-use]');
+        if (use) {
+          use.addEventListener('click', function () {
+            var box = document.querySelector('[data-marks-for="' + id + '"]');
+            if (box) { box.value = use.getAttribute('data-value'); box.focus(); }
+          });
+        }
+      }).catch(function () {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-stars me-1"></i>Check against the rubric';
+        out.classList.remove('d-none');
+        out.innerHTML = '<div class="alert alert-warning py-2 small mb-0">Could not reach the assistant.</div>';
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

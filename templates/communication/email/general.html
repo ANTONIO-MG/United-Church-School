@@ -1,0 +1,8 @@
+{% extends 'communication/email/base_email.html' %}{% load org_branding %}
+{% comment %}General communication e-mail. Context: heading, body, action_url, action_label, recipient.{% endcomment %}
+{% block heading %}{{ heading|default:subject }}{% endblock %}
+{% block content %}
+  {% if recipient %}<p style="margin:0 0 14px">Hi {{ recipient|greeting_name }},</p>{% endif %}
+  <div style="margin:0 0 14px">{{ body|linebreaksbr }}</div>
+{% endblock %}
+{% block cta %}{% include 'communication/email/_button.html' with url=action_url label=action_label|default:"OPEN" %}{% endblock %}

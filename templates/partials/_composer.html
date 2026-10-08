@@ -1,0 +1,134 @@
+{% load static %}
+{% comment %}"Share your thoughts" composer — posts to the unified feed (text + one or
+more photos/videos/files). Every picked file, from either button, is collected
+into the single hidden `media` input (via DataTransfer) so the post can carry
+several attachments. Default visibility is everyone the poster shares a space with.{% endcomment %}
+<form method="post" action="{% url 'communication:feed-create' %}" enctype="multipart/form-data" class="card card-body app-composer">
+  {% csrf_token %}
+  <div class="d-flex mb-2">
+    <div class="avatar avatar-xs me-2">
+      <img class="avatar-img rounded-circle" src="{% if account_stats.profile.avatar_url %}{{ account_stats.profile.avatar_url }}{% else %}{% static 'images/avatar/default-neutral.svg' %}{% endif %}" alt="">
+    </div>
+    <textarea name="body" class="form-control pe-4 border-0 bg-light composer-body" rows="2"
+              data-autoresize placeholder="Share your thoughts…"></textarea>
+  </div>
+
+  {# Selected attachments — thumbnails / file chips, each removable before posting. #}
+  <div class="composer-tiles d-none flex-wrap gap-2 mb-2"></div>
+
+  {# The field actually submitted: every picked file is copied here. #}
+  <input type="file" name="media" multiple class="composer-final d-none">
+
+  <ul class="nav nav-pills nav-stack small fw-normal align-items-center">
+    <li class="nav-item">
+      <label class="nav-link bg-light py-1 px-2 mb-0" style="cursor:pointer"><i class="bi bi-image-fill text-success pe-2"></i>Photo / Video
+        <input type="file" accept="image/*,video/*" multiple hidden class="composer-pick"></label>
+    </li>
+    <li class="nav-item">
+      <label class="nav-link bg-light py-1 px-2 mb-0" style="cursor:pointer"><i class="bi bi-file-earmark-text-fill text-danger pe-2"></i>Document
+        <input type="file" multiple hidden class="composer-pick"
+               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.zip,application/pdf"></label>
+    </li>
+    <li class="nav-item ms-lg-auto d-flex align-items-center gap-2 mt-2 mt-lg-0">
+      {% if feed_modules %}
+      {# File the post under a module so the feed's module filter can find it. #}
+      <select name="module" class="form-select form-select-sm w-auto" title="Which subject is this about?">
+        <option value="">📌 General</option>
+        {% for s in feed_modules %}<option value="{{ s.pk }}" {% if active_module_id == s.pk %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select>
+      {% endif %}
+      {# Who sees this: posts are shared with everyone the poster shares a space with. #}
+      <span class="text-muted small d-none d-md-inline" title="Everyone in your courses &amp; subjects can see this post">
+        <i class="bi bi-globe me-1"></i>Who can see this</span>
+      <button class="btn btn-primary btn-sm" data-loading><i class="bi bi-send me-1"></i>Post</button>
+    </li>
+  </ul>
+</form>
+<style>
+  /* Starts at two lines and grows/shrinks with the text (JS autoresize below),
+     capped so a long post never pushes the Post button off-screen. min-height
+     keeps a two-line floor even after the text is deleted. */
+  .app-composer .composer-body{ font-size:.875rem; line-height:1.45;
+                                min-height:3.25rem; max-height:22rem;
+                                overflow-y:auto; resize:none; }
+  .app-composer .composer-tiles{ display:flex; }
+  .composer-chip{ position:relative; width:74px; }
+  .composer-chip img, .composer-chip .ci{ width:74px; height:74px; border-radius:.5rem;
+    object-fit:cover; display:flex; align-items:center; justify-content:center; background:#eef0f6; }
+  .composer-chip .ci .bi{ font-size:1.8rem; color:#d6293e; }
+  .composer-chip .composer-name{ display:block; font-size:.65rem; color:#8392ab;
+    text-align:center; margin-top:.15rem; overflow:hidden; white-space:nowrap; }
+  .composer-x{ position:absolute; top:-6px; right:-6px; width:20px; height:20px; border:0;
+    border-radius:50%; background:#d6293e; color:#fff; line-height:1; font-size:.9rem; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; }
+</style>
+<script>
+(function(){
+  var ICONS = {pdf:'file-earmark-pdf-fill', doc:'file-earmark-word-fill', docx:'file-earmark-word-fill',
+               xls:'file-earmark-excel-fill', xlsx:'file-earmark-excel-fill', csv:'file-earmark-spreadsheet-fill',
+               ppt:'file-earmark-slides-fill', pptx:'file-earmark-slides-fill', zip:'file-earmark-zip-fill'};
+  function esc(s){ return (s||'').replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function shortName(n){ return n.length > 14 ? n.slice(0,12) + '…' : n; }
+
+  document.querySelectorAll('.app-composer').forEach(function(f){
+    var picks = f.querySelectorAll('.composer-pick'),
+        finalInput = f.querySelector('.composer-final'),
+        tiles = f.querySelector('.composer-tiles'),
+        body  = f.querySelector('.composer-body');
+    var picked = [];  // File[]
+
+    // Grow the textarea with its text until the cap, then scroll.
+    if(body) body.addEventListener('input', function(){
+      body.style.height = 'auto';
+      body.style.height = Math.min(body.scrollHeight, 352) + 'px';
+    });
+
+    // Copy the accumulated files into the field that actually posts.
+    function syncFinal(){
+      var dt = new DataTransfer();
+      picked.forEach(function(file){ dt.items.add(file); });
+      finalInput.files = dt.files;
+    }
+    function render(){
+      tiles.innerHTML = '';
+      if(!picked.length){ tiles.classList.add('d-none'); return; }
+      tiles.classList.remove('d-none');
+      picked.forEach(function(file, i){
+        var inner;
+        if(file.type.indexOf('image/') === 0){
+          inner = '<img src="' + URL.createObjectURL(file) + '" alt="">';
+        } else if(file.type.indexOf('video/') === 0){
+          inner = '<span class="ci"><i class="bi bi-camera-video-fill"></i></span>';
+        } else {
+          var ext = (file.name.split('.').pop() || '').toLowerCase();
+          inner = '<span class="ci"><i class="bi bi-' + (ICONS[ext] || 'file-earmark-fill') + '"></i></span>';
+        }
+        var cell = document.createElement('div');
+        cell.className = 'composer-chip';
+        cell.innerHTML = inner +
+          '<button type="button" class="composer-x" data-i="' + i + '" title="Remove">&times;</button>' +
+          '<span class="composer-name">' + esc(shortName(file.name)) + '</span>';
+        tiles.appendChild(cell);
+      });
+    }
+
+    picks.forEach(function(input){
+      input.addEventListener('change', function(){
+        Array.prototype.forEach.call(input.files, function(file){ picked.push(file); });
+        input.value = '';  // so the same file can be chosen again later
+        syncFinal();
+        render();
+      });
+    });
+    tiles.addEventListener('click', function(e){
+      var btn = e.target.closest('.composer-x');
+      if(!btn){ return; }
+      e.preventDefault();
+      picked.splice(parseInt(btn.dataset.i, 10), 1);
+      syncFinal();
+      render();
+    });
+  });
+})();
+</script>

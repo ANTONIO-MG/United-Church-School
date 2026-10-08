@@ -1,0 +1,174 @@
+{% load static %}
+<!DOCTYPE html>
+{% comment %}`data-bs-theme` is stamped server-side from the user's saved
+preference (core.context_processors.ui_chrome) so a dark-mode user's first paint
+is already dark. On "auto" the attribute is omitted and prefers-color-scheme
+decides.{% endcomment %}
+<html lang="{{ ui_language|default:'en' }}"{% if ui_theme_attr %} data-bs-theme="{{ ui_theme_attr }}"{% endif %}>
+<head>
+    {% comment %}
+    Shared layout for every MyHub / app page. Re-themed to the "Social" template:
+    Social CSS governs appearance, while `global.min.js` supplies jQuery 3.7 +
+    Bootstrap 5 — which also powers the Social navbar/offcanvas, so the Social
+    `vendors.js` bundle is deliberately NOT loaded here (it would double-load
+    Bootstrap).
+
+    Per-page plugin assets (datatables, fullcalendar, charts) used to be resolved
+    from the `dz_array` registry by request path. That registry went with dz.py;
+    the handful of pages that need a plugin now name it in their own
+    `additional_css` / `additional_js` block, which is one less indirection
+    between a page and what it loads.
+
+    Title / meta come from the string catalog (.strings.json → strings/brand).
+    {% endcomment %}
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="keywords" content="{{ strings.meta.keywords }}" />
+    <meta name="description" content="{{ brand.description|default:strings.meta.description }}" />
+    <meta property="og:title" content="{{ strings.meta.og_title }}" />
+    <meta property="og:description" content="{{ strings.meta.og_description }}" />
+    <meta property="og:image" content="{{ strings.meta.og_image }}" />
+    <meta name="format-detection" content="telephone=no">
+
+    <title>{% if page_title %}{{ page_title }} &middot; {% endif %}{{ brand.name|default:strings.meta.page_title }}</title>
+
+    {% include 'partials/_favicons.html' %}
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+
+    <link href="{% static 'vendor/@fortawesome/fontawesome-free/css/all.min.css' %}" rel="stylesheet" type="text/css">
+    <link href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}" rel="stylesheet" type="text/css">
+
+    <link href="{% static 'myhub/vendor/bootstrap-select/dist/css/bootstrap-select.min.css' %}" rel="stylesheet">
+
+    <link href="{% static 'css/vendor.min.css' %}" rel="stylesheet" />
+    <link href="{% static 'css/style.css' %}" rel="stylesheet" />
+
+    {% include 'partials/head-css.html' %}
+
+    <style id="appChrome">
+      /* Compact dashboard chrome: near-zero side margins, a fixed-width left
+         sidebar and a wider centre column that fills the rest of the screen. */
+      main > .container-fluid { padding-left: .5rem; padding-right: .5rem; }
+
+      @media (min-width: 992px) {
+        /* Keep the sidebar at its usual width; let the centre grow to fill. */
+        #appSidebarCol, .app-sidebar-col { flex: 0 0 290px; max-width: 290px; }
+        #appContentCol, .app-content-col { flex: 1 1 0; max-width: calc(100% - 290px); }
+        /* Collapse + hover-reveal + scroll-memory now live in css/chrome.css. */
+      }
+
+      /* Colourful sidebar icons (like the Social video page). */
+      #offcanvasSideNavbar .nav-link > .bi { font-size: 1.05rem; }
+      .min-w-0 { min-width: 0; }
+
+      /* HTMX boosted-navigation progress bar. */
+      #htmxBar { position: fixed; top: 0; left: 0; height: 3px; width: 0; z-index: 20001;
+        background: linear-gradient(90deg,#2152ff,#21d4fd); opacity: 0; pointer-events: none;
+        transition: width .3s ease, opacity .3s ease; }
+      #htmxBar.run { width: 80%; opacity: 1; transition: width 8s cubic-bezier(.1,.7,.1,1), opacity .2s; }
+      #htmxBar.done { width: 100%; opacity: 1; transition: width .2s ease; }
+
+      /* Collapsible sidebar submenus (Classes/Programs/Courses → All, Add, …). */
+      .sidenav-caret { transition: transform .15s ease; }
+      .sidenav-group > a[aria-expanded="true"] .sidenav-caret { transform: rotate(180deg); }
+      .sidenav-sub { margin-left: 1.85rem; gap: .1rem; border-left: 1px solid rgba(0,0,0,.08); padding-left: .6rem; }
+      .sidenav-sub .nav-link { padding: .2rem .25rem; font-weight: 500; font-size: .9rem; }
+    </style>
+
+    <link href="{% static 'css/chrome.css' %}" rel="stylesheet" />
+    <link href="{% static 'css/sidenav.css' %}" rel="stylesheet" />
+    <link href="{% static 'soft-ui/soft-ui-shell.css' %}?v=2" rel="stylesheet" />
+    <link href="{% static 'css/people.css' %}?v=1" rel="stylesheet" />
+
+    {% comment %}Phase 5: a page's {% block additional_css %} is rendered at the top
+    of #appContentCol (not here in <head>), so htmx's hx-select="#appContentCol"
+    carries it on a boosted swap — otherwise a boosted-in page would lose its own
+    styles. CSS in <body> is valid and cascades after the <head> base CSS above,
+    exactly as it did when it sat here. See the content region below.{% endcomment %}
+
+    <script src="{% static 'vendor/htmx/htmx.min.js' %}"></script>
+    <script src="{% static 'js/htmx-app.js' %}?v=4"></script>
+</head>
+
+{% comment %}`app-shell` marks the layout that renders a footer — css/chrome.css
+uses it to pin that footer to the bottom of the viewport on a short page.{% endcomment %}
+{% comment %}HTMX foundation (Phase 1): boosted navigation. Links in the navbar and
+sidebar fetch the next page and swap ONLY #appContentCol, so the navbar, sidebar and
+— crucially — the WebSocket connections in the shell survive navigation (one socket
+per session, no reconnect churn). Content-internal links/forms are NOT boosted
+(#appContentCol carries hx-boost="false"), so exams, uploads and lesson pages keep
+their normal full-page behaviour untouched. See docs/HTMX.md.{% endcomment %}
+<body class="su-shell app-shell"
+      hx-boost="true" hx-target="#appContentCol" hx-select="#appContentCol"
+      hx-swap="innerHTML show:window:top">
+
+    {# Pre-paint: restore the collapsed sidebar state before first render. #}
+    <script>try{if(localStorage.getItem('thrivehub.sidebar.collapsed')==='1')document.body.classList.add('sidebar-start-enabled');}catch(e){}</script>
+
+    {% include 'partials/_loader.html' %}
+    {% include 'partials/_alerts.html' %}
+
+    {% include 'partials/navbar.html' %}
+
+    <main>
+        <div class="container-fluid">
+            <div class="row g-3">
+
+                <div class="col-lg-3 app-sidebar-col" id="appSidebarCol">
+                    <div class="d-flex align-items-center d-lg-none mb-3">
+                        <button class="border-0 bg-transparent" type="button" data-bs-toggle="offcanvas"
+                            data-bs-target="#offcanvasSideNavbar" aria-controls="offcanvasSideNavbar">
+                            <span class="btn btn-primary"><i class="fa-solid fa-bars"></i></span>
+                            <span class="h6 mb-0 fw-bold d-lg-none ms-2">Menu</span>
+                        </button>
+                    </div>
+                    {% include 'partials/sidenav.html' %}
+                </div>
+
+                <div class="col-12 col-lg-9 vstack gap-4 app-content-col" id="appContentCol" hx-boost="false">
+
+                    {% comment %}Page-specific CSS lives HERE (not <head>) so a boosted
+                    swap of #appContentCol carries it — see the note in <head>.{% endcomment %}
+                    {% block additional_css %}{% endblock %}
+
+                    {# Site-wide announcement banner — toggle from .strings.json → dynamic.announcement #}
+                    {% if dynamic.announcement.enabled and dynamic.announcement.text %}
+                    <div class="alert alert-{{ dynamic.announcement.level|default:'info' }} mb-0" role="alert">
+                        {{ dynamic.announcement.text }}
+                    </div>
+                    {% endif %}
+
+                    {% comment %}Django messages now render in the single global alert
+                    stack (partials/_alerts.html, anchored below the navbar).{% endcomment %}
+                    {% block message %}{% endblock %}
+
+                    {% block content %}{% endblock %}
+
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    {% include 'myhub/elements/footer.html' %}
+
+    <script src="{% static 'myhub/vendor/global/global.min.js' %}"></script>
+    <script src="{% static 'myhub/vendor/bootstrap-select/dist/js/bootstrap-select.min.js' %}"></script>
+
+    <script src="{% static 'js/functions.js' %}?v=2"></script>
+    <script src="{% static 'js/chrome.js' %}?v=3"></script>
+    <script src="{% static 'js/theme.js' %}"></script>
+    <script src="{% static 'js/person-card.js' %}?v=1"></script>   {# names open a person card #}
+
+    {% block additional_js %}{% endblock %}
+
+    {% include 'partials/_media.html' %}   {# global lightbox + media grid + dropzone #}
+
+    {# Floating AI assistant — toggle from .strings.json → dynamic.widgets.ai_assistant_widget #}
+    {# The floating CrewAI "ask about this page" widget was retired. #}
+</body>
+</html>

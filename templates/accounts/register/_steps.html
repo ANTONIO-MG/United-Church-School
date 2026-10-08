@@ -1,0 +1,54 @@
+{% comment %}Wizard progress indicator + shared styling. `step` (1-5) is passed by
+the including template — the UCS application: learner, grade & subjects,
+family, medical & documents, agreements & fees.{% endcomment %}
+<style>
+  .wizard-steps{ display:flex; align-items:center; justify-content:center; gap:.25rem; margin-bottom:1.75rem; }
+  .wizard-steps .wz{ display:flex; flex-direction:column; align-items:center; gap:.35rem; color:#8392ab; }
+  .wizard-steps .wz-dot{ width:2.1rem; height:2.1rem; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-weight:700; background:#eef1f6; color:#8392ab; border:2px solid #eef1f6; transition:.2s; }
+  .wizard-steps .wz-txt{ font-size:.72rem; font-weight:600; white-space:nowrap; }
+  @media (max-width: 575.98px){ .wizard-steps .wz-txt{ display:none; } .wizard-steps .wz.active:not(.done) .wz-txt{ display:block; } }
+  .wizard-steps .wz.active .wz-dot{ background:#17c1e8; color:#fff; border-color:#17c1e8; box-shadow:0 0 0 4px rgba(23,193,232,.15); }
+  .wizard-steps .wz.active .wz-txt{ color:#344767; }
+  .wizard-steps .wz.done .wz-dot{ background:#2dce89; color:#fff; border-color:#2dce89; }
+  .wizard-steps .wz-line{ flex:1; max-width:3.5rem; height:2px; background:#eef1f6; margin:0 .25rem; margin-bottom:1.35rem; }
+  .wizard-steps .wz-line.done{ background:#2dce89; }
+
+  /* Green-check on valid required fields (see the shared JS in each step). */
+  #regForm .wz-ok, .wz-ok{ border-color:#2dce89 !important; box-shadow:0 0 0 2px rgba(45,206,137,.12) !important; }
+
+  /* Address autocomplete dropdown */
+  .addr-box{ position:relative; }
+  .addr-results{ position:absolute; z-index:20; left:0; right:0; top:100%; background:#fff; border:1px solid #e3e6ee;
+    border-radius:.5rem; box-shadow:0 .5rem 1.5rem rgba(0,0,0,.12); max-height:16rem; overflow:auto; }
+  .addr-results button{ display:block; width:100%; text-align:left; border:0; background:transparent; padding:.5rem .75rem;
+    font-size:.85rem; color:#344767; }
+  .addr-results button:hover, .addr-results button.active{ background:#f0f7ff; }
+</style>
+
+<div class="wizard-steps">
+  <div class="wz {% if step >= 1 %}active{% endif %} {% if step > 1 %}done{% endif %}">
+    <span class="wz-dot">1</span>
+    <span class="wz-txt">Learner</span>
+  </div>
+  <span class="wz-line {% if step > 1 %}done{% endif %}"></span>
+  <div class="wz {% if step >= 2 %}active{% endif %} {% if step > 2 %}done{% endif %}">
+    <span class="wz-dot">2</span>
+    <span class="wz-txt">Grade &amp; subjects</span>
+  </div>
+  <span class="wz-line {% if step > 2 %}done{% endif %}"></span>
+  <div class="wz {% if step >= 3 %}active{% endif %} {% if step > 3 %}done{% endif %}">
+    <span class="wz-dot">3</span>
+    <span class="wz-txt">Family</span>
+  </div>
+  <span class="wz-line {% if step > 3 %}done{% endif %}"></span>
+  <div class="wz {% if step >= 4 %}active{% endif %} {% if step > 4 %}done{% endif %}">
+    <span class="wz-dot">4</span>
+    <span class="wz-txt">Medical &amp; documents</span>
+  </div>
+  <span class="wz-line {% if step > 4 %}done{% endif %}"></span>
+  <div class="wz {% if step >= 5 %}active{% endif %} {% if step > 5 %}done{% endif %}">
+    <span class="wz-dot">5</span>
+    <span class="wz-txt">Agreements &amp; fees</span>
+  </div>
+</div>

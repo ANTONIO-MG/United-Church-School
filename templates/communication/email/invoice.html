@@ -1,0 +1,14 @@
+{% extends 'communication/email/base_email.html' %}{% load org_branding %}
+{% comment %}Invoice pay-link request. Context: invoice, pay_url.{% endcomment %}
+{% block heading %}Invoice {{ invoice.number }}{% endblock %}
+{% block content %}
+  <p style="margin:0 0 14px">Hi {{ invoice.customer|greeting_name }},</p>
+  <p style="margin:0 0 14px">You have an invoice awaiting payment.</p>
+  <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
+    <tr><td style="padding:6px 0;color:#97a2da">Issued</td><td style="text-align:right">{{ invoice.issue_date }}</td></tr>
+    {% if invoice.due_date %}<tr><td style="padding:6px 0;color:#97a2da">Due</td><td style="text-align:right">{{ invoice.due_date }}</td></tr>{% endif %}
+    <tr><td style="padding:6px 0;color:#97a2da">Amount due</td><td style="text-align:right"><strong style="font-size:18px;color:#506bec">R{{ invoice.balance }}</strong></td></tr>
+  </table>
+  {% if brand.banking.account_number %}<p style="margin:14px 0 0;font-size:14px">Paying by EFT? {{ brand.banking.account_name }}, {{ brand.banking.bank }}, account {{ brand.banking.account_number }}, branch code {{ brand.banking.branch_code }}.{% if brand.banking.reference_hint %} {{ brand.banking.reference_hint }}{% endif %}</p>{% endif %}
+{% endblock %}
+{% block cta %}{% include 'communication/email/_button.html' with url=pay_url label="PAY NOW" %}{% endblock %}

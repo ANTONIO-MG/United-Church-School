@@ -1,0 +1,32 @@
+{% comment %}Completion forecast — analytic #5. Projects a finish date per module from
+the work left and the minutes the student actually studies per week, and flags
+anything landing after its course end date.{% endcomment %}
+
+{% if forecast %}
+<div class="dash-card">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--secondary"><i class="bi bi-calendar-range"></i></span>
+    <h6>Finish-line forecast</h6>
+  </div>
+
+  <div class="dash-card__body dash-card__body--flush pt-1">
+    {% for item in forecast %}
+    <div class="dash-module">
+      <span class="dash-module__ico dash-glyph--{{ item.tone }}">
+        <i class="bi bi-{% if item.late %}exclamation-triangle{% else %}flag{% endif %}"></i>
+      </span>
+      <div class="dash-module__main">
+        <span class="dash-module__title">{{ item.module.name }}</span>
+        <span class="dash-module__meta">
+          {{ item.remaining }} segment{{ item.remaining|pluralize }} left · ~{{ item.weeks }} week{{ item.weeks|pluralize }} at your pace
+          {% if item.deadline %} · course ends {{ item.deadline|date:"d M Y" }}{% endif %}
+        </span>
+      </div>
+      <div class="dash-module__side">
+        <span class="dash-chip dash-chip--{{ item.tone }}">{{ item.finish|date:"d M" }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}

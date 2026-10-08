@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block extra_css %}{% endblock extra_css %}
+
+{% block content %}
+
+{% include 'partials/navbar.html' %}
+
+{% comment %}POPIA-aligned privacy policy. Organisation-specific details pull from
+.strings.json (brand.*). Have this reviewed by your legal counsel / Information
+Officer before relying on it — it is a strong starting point, not legal advice.{% endcomment %}
+<main>
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-9 mx-auto">
+        <div class="card">
+          <div class="card-header">
+            <h1 class="card-title h4 mb-0">Privacy Policy</h1>
+            <p class="mb-0 small text-muted">Effective {{ brand.year|default:"2026" }} · {{ brand.name }}</p>
+          </div>
+          <div class="card-body">
+
+            <p>{{ brand.legal_name|default:brand.name }} ("we", "us", "our") respects your privacy and is committed to
+              protecting your personal information in accordance with the <strong>Protection of Personal Information Act,
+              2013 (POPIA)</strong>. This policy explains what we collect, why, how we use and protect it, and the rights
+              you have over it.</p>
+
+            <hr class="mt-2 mb-4">
+
+            <h5>1. Who we are &amp; our Information Officer</h5>
+            <p>{{ brand.legal_name|default:brand.name }} is the responsible party for the personal information processed
+              through this platform. For any privacy question or to exercise your rights, contact our Information
+              Officer at
+              {% if brand.support_email %}<a href="mailto:{{ brand.support_email }}">{{ brand.support_email }}</a>{% else %}the address on our website{% endif %}{% if brand.company_url %},
+              or via <a href="{{ brand.company_url }}" target="_blank" rel="noopener">{{ brand.company_url }}</a>{% endif %}.</p>
+
+            <h5>2. Information we collect</h5>
+            <p>We collect information you give us during registration and while using the platform, including:</p>
+            <ul>
+              <li><strong>Identity &amp; contact:</strong> name, title, ID/passport number (optional), nationality,
+                address, e-mail, phone/WhatsApp, emergency contact.</li>
+              <li><strong>Education &amp; study:</strong> your school, qualification, subjects, study preferences,
+                learning goals and academic calendar.</li>
+              <li><strong>Funding:</strong> who pays for your studies (self, sponsor, bursary, employer).</li>
+              <li><strong>Technology &amp; accessibility:</strong> device, connection quality and any accessibility
+                needs, so we can tailor your experience.</li>
+              <li><strong>Account &amp; usage:</strong> login records, activity, messages, submissions and progress.</li>
+              <li><strong>Payments:</strong> invoices and payment status. Card details are handled by our payment
+                gateway (PayFast) and are <em>never</em> stored by us.</li>
+            </ul>
+            <p>Some fields are optional; where a field is required to operate your account we tell you so.</p>
+
+            <h5>3. Why we process it (purpose &amp; lawful basis)</h5>
+            <p>We process your information to: create and manage your account; enrol you in courses, subjects and
+              groups; deliver learning materials, assessments and communications; process payments and issue invoices;
+              provide support; keep the platform secure; and meet legal obligations. Our lawful bases under POPIA are
+              your <strong>consent</strong>, the <strong>performance of our contract</strong> with you, and our
+              <strong>legitimate interests</strong> in running the service safely.</p>
+
+            <h5>4. Your consent choices</h5>
+            <p>Some processing is optional and only happens with your consent — marketing e-mails, analytics, research
+              use of anonymised data, AI personalisation, non-essential cookies and sharing with partner schools.
+              You can change these at any time under <em>Settings → Privacy &amp; consent</em>, and withdraw consent
+              without affecting the lawfulness of processing before withdrawal.</p>
+
+            <h5>5. Cookies</h5>
+            <p>We use essential cookies to run the platform (e.g. keeping you signed in) and, with your consent,
+              analytics cookies to improve it. You can accept or decline non-essential cookies via the banner shown on
+              your first visit, or change your choice under <em>Settings → Privacy &amp; consent</em>.</p>
+
+            <h5>6. Who we share it with</h5>
+            <p>We do not sell your personal information. We share it only with operators who help us run the service
+              (e.g. e-mail delivery, our payment gateway and, where you use them, live-class providers), each bound to
+              protect it; with your consent, with partner schools; and where required by law.</p>
+
+            <h5>7. Security</h5>
+            <p>We apply appropriate technical and organisational safeguards — encrypted transport, access controls,
+              authentication and audit logging — to protect your information against loss, unauthorised access or
+              disclosure. No system is perfectly secure, but we work to reduce risk and will notify you and the
+              Regulator of a breach as POPIA requires.</p>
+
+            <h5>8. How long we keep it</h5>
+            <p>We keep your information for as long as your account is active and as needed for the purposes above or to
+              meet legal/record-keeping obligations. When you close your account it is deactivated and permanently
+              deleted after a 30-day grace period, except where we must retain certain records by law.</p>
+
+            <h5>9. Your rights</h5>
+            <p>Under POPIA you have the right to: access the information we hold about you; correct or update it; delete
+              it or object to its processing; and withdraw consent. You can:</p>
+            <ul>
+              <li><strong>Download your data</strong> and <strong>manage consent</strong> under <em>Settings → Privacy
+                &amp; consent</em>.</li>
+              <li><strong>Update your details</strong> under <em>Settings → Account &amp; profile</em>.</li>
+              <li><strong>Close your account</strong> under <em>Settings → Close account</em>.</li>
+            </ul>
+            <p>You may also contact our Information Officer to exercise any right.</p>
+
+            <h5>10. Cross-border processing</h5>
+            <p>Some of our operators may process information outside South Africa. Where they do, we take steps to ensure
+              it receives a level of protection consistent with POPIA.</p>
+
+            <h5>11. Children &amp; special information</h5>
+            <p>Where a learner is a minor, registration and consent must be provided by a parent or guardian. We do not
+              knowingly collect special personal information beyond what you choose to provide (e.g. accessibility
+              needs) for the purposes described here.</p>
+
+            <h5>12. Complaints</h5>
+            <p>If you believe we have not handled your information properly, please contact our Information Officer
+              first. You also have the right to lodge a complaint with the Information Regulator (South Africa):
+              <a href="https://inforegulator.org.za" target="_blank" rel="noopener">inforegulator.org.za</a>,
+              e-mail <a href="mailto:POPIAComplaints@inforegulator.org.za">POPIAComplaints@inforegulator.org.za</a>.</p>
+
+            <h5>13. Changes to this policy</h5>
+            <p class="mb-0">We may update this policy from time to time. Material changes will be notified to you and the
+              effective date above will be revised. Continued use of the platform after a change means you accept the
+              updated policy.</p>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="bg-mode py-3">
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-6">
+        <ul class="nav lh-1">
+          <li class="nav-item"><a class="nav-link ps-0" href="{% url 'pages:landing' %}">Home</a></li>
+          {% if brand.support_email %}<li class="nav-item"><a class="nav-link" href="mailto:{{ brand.support_email }}">Support</a></li>{% endif %}
+          <li class="nav-item"><a class="nav-link" href="#">Privacy &amp; terms</a></li>
+        </ul>
+      </div>
+      <div class="col-lg-6">
+        <p class="text-end mb-0">©{{ brand.year }} <a class="text-body" target="_blank" rel="noopener" href="{{ brand.company_url }}">{{ brand.name }}</a> All rights reserved.</p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+{% endblock content %}
+
+{% block extra_javascript %}{% endblock extra_javascript %}

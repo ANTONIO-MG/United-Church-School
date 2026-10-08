@@ -1,0 +1,52 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% block content %}
+<div class="card">
+    <div class="card-body d-sm-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h4 mb-1"><i class="bi bi-graph-up-arrow text-primary me-2"></i>Analytics</h1>
+            <p class="mb-0 small text-muted">Academic intelligence — staff &amp; educators only.</p>
+        </div>
+        <a href="{% url 'analytics:export-modules' %}" class="btn btn-sm btn-primary-soft"><i class="bi bi-file-earmark-excel me-1"></i>Export subjects</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    {% with s=data.students st=data.study %}
+    <div class="col-6 col-xl-3"><div class="card"><div class="card-body"><h6 class="text-muted small mb-1">Total students</h6><h3 class="mb-0">{{ s.total|default:0 }}</h3></div></div></div>
+    <div class="col-6 col-xl-3"><div class="card"><div class="card-body"><h6 class="text-muted small mb-1">Active this week</h6><h3 class="mb-0">{{ s.logged_week|default:0 }}</h3></div></div></div>
+    <div class="col-6 col-xl-3"><div class="card"><div class="card-body"><h6 class="text-muted small mb-1">Total study hrs</h6><h3 class="mb-0">{{ st.total_hours|default:0 }}</h3></div></div></div>
+    <div class="col-6 col-xl-3"><div class="card"><div class="card-body"><h6 class="text-muted small mb-1">Certificates</h6><h3 class="mb-0">{{ data.certificates_issued|default:0 }}</h3></div></div></div>
+    {% endwith %}
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><h6 class="mb-0">Most popular subjects</h6></div>
+            <div class="card-body p-0">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Subject</th><th class="text-end">Enrolled</th></tr></thead>
+                    <tbody>
+                    {% for p in data.popular %}<tr><td>{{ p.name }}</td><td class="text-end">{{ p.enrolled }}</td></tr>
+                    {% empty %}<tr><td colspan="2" class="text-muted text-center py-3">No data.</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><h6 class="mb-0">Subject performance</h6></div>
+            <div class="card-body p-0">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Subject</th><th class="text-end">Avg</th><th class="text-end">Pass %</th></tr></thead>
+                    <tbody>
+                    {% for r in data.modules %}<tr><td>{{ r.module }}</td><td class="text-end">{{ r.avg_mark }}</td><td class="text-end">{{ r.pass_rate }}</td></tr>
+                    {% empty %}<tr><td colspan="3" class="text-muted text-center py-3">No grades computed yet.</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments (.environment is the one .setup creates)
+.environment/
+.venv/
+venv/
+env/
+ENV/
+
+# Environment / secrets
+# .env holds real credentials (database, e-mail, API keys) and this repository
+# is public — it is NEVER committed. Copy it to a new computer by hand; the
+# template that documents every setting is .env.example.
+.env
+.env.*
+# ...but the template that documents them is meant to be committed.
+!.env.example
+
+# Django runtime
+*.sqlite3
+/media/
+/staticfiles/
+
+# The archive park: real people's purged accounts. It is a backup location on
+# the server, never source. (apps.accounts.archiving)
+/backups/archived_accounts/
+
+# Database dumps. Full copies of live data — names, e-mail addresses, dates of
+# birth, payment records. Never source, never in a repository.
+/backups/db/
+*.dump
+*.sql.gz
+
+# Local logs / coverage
+*.log
+.coverage
+htmlcov/
+
+# macOS Finder junk
+.DS_Store
+**/.DS_Store
+.environment/
+
+# macOS / editors
+.DS_Store
+.vscode/
+.idea/
+user_activity.log

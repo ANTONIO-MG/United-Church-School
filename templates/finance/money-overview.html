@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h3 class="mb-0">{{ page_title }}</h3>
+    {% if is_staff %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:invoice-register' %}"><i class="bi bi-receipt me-1"></i>Invoice register</a>{% endif %}
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3"><div class="card card-body">
+      <div class="text-muted small">{% if is_staff %}Billed{% else %}Invoiced to you{% endif %}</div>
+      <h4 class="mb-0">R{{ billed|floatformat:2 }}</h4></div></div>
+    <div class="col-sm-6 col-lg-3"><div class="card card-body">
+      <div class="text-muted small">{% if is_staff %}Collected{% else %}Paid{% endif %}</div>
+      <h4 class="mb-0 text-success">R{{ collected|floatformat:2 }}</h4></div></div>
+    <div class="col-sm-6 col-lg-3"><div class="card card-body">
+      <div class="text-muted small">Outstanding</div>
+      <h4 class="mb-0 text-danger">R{{ outstanding|floatformat:2 }}</h4></div></div>
+    <div class="col-sm-6 col-lg-3"><div class="card card-body">
+      <div class="text-muted small">{% if is_staff %}Estimated at month-end{% else %}Still to pay{% endif %}</div>
+      <h4 class="mb-0">R{% if is_staff %}{{ estimated_month_end|floatformat:2 }}{% else %}{{ outstanding|floatformat:2 }}{% endif %}</h4>
+      {% if is_staff %}<div class="text-muted" style="font-size:.75rem">If every invoice already sent is settled</div>{% endif %}
+    </div></div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-6"><div class="card h-100"><div class="card-body">
+      <h6 class="mb-3">{% if is_staff %}Most purchased{% else %}What you bought{% endif %}</h6>
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Item</th><th class="text-end">Units</th><th class="text-end">Value</th></tr></thead>
+        <tbody>
+        {% for p in top_products %}
+          <tr><td>{{ p.product__name }}</td><td class="text-end">{{ p.units }}</td><td class="text-end">R{{ p.revenue|floatformat:2 }}</td></tr>
+        {% empty %}<tr><td colspan="3" class="text-muted">Nothing paid for yet.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div></div></div>
+
+    <div class="col-lg-6"><div class="card h-100"><div class="card-body">
+      {% if is_staff %}
+        <h6 class="mb-3">By school</h6>
+        <table class="table table-sm align-middle mb-0">
+          <thead><tr><th>School</th><th class="text-end">Units</th><th class="text-end">Revenue</th></tr></thead>
+          <tbody>
+          {% for r in by_institution %}
+            <tr><td>{{ r.product__institution__code|default:"General" }}</td><td class="text-end">{{ r.units }}</td><td class="text-end">R{{ r.revenue|floatformat:2 }}</td></tr>
+          {% empty %}<tr><td colspan="3" class="text-muted">No sales yet.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+        <p class="text-muted small mb-0 mt-3">{{ unpaid_count }} invoice{{ unpaid_count|pluralize }} still unpaid.</p>
+      {% else %}
+        <h6 class="mb-3">Coming up</h6>
+        <ul class="list-unstyled mb-0">
+        {% for inv in upcoming %}
+          <li class="d-flex justify-content-between border-bottom py-2">
+            <span><a href="{% url 'finance:invoice-detail' inv.pk %}">{{ inv.number }}</a>
+              <span class="text-muted small d-block">{% if inv.due_date %}due {{ inv.due_date|date:"d M Y" }}{% else %}{{ inv.issue_date|date:"d M Y" }}{% endif %}</span></span>
+            <strong>R{{ inv.balance|floatformat:2 }}</strong>
+          </li>
+        {% empty %}<li class="text-muted">Nothing outstanding.</li>{% endfor %}
+        </ul>
+      {% endif %}
+    </div></div></div>
+  </div>
+</div>
+{% endblock %}

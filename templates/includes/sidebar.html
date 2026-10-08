@@ -1,0 +1,101 @@
+{% load people %}{% load i18n static admin_soft %}
+{% comment %}
+Django-admin sidebar — OVERRIDES the one shipped in django-admin-soft-dashboard
+(admin_soft/templates/includes/sidebar.html), which is picked up because
+BASE_DIR/templates comes before APP_DIRS in TEMPLATES['DIRS'].
+
+Why it is overridden: the stock file is the *demo* nav. It rendered
+Dashboard / Tables / Billing / Virtual Reality / RTL / Profile plus **Sign In**
+and **Sign Up** links inside the Django admin — pages this product does not have.
+Its "Logout" pointed at admin_soft's own view, which signed the user out and
+dropped them on /accounts/login/, a page the hub does not use.
+
+What is kept: the real admin model menu ({% templatetag openblock %} admin_get_menu {% templatetag closeblock %}) and the Soft-UI
+markup/classes that layouts/base.html and the theme's CSS expect.
+{% endcomment %}
+
+<aside class="sidenav navbar navbar-vertical navbar-expand-xs border-0 border-radius-xl my-3 fixed-start ms-3 " id="sidenav-main">
+    <div class="sidenav-header">
+      <i class="fas fa-times p-3 cursor-pointer text-secondary opacity-5 position-absolute end-0 top-0 d-none d-xl-none" aria-hidden="true" id="iconSidenav"></i>
+      <a class="navbar-brand m-0" href="{% url 'myhub:index' %}">
+        <img src="{% static brand.logo|default:'images/brand/ucs-mark.png' %}" class="navbar-brand-img h-100" alt="{{ brand.name|default:'United Church School' }}">
+        <span class="ms-1 font-weight-bold">{{ brand.name|default:"United Church School" }}</span>
+      </a>
+    </div>
+    <hr class="horizontal dark mt-0">
+
+    <div class="collapse navbar-collapse w-auto" id="sidenav-collapse-main">
+      <ul class="navbar-nav">
+
+        {# The real admin menu — every registered app/model the user may see. #}
+        {% admin_get_menu as app_list %}
+        {% for app in app_list %}
+          {% if app.has_perms %}
+            <li class="nav-item">
+              <a data-bs-toggle="collapse" href="#app-{{ forloop.counter }}" class="nav-link text-dark"
+                 aria-controls="app-{{ forloop.counter }}" role="button" aria-expanded="false">
+                <div class="icon icon-shape icon-sm shadow border-radius-md bg-white text-center me-2 d-flex align-items-center justify-content-center">
+                  <i class="ni ni-archive-2 text-primary text-sm opacity-10"></i>
+                </div>
+                <span class="nav-link-text ms-1">{{ app.label }}</span>
+              </a>
+              {% if app.models %}
+              <div class="collapse" id="app-{{ forloop.counter }}">
+                <ul class="navbar-nav">
+                  {% for model in app.models %}
+                    {% if model.url %}
+                      <li class="nav-item ps-4">
+                        <a class="nav-link text-dark py-1" href="{{ model.url }}">
+                          <span class="sidenav-mini-icon"> {{ model.label|slice:':1' }} </span>
+                          <span class="sidenav-normal ms-1"> {{ model.label }} </span>
+                        </a>
+                      </li>
+                    {% endif %}
+                  {% endfor %}
+                </ul>
+              </div>
+              {% endif %}
+            </li>
+          {% endif %}
+        {% endfor %}
+
+        <li class="nav-item mt-3">
+          <h6 class="ps-4 ms-2 text-uppercase text-xs font-weight-bolder opacity-6">Hub</h6>
+        </li>
+
+        {# Leaving the admin returns you to the hub — it does NOT end your session. #}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'myhub:index' %}">
+            <div class="icon icon-shape icon-sm shadow border-radius-md bg-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="ni ni-curved-next text-info text-sm opacity-10" style="transform:rotate(180deg)"></i>
+            </div>
+            <span class="nav-link-text ms-1">Back to the hub</span>
+          </a>
+        </li>
+
+        {# The real sign-out: ends the session for the admin AND the hub. #}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'myhub:logout' %}">
+            <div class="icon icon-shape icon-sm shadow border-radius-md bg-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="ni ni-user-run text-danger text-sm opacity-10"></i>
+            </div>
+            <span class="nav-link-text ms-1">Sign out</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="sidenav-footer mx-3 mt-3">
+      <div class="card card-background shadow-none card-background-mask-secondary">
+        <div class="full-background" style="background-image: url('{% static 'soft-ui/img/curved-images/white-curved.jpg' %}')"></div>
+        <div class="card-body text-start p-3 w-100">
+          <div class="docs-info">
+            <h6 class="text-white up mb-0">{{ request.user|person_name }}</h6>
+            <p class="text-xs font-weight-bold mb-0">
+              {% if request.user.is_superuser %}Superuser{% else %}Staff{% endif %}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+</aside>

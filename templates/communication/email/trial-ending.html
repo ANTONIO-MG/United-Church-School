@@ -1,0 +1,57 @@
+{% extends 'communication/email/base_email.html' %}
+{% comment %}Sent ~24 hours before a student's free week runs out, and only while
+the registration invoice is still unpaid (and un-waived by admin/staff). Same
+branded layout as the registration summary and the invoice e-mail.
+
+Context: person, first_name, invoice, days_left, trial_ends, pay_url, modules.
+The invoice PDF is attached by the caller.{% endcomment %}
+
+{% block preheader %}Your free week ends tomorrow — settle invoice {{ invoice.number }} to keep your subjects open.{% endblock %}
+{% block heading %}Your free week ends tomorrow{% endblock %}
+
+{% block content %}
+  <p style="margin:0 0 14px">Hi {{ first_name|default:"there" }},</p>
+
+  <p style="margin:0 0 14px">
+    A quick heads-up: your seven-day access ends{% if trial_ends %}
+    on <strong>{{ trial_ends|date:"l, j F" }}</strong>{% else %} tomorrow{% endif %},
+    and invoice <strong>{{ invoice.number }}</strong> is still open.
+  </p>
+
+  <table style="width:100%;border-collapse:collapse;margin:4px 0 16px">
+    <tr>
+      <td style="padding:9px 0;color:#40507a"><strong>Amount outstanding</strong></td>
+      <td style="padding:9px 0;text-align:right;font-size:18px;color:#506bec">
+        <strong>R {{ invoice.balance|floatformat:2 }}</strong>
+      </td>
+    </tr>
+    {% if modules %}
+    <tr>
+      <td style="padding:7px 0;color:#97a2da;vertical-align:top;border-top:1px solid #e7ebf8">
+        Subject{{ modules|length|pluralize }} at risk
+      </td>
+      <td style="padding:7px 0;text-align:right;border-top:1px solid #e7ebf8">
+        {% for m in modules %}{{ m }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+      </td>
+    </tr>
+    {% endif %}
+  </table>
+
+  <p style="margin:0 0 14px">
+    Settle it and nothing changes — your subjects stay open and you carry on where
+    you left off. Leave it, and they lock until the payment comes through; your
+    progress is kept either way, so nothing is lost.
+  </p>
+
+  <p style="margin:0 0 14px">
+    Pay by card using the button below, or by EFT using the banking details on the
+    attached invoice. Already paid or arranged it with us? Then please ignore
+    this — it can cross in the post with your payment.
+  </p>
+{% endblock %}
+
+{% block cta %}{% include 'communication/email/_button.html' with url=pay_url label="PAY MY INVOICE" %}{% endblock %}
+
+{% block expiry_note %}
+  The invoice is attached, and it is always in your account under Finance.{% if brand.support_email %} Need more time? Talk to us at {{ brand.support_email }}.{% endif %}
+{% endblock %}

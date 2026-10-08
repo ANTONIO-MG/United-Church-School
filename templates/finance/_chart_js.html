@@ -1,0 +1,35 @@
+{% load static %}
+{% comment %}Money-in / money-out bar chart (Chart.js 4, already shipped with the platform).
+Include with canvas_id and a JSON string `chart_json` having labels + paid + expenses.
+Colours come from the validated pair (--tc-in / --tc-out), read from CSS so the
+dark theme swaps them; tick and grid colours come from the theme tokens.{% endcomment %}
+<script>
+Thrive.ensureScript('{% static 'myhub/vendor/chart.js/Chart.bundle.min.js' %}', function () {
+  if (typeof Chart === 'undefined') { return; }
+  var el = document.getElementById('{{ canvas_id }}'); if (!el) { return; }
+  var data = {{ chart_json|safe }};
+  var css = getComputedStyle(el.closest('.tc') || document.body);
+  function v(name, fallback) { return (css.getPropertyValue(name) || fallback).trim(); }
+  var money = function (n) { return 'R' + Number(n).toLocaleString('en-US', {maximumFractionDigits: 0}); };
+  var sets = [{ label: '{{ in_label|default:"Money in" }}', data: data.paid, backgroundColor: v('--tc-in', '#0f6fec'), borderRadius: 4, borderSkipped: 'bottom', maxBarThickness: 28 }];
+  if (data.expenses) { sets.push({ label: 'Money out', data: data.expenses, backgroundColor: v('--tc-out', '#d9730d'), borderRadius: 4, borderSkipped: 'bottom', maxBarThickness: 28 }); }
+  var ink = v('--tc-muted', '#7b8aa6'), line = v('--tc-line', 'rgba(52,71,103,.11)');
+  new Chart(el.getContext('2d'), {
+    type: 'bar',
+    data: { labels: data.labels, datasets: sets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        // One series needs no legend — the card title names it.
+        legend: { display: sets.length > 1, position: 'top', align: 'end', labels: { color: ink, boxWidth: 10, boxHeight: 10 } },
+        tooltip: { callbacks: { label: function (t) { return t.dataset.label + ': ' + money(t.parsed.y); } } }
+      },
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: { color: ink } },
+        y: { beginAtZero: true, grid: { color: line }, border: { display: false }, ticks: { color: ink, maxTicksLimit: 5, callback: money } }
+      }
+    }
+  });
+});
+</script>

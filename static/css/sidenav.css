@@ -1,0 +1,241 @@
+/* =============================================================================
+   Sidebar navigation — matched to the MyHub dashboard.
+
+   Same type scale and radii as css/dashboard.css. Labels are **pure black** in
+   every state; the colour in the rail comes from the brand's own full-colour
+   icon artwork, not from tinting text or glyphs. See the FULL-COLOUR NAV ICONS
+   block at the foot of this file — it overrides the single-blue rules below,
+   which now only apply to `bi-*` classes that have no artwork mapped yet.
+
+   Self-contained and prefixed (.dash-side) like soft-ui-shell.css, so it renders
+   identically on every page whether or not dashboard.css is loaded. The token
+   values below mirror the `.dash` block in css/dashboard.css — keep them in
+   step if that palette changes.
+   ========================================================================== */
+
+.dash-side{
+  --side-ink:      #344767;   /* labels — the dashboard's black */
+  --side-muted:    #8392ab;
+  --side-blue:     #2152ff;   /* icons + active state */
+  --side-blue-soft:rgba(33,82,255,.09);
+  --side-line:     rgba(52,71,103,.09);
+  --side-surface:  #fff;
+  --side-radius:   1rem;
+  --side-shadow:   0 6px 24px rgba(20,20,43,.07), 0 1px 2px rgba(20,20,43,.05);
+
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+[data-bs-theme="dark"] .dash-side{
+  --side-ink:      #e9ecef;
+  --side-muted:    #a3aed0;
+  --side-blue:     #6ea8ff;
+  --side-blue-soft:rgba(110,168,255,.14);
+  --side-line:     rgba(255,255,255,.10);
+  --side-surface:  #1b1e2b;
+  --side-shadow:   0 6px 24px rgba(0,0,0,.40);
+}
+
+/* ---- Card shell ---- */
+.dash-side .card{
+  border: 1px solid var(--side-line);
+  border-radius: var(--side-radius);
+  box-shadow: var(--side-shadow);
+  background: var(--side-surface);
+}
+
+/* ---- Section headings ("MY LEARNING", "TEACHING", …) ---- */
+.dash-side .side-heading{
+  font-size: .64rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--side-muted);
+  margin: 0 0 .4rem; padding-left: .35rem;
+}
+.dash-side hr{ border-color: var(--side-line); opacity: 1; margin: .9rem 0 .7rem; }
+
+/* ---- Links ---- */
+.dash-side .nav-link{
+  display: flex; align-items: center; gap: .1rem;
+  font-size: .85rem; font-weight: 600; color: var(--side-ink);
+  padding: .4rem .55rem; border-radius: .6rem; line-height: 1.35;
+  transition: background .15s ease, color .15s ease;
+}
+.dash-side .nav-link:hover,
+.dash-side .nav-link:focus-visible{ background: var(--side-blue-soft); color: var(--side-blue); }
+
+/* Fallback for any bi-* with no artwork mapped (see the block at the foot). */
+.dash-side .nav-link > .bi{
+  font-size: 1rem; width: 1.4rem; flex: 0 0 auto;
+  color: var(--side-blue); margin-right: .45rem;
+}
+.dash-side .nav-link:hover > .bi{ color: var(--side-blue); }
+
+/* Active page */
+.dash-side .nav-link.is-active{
+  background: var(--side-blue-soft); color: var(--side-blue); font-weight: 700;
+}
+.dash-side .nav-link.is-active > .bi{ color: var(--side-blue); }
+
+/* ---- Count badges ---- */
+.dash-side .side-badge{
+  margin-left: auto; font-size: .64rem; font-weight: 700;
+  padding: .1rem .4rem; border-radius: 99px;
+  background: var(--side-blue-soft); color: var(--side-blue);
+}
+
+/* ---- Collapsible groups ---- */
+.dash-side .sidenav-group > .nav-link{ justify-content: space-between; }
+.dash-side .sidenav-caret{
+  font-size: .7rem; color: var(--side-muted); margin-left: auto;
+  transition: transform .15s ease;
+}
+.dash-side .sidenav-group > .nav-link[aria-expanded="true"]{ color: var(--side-blue); }
+.dash-side .sidenav-group > .nav-link[aria-expanded="true"] .sidenav-caret{
+  transform: rotate(180deg); color: var(--side-blue);
+}
+.dash-side .sidenav-sub{
+  margin: .15rem 0 .25rem 1.55rem; padding-left: .65rem; gap: .05rem;
+  border-left: 1px solid var(--side-line);
+}
+.dash-side .sidenav-sub .nav-link{
+  font-size: .8rem; font-weight: 500; color: var(--side-muted); padding: .25rem .45rem;
+}
+.dash-side .sidenav-sub .nav-link:hover{ color: var(--side-blue); background: var(--side-blue-soft); }
+.dash-side .sidenav-sub .nav-link.is-active{ color: var(--side-blue); font-weight: 700; }
+
+/* ---- Profile card header ---- */
+.dash-side .side-name{ font-size: .95rem; font-weight: 700; color: var(--side-ink); }
+.dash-side .side-name a{ color: inherit; text-decoration: none; }
+.dash-side .side-role{ font-size: .74rem; color: var(--side-muted); }
+.dash-side .side-stat b{ font-size: .95rem; font-weight: 700; color: var(--side-ink); display: block; line-height: 1.1; }
+.dash-side .side-stat span{ font-size: .66rem; color: var(--side-muted); }
+
+/* ---- Footer helper links ---- */
+.dash-side .side-help .nav-link{ font-size: .72rem; font-weight: 500; color: var(--side-muted); padding: .2rem .4rem; }
+.dash-side .side-help .nav-link:hover{ color: var(--side-blue); background: transparent; }
+.dash-side .side-copy{ font-size: .68rem; color: var(--side-muted); }
+
+
+/* =============================================================================
+   FULL-COLOUR NAV ICONS + PURE-BLACK LABELS
+   ---------------------------------------------------------------------------
+   The sidebar used one blue for every glyph. It now uses the brand's own
+   full-colour icon set (static/images/nav-icons/, resampled from the project's
+   Icons folder) and pure black for every label — so the colour in the rail comes
+   from the artwork, not from tinting the text.
+
+   The swap is done in CSS rather than in the template: each icon is keyed on the
+   Bootstrap Icon class the markup already carries, so `<i class="bi bi-bag">`
+   becomes the shop illustration with no template churn. Any `bi-*` without a
+   mapping keeps its font glyph, which is the safe fallback for a new nav item.
+   ========================================================================== */
+.dash-side{
+  --side-ink: #000;          /* labels: pure black, in every state */
+}
+
+/* Labels stay black on hover and when active — only the background moves. */
+.dash-side .nav-link,
+.dash-side .nav-link:hover,
+.dash-side .nav-link:focus-visible,
+.dash-side .nav-link.is-active,
+.dash-side .sidenav-group > .nav-link[aria-expanded="true"]{ color: #000; }
+.dash-side .sidenav-sub .nav-link{ color: #000; }
+.dash-side .sidenav-sub .nav-link:hover,
+.dash-side .sidenav-sub .nav-link.is-active{ color: #000; }
+[data-bs-theme="dark"] .dash-side{ --side-ink: #f1f3f9; }
+[data-bs-theme="dark"] .dash-side .nav-link,
+[data-bs-theme="dark"] .dash-side .nav-link:hover,
+[data-bs-theme="dark"] .dash-side .nav-link.is-active,
+[data-bs-theme="dark"] .dash-side .sidenav-sub .nav-link{ color: #f1f3f9; }
+
+/* The icon box: the illustration replaces the glyph entirely. */
+.dash-side .nav-link > .bi-bag,
+.dash-side .nav-link > .bi-bell,
+.dash-side .nav-link > .bi-book,
+.dash-side .nav-link > .bi-bug,
+.dash-side .nav-link > .bi-calendar-event,
+.dash-side .nav-link > .bi-calendar-week,
+.dash-side .nav-link > .bi-calendar2-x,
+.dash-side .nav-link > .bi-camera-video,
+.dash-side .nav-link > .bi-cart,
+.dash-side .nav-link > .bi-cash-coin,
+.dash-side .nav-link > .bi-chat-left-text,
+.dash-side .nav-link > .bi-check2-square,
+.dash-side .nav-link > .bi-clipboard-data,
+.dash-side .nav-link > .bi-clock-history,
+.dash-side .nav-link > .bi-envelope,
+.dash-side .nav-link > .bi-folder2-open,
+.dash-side .nav-link > .bi-gear,
+.dash-side .nav-link > .bi-graph-up,
+.dash-side .nav-link > .bi-graph-up-arrow,
+.dash-side .nav-link > .bi-grid-1x2,
+.dash-side .nav-link > .bi-grid-1x2-fill,
+.dash-side .nav-link > .bi-grid-3x3-gap,
+.dash-side .nav-link > .bi-journal-bookmark,
+.dash-side .nav-link > .bi-journal-richtext,
+.dash-side .nav-link > .bi-list-check,
+.dash-side .nav-link > .bi-megaphone,
+.dash-side .nav-link > .bi-mortarboard,
+.dash-side .nav-link > .bi-patch-check,
+.dash-side .nav-link > .bi-people,
+.dash-side .nav-link > .bi-people-fill,
+.dash-side .nav-link > .bi-person-badge,
+.dash-side .nav-link > .bi-person-check,
+.dash-side .nav-link > .bi-person-vcard,
+.dash-side .nav-link > .bi-receipt,
+.dash-side .nav-link > .bi-shield-exclamation,
+.dash-side .nav-link > .bi-shield-lock,
+.dash-side .nav-link > .bi-stars,
+.dash-side .nav-link > .bi-ui-checks{
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-right: .5rem;
+  flex: 0 0 auto;
+  font-size: 0;              /* hide the icon-font glyph underneath */
+  color: transparent;
+  /* Slightly muted until you are on the row, so a long rail is not a rainbow
+     shouting at you — full colour on hover and for the page you are on. */
+  opacity: .88;
+}
+.dash-side .nav-link:hover > .bi,
+.dash-side .nav-link.is-active > .bi{ opacity: 1; }
+
+.dash-side .nav-link > .bi-bag{ background-image:url('../images/nav-icons/bi-bag.png'); }
+.dash-side .nav-link > .bi-bell{ background-image:url('../images/nav-icons/bi-bell.png'); }
+.dash-side .nav-link > .bi-book{ background-image:url('../images/nav-icons/bi-book.png'); }
+.dash-side .nav-link > .bi-bug{ background-image:url('../images/nav-icons/bi-bug.png'); }
+.dash-side .nav-link > .bi-calendar-event{ background-image:url('../images/nav-icons/bi-calendar-event.png'); }
+.dash-side .nav-link > .bi-calendar-week{ background-image:url('../images/nav-icons/bi-calendar-week.png'); }
+.dash-side .nav-link > .bi-calendar2-x{ background-image:url('../images/nav-icons/bi-calendar2-x.png'); }
+.dash-side .nav-link > .bi-camera-video{ background-image:url('../images/nav-icons/bi-camera-video.png'); }
+.dash-side .nav-link > .bi-cart{ background-image:url('../images/nav-icons/bi-cart.png'); }
+.dash-side .nav-link > .bi-cash-coin{ background-image:url('../images/nav-icons/bi-cash-coin.png'); }
+.dash-side .nav-link > .bi-chat-left-text{ background-image:url('../images/nav-icons/bi-chat-left-text.png'); }
+.dash-side .nav-link > .bi-check2-square{ background-image:url('../images/nav-icons/bi-check2-square.png'); }
+.dash-side .nav-link > .bi-clipboard-data{ background-image:url('../images/nav-icons/bi-clipboard-data.png'); }
+.dash-side .nav-link > .bi-clock-history{ background-image:url('../images/nav-icons/bi-clock-history.png'); }
+.dash-side .nav-link > .bi-envelope{ background-image:url('../images/nav-icons/bi-envelope.png'); }
+.dash-side .nav-link > .bi-folder2-open{ background-image:url('../images/nav-icons/bi-folder2-open.png'); }
+.dash-side .nav-link > .bi-gear{ background-image:url('../images/nav-icons/bi-gear.png'); }
+.dash-side .nav-link > .bi-graph-up{ background-image:url('../images/nav-icons/bi-graph-up.png'); }
+.dash-side .nav-link > .bi-graph-up-arrow{ background-image:url('../images/nav-icons/bi-graph-up-arrow.png'); }
+.dash-side .nav-link > .bi-grid-1x2{ background-image:url('../images/nav-icons/bi-grid-1x2.png'); }
+.dash-side .nav-link > .bi-grid-1x2-fill{ background-image:url('../images/nav-icons/bi-grid-1x2-fill.png'); }
+.dash-side .nav-link > .bi-grid-3x3-gap{ background-image:url('../images/nav-icons/bi-grid-3x3-gap.png'); }
+.dash-side .nav-link > .bi-journal-bookmark{ background-image:url('../images/nav-icons/bi-journal-bookmark.png'); }
+.dash-side .nav-link > .bi-journal-richtext{ background-image:url('../images/nav-icons/bi-journal-richtext.png'); }
+.dash-side .nav-link > .bi-list-check{ background-image:url('../images/nav-icons/bi-list-check.png'); }
+.dash-side .nav-link > .bi-megaphone{ background-image:url('../images/nav-icons/bi-megaphone.png'); }
+.dash-side .nav-link > .bi-mortarboard{ background-image:url('../images/nav-icons/bi-mortarboard.png'); }
+.dash-side .nav-link > .bi-patch-check{ background-image:url('../images/nav-icons/bi-patch-check.png'); }
+.dash-side .nav-link > .bi-people{ background-image:url('../images/nav-icons/bi-people.png'); }
+.dash-side .nav-link > .bi-people-fill{ background-image:url('../images/nav-icons/bi-people-fill.png'); }
+.dash-side .nav-link > .bi-person-badge{ background-image:url('../images/nav-icons/bi-person-badge.png'); }
+.dash-side .nav-link > .bi-person-check{ background-image:url('../images/nav-icons/bi-person-check.png'); }
+.dash-side .nav-link > .bi-person-vcard{ background-image:url('../images/nav-icons/bi-person-vcard.png'); }
+.dash-side .nav-link > .bi-receipt{ background-image:url('../images/nav-icons/bi-receipt.png'); }
+.dash-side .nav-link > .bi-shield-exclamation{ background-image:url('../images/nav-icons/bi-shield-exclamation.png'); }
+.dash-side .nav-link > .bi-shield-lock{ background-image:url('../images/nav-icons/bi-shield-lock.png'); }
+.dash-side .nav-link > .bi-stars{ background-image:url('../images/nav-icons/bi-stars.png'); }
+.dash-side .nav-link > .bi-ui-checks{ background-image:url('../images/nav-icons/bi-ui-checks.png'); }

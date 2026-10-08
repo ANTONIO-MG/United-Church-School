@@ -1,0 +1,123 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Admin/staff recovery desk for closed accounts.
+
+Two tables, because a closed account is in one of two states and the recovery is
+a different action in each:
+  • In grace   — deactivated, still whole. "Reactivate" and it is as it was.
+  • Archived   — purged, parked on the archive server. "Restore" rebuilds it.
+{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid">
+
+  <div class="row page-titles mx-0">
+    <div class="col-sm-6 p-md-0"><div class="welcome-text"><h4>{{ page_title }}</h4></div></div>
+    <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex align-items-center">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'accounts:manage-members' %}">Members</a></li>
+        <li class="breadcrumb-item active"><a href="javascript:void(0);">Closed accounts</a></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="alert alert-info d-flex gap-2 align-items-start">
+    <i class="bi bi-info-circle-fill mt-1"></i>
+    <div class="small">
+      Closing an account deactivates it immediately and keeps a copy for
+      <strong>{{ grace_days }} days</strong>. Inside that window a reactivation is complete and
+      instant. After it, <code>purge_closed_accounts</code> moves everything to the archive
+      server and removes it from here — messages and other shared threads stay where they are,
+      attributed to a <em>discontinued user</em>.
+    </div>
+  </div>
+
+  {# ---------------- In the grace period ---------------- #}
+  <div class="card mb-4">
+    <div class="card-header border-0 pb-0">
+      <h5 class="card-title mb-0"><i class="bi bi-hourglass-split text-warning me-2"></i>In the grace period</h5>
+      <p class="mb-0 small text-muted">Closed, but still recoverable in full.</p>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead><tr>
+            <th>Member</th><th>E-mail</th><th>Closed</th><th>Purge due</th><th>Left</th><th class="text-end">Action</th>
+          </tr></thead>
+          <tbody>
+          {% for row in closing %}
+            <tr>
+              <td>{% if row.person %}{{ row.person }}{% else %}{{ row.user.get_username }}{% endif %}
+                {% if row.person %}<span class="badge bg-light text-muted text-capitalize ms-1">{{ row.person.get_user_type_display }}</span>{% endif %}</td>
+              <td class="text-muted small">{{ row.user.email|default:"—" }}</td>
+              <td class="small">{{ row.settings.closed_at|date:"d M Y" }}</td>
+              <td class="small">{{ row.settings.purge_at|date:"d M Y"|default:"—" }}</td>
+              <td>
+                {% if row.overdue %}<span class="badge bg-danger bg-opacity-10 text-danger">Purge overdue</span>
+                {% elif row.days_left is not None %}<span class="badge bg-warning bg-opacity-10 text-warning">{{ row.days_left }} day{{ row.days_left|pluralize }}</span>
+                {% else %}<span class="text-muted small">—</span>{% endif %}
+              </td>
+              <td class="text-end">
+                <form method="post" action="{% url 'accounts:reactivate-account' row.user.pk %}" class="d-inline">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-success"
+                          onclick="return confirm('Reactivate {{ row.user.email|escapejs }}? They will be able to sign in again immediately.')">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reactivate</button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-muted small text-center py-4">Nobody has closed their account.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {# ---------------- Archived ---------------- #}
+  <div class="card">
+    <div class="card-header border-0 pb-0">
+      <h5 class="card-title mb-0"><i class="bi bi-archive text-secondary me-2"></i>Archived accounts</h5>
+      <p class="mb-0 small text-muted">Purged from the live system and parked on the archive server.</p>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead><tr>
+            <th>Member</th><th>E-mail</th><th>Archived</th><th>Rows</th><th>Location</th><th class="text-end">Action</th>
+          </tr></thead>
+          <tbody>
+          {% for a in archives %}
+            <tr>
+              <td>{{ a.display_name }}</td>
+              <td class="text-muted small">{{ a.email|default:"—" }}</td>
+              <td class="small">{{ a.archived_at|date:"d M Y" }}</td>
+              <td class="small">{{ a.content_rows }}</td>
+              <td class="small text-muted text-truncate" style="max-width:280px" title="{{ a.archive_dir }}">
+                {{ a.archive_dir|default:a.file_path|default:"—" }}</td>
+              <td class="text-end">
+                {% if a.restored_at %}
+                  <span class="badge bg-success bg-opacity-10 text-success">Restored {{ a.restored_at|date:"d M Y" }}</span>
+                {% elif a.is_restorable %}
+                  <form method="post" action="{% url 'accounts:restore-archive' a.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-primary"
+                            onclick="return confirm('Restore {{ a.display_name|escapejs }} from the archive? Their password is not restored — they will need to reset it from the login page.')">
+                      <i class="bi bi-box-arrow-in-down me-1"></i>Restore</button>
+                  </form>
+                {% else %}
+                  <span class="badge bg-light text-muted" title="The archive directory is no longer on disk.">Archive missing</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-muted small text-center py-4">No accounts have been archived yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div></div>
+{% endblock %}

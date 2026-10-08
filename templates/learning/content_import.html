@@ -1,0 +1,168 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}
+Import a topic's content into a subject. Two doors, one importer:
+
+  · JSON  — paste or upload a content pack. Validate, then import.
+  · Documents — upload the guide / paper / solution workbook. Claude drafts the
+    SAME JSON into the textarea below for review. Importing it is a separate,
+    deliberate click, so a person always sees the figures before they become a
+    paper.
+
+Matches apps.learning.content_import. Admin/staff only, enforced in the view.
+{% endcomment %}
+{% load static %}
+
+{% block additional_css %}
+<style>
+  .ci-doors{ display:grid; gap:1rem; grid-template-columns:1fr; }
+  @media (min-width: 992px){ .ci-doors{ grid-template-columns:1fr 1fr; } }
+  .ci-json{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.78rem; line-height:1.45; }
+  .ci-problem{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+  <div class="card-body">
+    <h1 class="h4 mb-1"><i class="bi bi-box-arrow-in-down text-primary me-2"></i>Import content</h1>
+    <p class="small text-muted mb-0">
+      One topic at a time: the lesson notes, the topic test and its memo, this week's
+      worksheets. Everything lands as a <strong>draft</strong> — nothing reaches
+      a learner until you publish it on the subject schedule.
+    </p>
+  </div>
+</div>
+
+{% if problems %}
+<div class="card border-warning mb-3">
+  <div class="card-header bg-warning bg-opacity-10 border-0">
+    <h2 class="h6 mb-0"><i class="bi bi-exclamation-triangle text-warning me-2"></i>{{ problems|length }} problem{{ problems|pluralize }} — nothing imported</h2>
+  </div>
+  <div class="card-body">
+    <ul class="mb-0 ci-problem">
+      {% for problem in problems %}<li>{{ problem }}</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<div class="ci-doors mb-3">
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="h6 mb-0"><i class="bi bi-file-earmark-arrow-up text-primary me-2"></i>Read the documents</h2>
+      <small class="text-muted">PDF · Word · Excel. Extracted here, shaped by Claude, reviewed by you.</small>
+    </div>
+    <div class="card-body">
+      {% if not ai_enabled %}
+      <div class="alert alert-secondary small py-2">
+        The document route needs <code>ANTHROPIC_API_KEY</code> and <code>ADMIN_AI_ENABLED</code>.
+        The JSON route beside this works without it.
+      </div>
+      {% endif %}
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="draft">
+
+        <label class="form-label small mb-1">Subject</label>
+        <select name="offering" class="form-select form-select-sm mb-2" required>
+          <option value="">— choose —</option>
+          {% for o in offerings %}
+          <option value="{{ o.pk }}" {% if form.offering == o.pk|stringformat:"s" %}selected{% endif %}>
+            {{ o.programme.institution.code }}-{{ o.programme.code }} · {{ o.code }} — {{ o.display_name }}
+          </option>
+          {% endfor %}
+        </select>
+
+        <div class="row g-2">
+          <div class="col-4">
+            <label class="form-label small mb-1">Topic code</label>
+            <input name="topic_code" class="form-control form-control-sm" placeholder="T2"
+                   value="{{ form.topic_code|default:'' }}" required>
+          </div>
+          <div class="col-8">
+            <label class="form-label small mb-1">Topic title</label>
+            <input name="topic_title" class="form-control form-control-sm" placeholder="Algebraic expressions"
+                   value="{{ form.topic_title|default:'' }}" required>
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1">Class <span class="text-muted">(optional)</span></label>
+            <input name="cohort" class="form-control form-control-sm" placeholder="2026" value="{{ form.cohort|default:'' }}">
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1">Week <span class="text-muted">(optional)</span></label>
+            <input name="week" type="number" min="1" class="form-control form-control-sm" value="{{ form.week|default:'' }}">
+          </div>
+        </div>
+
+        <label class="form-label small mb-1 mt-2">Documents <span class="text-muted">(or one .zip of them)</span></label>
+        <input type="file" name="documents" class="form-control form-control-sm" multiple
+               accept=".pdf,.docx,.xlsx,.xlsm,.txt,.md,.zip" {% if not ai_enabled %}disabled{% endif %}>
+        <div class="form-text">
+          The lesson notes, the question paper and the memo together — or drop a single
+          <strong>.zip</strong> containing them all (a lesson pack) and it's unpacked for you.
+          The memo is the important one — its mark grid is what makes the paper markable.
+        </div>
+
+        <label class="form-label small mb-1 mt-2">Anything to tell it <span class="text-muted">(optional)</span></label>
+        <textarea name="note" rows="2" class="form-control form-control-sm"
+                  placeholder="e.g. this is the Term 2 controlled test">{{ form.note|default:'' }}</textarea>
+
+        <button class="btn btn-primary btn-sm mt-3 w-100" data-loading {% if not ai_enabled %}disabled{% endif %}>
+          <i class="bi bi-magic me-1"></i>Draft the pack
+        </button>
+        <div class="form-text text-center mt-1">This drafts JSON for review. It imports nothing.</div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="h6 mb-0"><i class="bi bi-filetype-json text-primary me-2"></i>Import the pack</h2>
+      <small class="text-muted">The only door onto the database. Validate first if you like.</small>
+    </div>
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label class="form-label small mb-1">Pack JSON</label>
+        <textarea name="pack_json" rows="18" class="form-control ci-json"
+                  placeholder='{&#10;  "pack": "content-pack/1",&#10;  "module": "MATH",&#10;  "programme": "GR10",&#10;  "topic": { "code": "T2", "title": "Algebraic expressions" },&#10;  "items": [ … ]&#10;}'>{{ pack_json }}</textarea>
+
+        <label class="form-label small mb-1 mt-2">…or choose a .json file</label>
+        <input type="file" name="pack_file" class="form-control form-control-sm" accept=".json">
+
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-secondary-soft btn-sm flex-fill" name="action" value="validate">
+            <i class="bi bi-check2-circle me-1"></i>Validate only
+          </button>
+          <button class="btn btn-primary btn-sm flex-fill" name="action" value="import" data-loading>
+            <i class="bi bi-box-arrow-in-down me-1"></i>Import as draft
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+{% if extracted %}
+<div class="card">
+  <div class="card-header"><h2 class="h6 mb-0"><i class="bi bi-file-text text-muted me-2"></i>What was read</h2></div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0 small">
+      <thead><tr><th>File</th><th>Read as</th><th class="text-end">Characters</th><th></th></tr></thead>
+      <tbody>
+        {% for meta in extracted %}
+        <tr>
+          <td>{{ meta.filename }}</td>
+          <td class="text-muted">{{ meta.kind }}{% if meta.pages %} · {{ meta.pages }} page{{ meta.pages|pluralize }}{% endif %}{% if meta.sheets %} · {{ meta.sheets }} sheet{{ meta.sheets|pluralize }}{% endif %}{% if meta.tables %} · {{ meta.tables }} table{{ meta.tables|pluralize }}{% endif %}</td>
+          <td class="text-end font-monospace">{{ meta.chars }}</td>
+          <td>{% if meta.truncated %}<span class="badge bg-warning bg-opacity-10 text-warning">truncated</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

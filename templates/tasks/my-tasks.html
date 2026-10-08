@@ -1,0 +1,57 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static %}
+{% load custom_tags %}
+
+{% block content %}
+<div class="content-body">
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text"><h4>{{ page_title }}</h4>
+                    {% if read_only %}<p class="mb-0 small text-muted">
+                      What has been set for {{ child|person_name }}, and how it is going.</p>{% endif %}
+                </div>
+            </div>
+            <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex align-items-center gap-3">
+                {% include 'partials/_child_switcher.html' %}
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'orgtasks:my-tasks' %}">Tasks</a></li>
+                    <li class="breadcrumb-item active"><a href="javascript:void(0);">{{ page_title }}</a></li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="row">
+            {% for a in assignments %}
+            <div class="col-xl-4 col-lg-6">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            {% comment %}get_absolute_url opens the lesson/quiz/assessment itself
+                            for a delivered task, and the task page for a plain to-do. A parent
+                            gets the task page either way — the activity is their child's to sit,
+                            not theirs.{% endcomment %}
+                            <h5 class="mb-1"><a href="{% if read_only %}{{ a.task.manage_url }}{% else %}{{ a.task.get_absolute_url }}{% endif %}">{{ a.task.title }}</a></h5>
+                            <span class="badge light badge-{% if a.status == 'completed' %}success{% elif a.status == 'in_progress' %}info{% elif a.status == 'submitted' %}primary{% else %}secondary{% endif %}">{{ a.get_status_display }}</span>
+                        </div>
+                        <span class="badge bg-{{ a.task.kind_tone }} bg-opacity-10 text-{{ a.task.kind_tone }} mb-2">
+                            <i class="bi {{ a.task.kind_icon }} me-1"></i>{{ a.task.kind_label }}</span>
+                        <p class="text-muted mb-2">{{ a.task.description|truncatewords:18 }}</p>
+                        {% if a.task.due_date %}<small class="d-block text-muted mb-2"><i class="fa-regular fa-clock me-1"></i>Due {{ a.task.due_date|date:"d M Y H:i" }}</small>{% endif %}
+                        <div class="progress mb-2" style="height:8px;">
+                            <div class="progress-bar bg-primary" style="width: {{ a.progress }}%;"></div>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">{{ a.progress }}% complete</small>
+                            {% if a.score is not None %}<small class="text-success">Score: {{ a.score }}/{{ a.task.max_score }}</small>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12"><div class="card"><div class="card-body text-center text-muted">You have no tasks assigned yet.</div></div></div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

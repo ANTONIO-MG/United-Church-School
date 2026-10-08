@@ -1,0 +1,18 @@
+{% comment %}
+============================================================================
+HTMX FRAGMENT BASE (Phase 4) — the profile shell's tab content, alone.
+
+A tab in profiles/shell.html does hx-get with hx-target/hx-select="#profContent".
+When core.profiles.shell_base() sees that request (HX-Request + HX-Target
+"profContent") it makes the child page extend THIS instead of profiles/shell.html,
+so only the child's {% block profile_content %} is rendered — wrapped in the same
+#profContent div htmx replaces (hx-swap="outerHTML"). The header, tab strip and
+rail are not built server-side just to be thrown away by hx-select.
+
+Nothing else is emitted: no <html>, no chrome, no additional_css/js. That is the
+point — this response IS the fragment. A full (non-HX) page load, and a boosted
+nav that targets #appContentCol, both still get profiles/shell.html.
+============================================================================
+{% endcomment %}<div id="profContent">
+{% block profile_content %}{% endblock %}
+</div>

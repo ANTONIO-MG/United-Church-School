@@ -1,0 +1,280 @@
+/* lesson-player.css — the learner's lesson page.
+ *
+ * The tear-drop accordion deliberately mirrors the registration wizard
+ * (templates/accounts/register/_reg_styles.html): the same CSS chevron, the same
+ * green completion tick, the same Soft-UI palette — so moving from enrolling to
+ * studying feels like one product.
+ * Loaded by templates/learning/lesson_view.html.
+ */
+
+:root{
+  --lp-ink:#344767;      --lp-muted:#8392ab;   --lp-line:#e3e6ee;
+  --lp-cyan:#17c1e8;     --lp-green:#2dce89;   --lp-red:#f5365c;
+  --lp-amber:#fb8c00;    --lp-indigo:#5e72e4;  --lp-soft:#f8f9fe;
+}
+
+/* ============================ Layout ============================ */
+.lp-shell{ display:flex; gap:22px; align-items:flex-start; }
+.lp-main{ flex:1 1 auto; min-width:0; max-width:860px; }
+.lp-rail{ flex:0 0 330px; position:sticky; top:80px; }
+@media (max-width:1199px){
+  .lp-shell{ flex-direction:column; }
+  .lp-rail{ position:static; width:100%; flex-basis:auto; }
+  .lp-main{ max-width:none; }
+}
+
+/* ============================ Header ============================ */
+.lp-head{ margin-bottom:1.5rem; }
+.lp-cover{ width:100%; max-height:280px; object-fit:cover; border-radius:16px; margin-bottom:1rem; }
+.lp-crumb{ font-size:.75rem; color:var(--lp-muted); display:flex; align-items:center; gap:.35rem; margin-bottom:.3rem; }
+.lp-crumb a{ color:var(--lp-muted); text-decoration:none; }
+.lp-crumb a:hover{ color:var(--lp-cyan); }
+.lp-title{ font-size:1.9rem; font-weight:800; letter-spacing:-.02em; color:var(--lp-ink); margin:0 0 .25rem; }
+.lp-sub{ color:#6b7690; font-size:1.02rem; margin-bottom:.75rem; }
+.lp-facts{ display:flex; flex-wrap:wrap; gap:.35rem 1.1rem; font-size:.78rem; color:var(--lp-muted); margin-bottom:.9rem; }
+.lp-facts i{ margin-right:.3rem; }
+
+.lp-progress{ height:6px; border-radius:4px; background:#eef1f6; overflow:hidden; }
+.lp-progress > i{ display:block; height:100%; width:0;
+  background:linear-gradient(90deg,var(--lp-cyan),var(--lp-green)); transition:width .35s; }
+.lp-progress-note{ font-size:.72rem; color:var(--lp-muted); margin-top:.35rem; }
+
+.lp-empty{ text-align:center; color:var(--lp-muted); border:2px dashed var(--lp-line);
+  border-radius:14px; padding:44px 16px; }
+.lp-empty i{ display:block; font-size:1.6rem; margin-bottom:.5rem; }
+
+/* ======================== Lesson body ========================
+   One continuous flow: prose and media read straight down the page like a
+   post, and a dropdown section is a panel sitting in that same column. The
+   gap is tighter between plain blocks than around a section so the panels
+   still read as distinct without breaking the flow. */
+.lp-acc{ display:flex; flex-direction:column; gap:.6rem; }
+.lp-body .lp-flowblock{ margin:0; }
+.lp-body .lp-flowblock + .lp-flowblock{ margin-top:-.25rem; }
+.lp-body .lp-flowblock + .lp-sec,
+.lp-body .lp-sec + .lp-flowblock{ margin-top:.5rem; }
+/* Blocks in the open flow get the reading width of the panel bodies. */
+.lp-body .lp-flowblock > .lv-block{ padding:0 .15rem; }
+
+/* ======================== Dropdown sections ======================== */
+
+.lp-sec{ border:1px solid var(--lp-line); border-radius:.9rem !important; overflow:hidden;
+  background:#fff; transition:box-shadow .18s, border-color .18s; }
+.lp-sec:hover{ box-shadow:0 6px 22px rgba(20,30,60,.06); }
+.lp-sec.sec-done{ border-color:rgba(45,206,137,.45); }
+.lp-sec.sec-locked{ background:#fbfcfe; }
+.lp-sec.lp-flash{ border-color:var(--lp-cyan); box-shadow:0 0 0 3px rgba(23,193,232,.18); }
+
+.lp-sec .accordion-button{ gap:.65rem; font-weight:600; color:var(--lp-ink); padding:.85rem 1rem;
+  background:#fff; box-shadow:none; flex-wrap:nowrap; }
+.lp-sec .accordion-button:not(.collapsed){ background:rgba(23,193,232,.05); color:var(--lp-ink); }
+.lp-sec .accordion-button:disabled{ opacity:1; cursor:not-allowed; color:var(--lp-muted); }
+/* Hide Bootstrap's own chevron — we draw one on the left, as registration does. */
+.lp-sec .accordion-button::after{ display:none; }
+
+/* CSS chevron: points down when collapsed, up when open. */
+.lp-sec .sec-chev{ width:10px; height:10px; flex:0 0 10px; border-right:2px solid var(--lp-muted);
+  border-bottom:2px solid var(--lp-muted); transform:rotate(45deg); transition:transform .2s; margin-top:-4px; }
+.lp-sec .accordion-button:not(.collapsed) .sec-chev{ transform:rotate(-135deg); margin-top:2px; border-color:var(--lp-cyan); }
+
+/* Kind label — "Reading", "Video", "Quiz", "Assessment"… */
+.sec-badge{ display:inline-flex; align-items:center; gap:.3rem; flex:0 0 auto;
+  font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+  padding:.24rem .55rem; border-radius:2rem; border:1px solid transparent; white-space:nowrap; }
+.sec-badge i{ font-size:.8rem; }
+.sec-badge--info{ background:rgba(23,193,232,.12); color:#0b7f97; border-color:rgba(23,193,232,.25); }
+.sec-badge--primary{ background:rgba(94,114,228,.12); color:#3b4bc0; border-color:rgba(94,114,228,.25); }
+.sec-badge--warning{ background:rgba(251,140,0,.13); color:#a35c00; border-color:rgba(251,140,0,.28); }
+.sec-badge--danger{ background:rgba(245,54,92,.11); color:#c31d43; border-color:rgba(245,54,92,.25); }
+.sec-badge--success{ background:rgba(45,206,137,.13); color:#12805a; border-color:rgba(45,206,137,.28); }
+.sec-badge--secondary{ background:#eef1f6; color:#5b6580; border-color:#e0e5ee; }
+
+.lp-sec .sec-title{ flex:1 1 auto; min-width:0; text-align:left; line-height:1.3; }
+.lp-sec .sec-summary{ display:block; font-size:.72rem; font-weight:400; color:var(--lp-muted);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.lp-sec .sec-lock{ flex:0 0 auto; color:var(--lp-muted); font-size:.9rem; }
+.lp-sec .sec-dur{ flex:0 0 auto; font-size:.72rem; font-weight:600; color:var(--lp-muted); white-space:nowrap; }
+.lp-sec .sec-dur i{ margin-right:.25rem; }
+
+/* Completion tick — the registration wizard's green circle. */
+.lp-sec .sec-check{ width:22px; height:22px; border-radius:50%; position:relative; flex:0 0 22px;
+  border:2px solid #cfd6e4; transition:.2s; }
+.lp-sec.sec-done .sec-check{ background:var(--lp-green); border-color:var(--lp-green); }
+.lp-sec.sec-done .sec-check::after{ content:""; position:absolute; left:6px; top:2px; width:5px; height:10px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg); }
+.lp-sec.sec-locked .sec-check{ border-style:dashed; }
+
+.lp-secbody{ padding:1.1rem 1.25rem 1.25rem; border-top:1px solid #f1f3f7; }
+.lp-locked{ text-align:center; color:var(--lp-muted); padding:1.5rem 0; }
+.lp-locked i{ font-size:1.8rem; display:block; margin-bottom:.6rem; }
+
+.lp-secfoot{ display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+  margin-top:1rem; padding-top:.8rem; border-top:1px dashed var(--lp-line); }
+
+@media (max-width:575px){
+  .lp-sec .sec-summary, .lp-sec .sec-dur{ display:none; }
+  .sec-badge span{ display:none; }
+}
+
+/* ============================ Blocks ============================ */
+.lv-block{ margin:0 0 1.3rem; }
+.lv-block:last-child{ margin-bottom:0; }
+.lv-h{ font-weight:700; color:var(--lp-ink); }
+.lv-prose{ line-height:1.75; color:#3d4759; }
+.lv-prose img{ max-width:100%; border-radius:12px; }
+.lv-divider{ margin:1.5rem 0; }
+.lv-missing{ background:var(--lp-soft); border:1px dashed var(--lp-line); border-radius:12px;
+  padding:1.5rem; text-align:center; color:var(--lp-muted); }
+.lv-missing i{ display:block; font-size:1.4rem; margin-bottom:.4rem; }
+
+.lv-callout{ border-radius:12px; padding:.9rem 1.05rem; border-left:4px solid; }
+.lv-callout.info{ background:#eef4ff; border-color:var(--lp-indigo); }
+.lv-callout.tip{ background:#eafaf2; border-color:var(--lp-green); }
+.lv-callout.warning{ background:#fff7e6; border-color:var(--lp-amber); }
+.lv-callout.danger{ background:#fdecee; border-color:var(--lp-red); }
+
+.lv-fig img{ max-width:100%; border-radius:12px; }
+.lv-fig figcaption{ color:var(--lp-muted); font-size:.82rem; margin-top:.4rem; text-align:center; }
+
+.lv-ref{ font-size:.85rem; color:var(--lp-muted); border-left:3px solid var(--lp-line); padding-left:.8rem; }
+.lv-ref i{ margin-right:.3rem; }
+
+.lv-filecard{ display:flex; align-items:center; gap:.85rem; padding:.8rem 1rem; border-radius:12px;
+  border:1px solid var(--lp-line); background:#fff; text-decoration:none; color:var(--lp-ink); transition:.15s; }
+.lv-filecard:hover{ border-color:var(--lp-cyan); background:#f6fdff; color:var(--lp-ink); }
+.lv-filecard > i{ font-size:1.5rem; color:var(--lp-indigo); }
+.lv-filecard .lv-dl{ font-size:.75rem; font-weight:600; color:var(--lp-cyan); }
+
+/* Media player (Plyr).
+   NB: deliberately NOT the theme's .player-wrapper/.player-* classes — the
+   theme's functions.js calls Plyr.setup() on those the moment it sees a
+   .player-wrapper, but Plyr is only loaded on this page, so it would throw and
+   abort the rest of the theme's init. lesson-player.js builds the players. */
+.lv-player .lv-stage{ border-radius:14px; overflow:hidden; background:#000; }
+.lv-player .plyr{ border-radius:14px; }
+.lv-player audio.lv-media{ width:100%; }
+.lv-mediabar{ display:flex; align-items:center; gap:.6rem; margin-top:.5rem; }
+.lv-cap{ font-size:.8rem; color:var(--lp-muted); flex:1 1 auto; }
+
+/* The small "bookmark this" affordance used on media, quizzes and sections. */
+.lv-mark{ border:1px solid var(--lp-line); background:#fff; color:var(--lp-muted);
+  border-radius:2rem; padding:.28rem .75rem; font-size:.74rem; font-weight:600; cursor:pointer; transition:.15s;
+  display:inline-flex; align-items:center; gap:.35rem; white-space:nowrap; }
+.lv-mark:hover{ border-color:var(--lp-amber); color:#a35c00; background:#fff8ef; }
+.lv-mark.is-saved{ border-color:var(--lp-amber); color:#a35c00; background:#fff3e0; }
+
+.lv-action{ display:flex; align-items:center; gap:.85rem; padding:.9rem 1.05rem; border-radius:14px;
+  background:linear-gradient(135deg,#eef4ff,#f6f9ff); border:1px solid #dbe7ff; flex-wrap:wrap; }
+.lv-action--live{ background:linear-gradient(135deg,#eafaf2,#f4fdf8); border-color:#c8ecd8; }
+.lv-action .ic{ font-size:1.5rem; color:var(--lp-indigo); }
+.lv-action--live .ic{ color:var(--lp-green); }
+
+.lv-embed{ position:relative; border-radius:12px; overflow:hidden; border:1px solid var(--lp-line); }
+.lv-embed iframe{ width:100%; border:0; display:block; }
+.lv-embed-bar{ display:flex; align-items:center; gap:.5rem; padding:.5rem .75rem; background:#f7f9fc;
+  border-bottom:1px solid #eef0f4; font-size:.8rem; color:var(--lp-muted); }
+.lv-meet{ border-radius:14px; overflow:hidden; border:1px solid #d7e9f8; margin-top:.6rem; }
+.lv-meet-frame{ width:100%; height:520px; border:0; }
+
+/* A saved passage stays highlighted so the learner can see what they kept. */
+.lp-highlight{ background:#fff3cd; border-radius:3px; box-shadow:0 0 0 2px #fff3cd; }
+
+/* ---- score card shown at the foot of a completed quiz section ---- */
+.lp-scorecard{ display:flex; gap:1rem; align-items:center; margin-top:1rem; padding:.9rem 1.05rem;
+  border-radius:14px; background:linear-gradient(135deg,#f3fbf7,#fbfefc); border:1px solid #cdeadd; }
+.lp-scorecard .sc-num{ text-align:center; flex:0 0 88px; }
+.lp-scorecard .sc-num strong{ display:block; font-size:1.5rem; font-weight:800; color:#12805a; line-height:1; }
+.lp-scorecard .sc-num span{ font-size:.72rem; color:var(--lp-muted); }
+.sc-stars{ color:var(--lp-amber); }
+.sc-stars i{ margin-right:1px; }
+
+/* ============================ References ============================ */
+.lp-refs{ margin-top:2rem; padding-top:1rem; border-top:1px solid var(--lp-line); }
+.lp-refs h3{ font-size:1.05rem; font-weight:700; color:var(--lp-ink); }
+.lp-refs ol{ font-size:.88rem; padding-left:1.2rem; }
+.lp-refs li{ margin-bottom:.4rem; }
+
+/* ============================ Right rail ============================ */
+.lp-railcard{ border:1px solid var(--lp-line); border-radius:1rem; background:#fff; overflow:hidden;
+  box-shadow:0 4px 18px rgba(20,30,60,.04); }
+.lp-tabs{ display:flex; border-bottom:1px solid var(--lp-line); background:var(--lp-soft); }
+.lp-tabs button{ flex:1; border:0; background:transparent; padding:.7rem .2rem; color:var(--lp-muted);
+  font-size:1rem; cursor:pointer; position:relative; transition:.15s; }
+.lp-tabs button:hover{ color:var(--lp-ink); background:#fff; }
+.lp-tabs button.active{ color:var(--lp-cyan); background:#fff; box-shadow:inset 0 -2px 0 var(--lp-cyan); }
+.lp-count{ position:absolute; top:.3rem; right:50%; transform:translateX(115%);
+  background:var(--lp-amber); color:#fff; font-size:.6rem; font-weight:700; min-width:15px;
+  padding:0 4px; border-radius:8px; line-height:15px; }
+.lp-count:empty, .lp-count[data-zero]{ display:none; }
+
+.lp-pane{ display:none; padding:1rem 1.1rem 1.2rem; }
+.lp-pane.show{ display:block; }
+.lp-subhead{ font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+  color:var(--lp-muted); margin-bottom:.5rem; }
+.lp-hint{ font-size:.72rem; color:var(--lp-muted); margin-bottom:.6rem; }
+.lp-none{ text-align:center; color:var(--lp-muted); font-size:.8rem; padding:1.4rem 0; }
+.lp-none i{ display:block; font-size:1.3rem; margin-bottom:.35rem; opacity:.6; }
+
+/* Progress ring — conic gradient driven by the --pct custom property. */
+.lp-ring{ width:104px; height:104px; margin:0 auto 1rem; border-radius:50%; display:grid; place-items:center;
+  background:conic-gradient(var(--lp-green) calc(var(--pct) * 1%), #eef1f6 0); position:relative; }
+.lp-ring::before{ content:""; position:absolute; inset:9px; border-radius:50%; background:#fff; }
+.lp-ring span{ position:relative; font-size:1.35rem; font-weight:800; color:var(--lp-ink); }
+.lp-ring small{ font-size:.7rem; font-weight:600; color:var(--lp-muted); }
+
+.lp-author{ display:flex; align-items:center; gap:.6rem; margin-bottom:.6rem; }
+.lp-author img, .lp-author .ava{ width:40px; height:40px; border-radius:50%; object-fit:cover; flex:0 0 40px;
+  display:flex; align-items:center; justify-content:center; background:var(--lp-indigo); color:#fff; font-weight:700; }
+
+.lp-meta{ display:grid; grid-template-columns:auto 1fr; gap:.3rem .8rem; font-size:.78rem; margin:0; }
+.lp-meta dt{ color:var(--lp-muted); font-weight:600; }
+.lp-meta dd{ margin:0; color:var(--lp-ink); text-align:right; }
+
+.lp-files{ list-style:none; padding:0; margin:0; }
+.lp-files a{ display:flex; align-items:center; gap:.5rem; padding:.45rem .1rem; font-size:.8rem;
+  color:var(--lp-ink); text-decoration:none; border-bottom:1px solid #f2f4f8; }
+.lp-files a:hover{ color:var(--lp-cyan); }
+.lp-files span{ flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lp-files em{ font-style:normal; font-size:.68rem; color:var(--lp-muted); }
+
+#lpNote{ font-size:.85rem; line-height:1.6; resize:vertical; }
+.lp-savenote{ font-size:.7rem; color:var(--lp-muted); margin-top:.35rem; display:flex; align-items:center; gap:.3rem; }
+.lp-savenote i{ color:var(--lp-green); }
+.lp-savenote.saving i{ color:var(--lp-amber); }
+
+.lp-bms{ list-style:none; padding:0; margin:0; }
+.lp-bms li{ display:flex; align-items:center; gap:.25rem; border-bottom:1px solid #f2f4f8; }
+.lp-bms li.lp-none{ display:block; border:0; }
+.bm-go{ flex:1 1 auto; display:flex; align-items:flex-start; gap:.5rem; text-align:left; border:0;
+  background:transparent; padding:.5rem .15rem; cursor:pointer; color:var(--lp-ink); min-width:0; }
+.bm-go:hover{ color:var(--lp-cyan); }
+.bm-go > i{ color:var(--lp-amber); margin-top:.15rem; }
+.bm-main{ min-width:0; }
+.bm-label{ display:block; font-size:.79rem; line-height:1.35;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.bm-meta{ display:block; font-size:.67rem; color:var(--lp-muted); }
+.bm-del{ border:0; background:transparent; color:#c9cfdb; padding:.25rem .35rem; cursor:pointer; border-radius:6px; }
+.bm-del:hover{ background:#fdecee; color:var(--lp-red); }
+
+.lp-scorerow{ padding:.6rem 0; border-bottom:1px solid #f2f4f8; }
+.lp-scorerow:last-child{ border-bottom:0; }
+.lp-scorerow strong{ font-size:.82rem; }
+
+.lp-msg{ display:flex; gap:.55rem; padding:.55rem 0; border-bottom:1px solid #f2f4f8;
+  text-decoration:none; color:var(--lp-ink); }
+.lp-msg:hover .msg-title{ color:var(--lp-cyan); }
+.msg-ava{ width:30px; height:30px; flex:0 0 30px; border-radius:50%; background:var(--lp-cyan); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:.75rem; font-weight:700; }
+.msg-main{ min-width:0; }
+.msg-title{ display:block; font-size:.8rem; font-weight:600; line-height:1.35;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.msg-title i{ color:var(--lp-amber); margin-right:.2rem; }
+.msg-meta{ display:block; font-size:.67rem; color:var(--lp-muted); }
+
+/* Floating "bookmark passage" button that follows a text selection. */
+.lp-selbtn{ position:absolute; z-index:1080; border:0; border-radius:2rem; padding:.4rem .85rem;
+  background:var(--lp-ink); color:#fff; font-size:.75rem; font-weight:600; cursor:pointer;
+  box-shadow:0 6px 20px rgba(20,30,60,.28); display:inline-flex; align-items:center; gap:.35rem; }
+.lp-selbtn:hover{ background:var(--lp-cyan); }
+.lp-selbtn[hidden]{ display:none; }

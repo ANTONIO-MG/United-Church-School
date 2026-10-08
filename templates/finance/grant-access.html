@@ -1,0 +1,103 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Admin/staff only. Record a payment and open a student's modules in one
+submit — the form deliberately cannot do one without the other, so no account is ever
+opened without a record of what paid for it. The list on the right is who is currently
+locked out, because that is who someone came here to help.{% endcomment %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="card">
+        <div class="card-header pb-0">
+          <h5 class="mb-0">Record a payment &amp; grant access</h5>
+          <p class="text-sm text-muted mb-0">The payment and the access are one action. What you
+            enter here goes onto the student's payment history and reopens their subjects.</p>
+        </div>
+        <div class="card-body">
+          <form method="post" enctype="multipart/form-data" class="app-form">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="alert alert-danger text-sm">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label text-sm fw-bold" for="{{ form.student.id_for_label }}">{{ form.student.label }}</label>
+                {{ form.student }}
+                <div class="form-text text-xs">{{ form.student.help_text }}</div>
+                {% for error in form.student.errors %}<div class="text-danger text-xs">{{ error }}</div>{% endfor %}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label text-sm fw-bold" for="{{ form.amount.id_for_label }}">{{ form.amount.label }}</label>
+                {{ form.amount }}
+                {% for error in form.amount.errors %}<div class="text-danger text-xs">{{ error }}</div>{% endfor %}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label text-sm fw-bold" for="{{ form.months.id_for_label }}">{{ form.months.label }}</label>
+                {{ form.months }}
+                <div class="form-text text-xs">{{ form.months.help_text }}</div>
+                {% for error in form.months.errors %}<div class="text-danger text-xs">{{ error }}</div>{% endfor %}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label text-sm fw-bold" for="{{ form.method.id_for_label }}">{{ form.method.label }}</label>
+                {{ form.method }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label text-sm fw-bold" for="{{ form.paid_on.id_for_label }}">{{ form.paid_on.label }}</label>
+                {{ form.paid_on }}
+                <div class="form-text text-xs">{{ form.paid_on.help_text }}</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label text-sm fw-bold" for="{{ form.reference.id_for_label }}">{{ form.reference.label }}</label>
+                {{ form.reference }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label text-sm fw-bold" for="{{ form.document.id_for_label }}">{{ form.document.label }}</label>
+                {{ form.document }}
+                <div class="form-text text-xs">{{ form.document.help_text }}</div>
+                {% for error in form.document.errors %}<div class="text-danger text-xs">{{ error }}</div>{% endfor %}
+              </div>
+              <div class="col-12">
+                <label class="form-label text-sm fw-bold" for="{{ form.note.id_for_label }}">{{ form.note.label }}</label>
+                {{ form.note }}
+                <div class="form-text text-xs">{{ form.note.help_text }}</div>
+              </div>
+            </div>
+            <div class="d-flex justify-content-between mt-4">
+              <a href="{% url 'finance:payment-history' %}" class="btn btn-light mb-0">Cancel</a>
+              <button type="submit" class="btn bg-gradient-info mb-0">
+                <i class="bi bi-unlock me-1"></i>Record payment &amp; grant access</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card h-100">
+        <div class="card-header pb-0">
+          <h6 class="mb-0">Currently locked out</h6>
+          <p class="text-xs text-muted mb-0">Trial finished, nothing paid. They can still sign in —
+            lessons, assessments and chats are what closed.</p>
+        </div>
+        <div class="card-body pt-3">
+          {% regroup locked by person as by_student %}
+          {% for group in by_student %}
+          <div class="d-flex justify-content-between align-items-start border-bottom pb-2 mb-2">
+            <div>
+              <p class="text-sm fw-bold mb-0">{{ group.grouper }}</p>
+              <p class="text-xs text-muted mb-0">
+                {{ group.list|length }} locked subject{{ group.list|length|pluralize }} ·
+                {% for enrolment in group.list %}{{ enrolment.programme_module.code }}{% if not forloop.last %}, {% endif %}{% endfor %}
+              </p>
+            </div>
+            <a href="{% url 'finance:student-payments' group.grouper.pk %}"
+               class="btn btn-sm btn-outline-info mb-0">History</a>
+          </div>
+          {% empty %}
+          <p class="text-sm text-muted mb-0">Nobody is locked out right now.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

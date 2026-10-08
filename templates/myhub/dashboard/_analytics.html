@@ -1,0 +1,73 @@
+{% comment %}Study analytics tile: momentum (streak + 12-week sparkline + week-on-week
+trend), the exam-pace profile and the mastery map (average per grade component +
+weakest modules). Analytics #2, #3 and #4.{% endcomment %}
+
+<div class="dash-card">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--success"><i class="bi bi-activity"></i></span>
+    <h6>Study insights</h6>
+    <a class="dash-link" href="{% url 'reports:my-progress' %}">Details</a>
+  </div>
+
+  <div class="dash-card__body">
+
+    {# ---- Momentum ---- #}
+    {% if trend.has_data %}
+    <div class="d-flex align-items-baseline gap-2 mb-1">
+      <span class="dash-chip dash-chip--{% if trend.streak >= 3 %}success{% else %}secondary{% endif %}">
+        <i class="bi bi-fire"></i> {{ trend.streak }}-day streak
+      </span>
+      <span class="dash-module__meta">best {{ trend.best_streak }} · {{ trend.active_days_30 }} active days in 30</span>
+    </div>
+    <div class="dash-spark mb-1" aria-hidden="true">
+      {% for slot in trend.spark %}<i style="height: {{ slot.height }}%" title="{{ slot.minutes }} min"></i>{% endfor %}
+    </div>
+    <p class="dash-module__meta mb-3">
+      {{ trend.this_week_minutes }} min this week vs {{ trend.last_week_minutes }} min last week
+      {% if trend.trend_pct is not None %}
+        · <span class="fw-bold {% if trend.trend_pct >= 0 %}text-success{% else %}text-danger{% endif %}">
+          {% if trend.trend_pct >= 0 %}+{% endif %}{{ trend.trend_pct }}%
+        </span>
+      {% endif %}
+    </p>
+    {% endif %}
+
+    {# ---- Exam pace ---- #}
+    {% if pace.has_data %}
+    <div class="dash-insight dash-insight--{{ pace.tone }} mb-3">
+      <h6><i class="bi bi-speedometer2"></i>Exam pace: {{ pace.label }}</h6>
+      <p>{{ pace.note }}</p>
+    </div>
+    {% endif %}
+
+    {# ---- Mastery map ---- #}
+    {% if mastery.has_data %}
+    <p class="dash-module__meta fw-bold mb-2 text-uppercase" style="letter-spacing:.06em; font-size:.66rem;">
+      Mastery by component
+    </p>
+    {% for component in mastery.components %}
+    <div class="dash-meter">
+      <div class="dash-meter__top">{{ component.label }}<b>{{ component.value }}%</b></div>
+      <div class="dash-bar dash-bar--{{ component.tone }}"><span style="width: {{ component.value }}%"></span></div>
+    </div>
+    {% endfor %}
+
+    {% if mastery.weakest %}
+    <p class="dash-module__meta mt-3 mb-1">Revise these first:</p>
+    <div class="dash-quick">
+      {% for weak in mastery.weakest %}
+      <a href="{{ weak.url|default:'#' }}"><i class="bi bi-bullseye"></i>{{ weak.module.name|truncatechars:22 }} · {{ weak.value }}%</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if not trend.has_data and not pace.has_data and not mastery.has_data %}
+    <div class="dash-empty">
+      <i class="bi bi-graph-up"></i>
+      Study a lesson or sit an assessment and your analytics appear here.
+    </div>
+    {% endif %}
+
+  </div>
+</div>

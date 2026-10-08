@@ -1,0 +1,30 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}One report snapshot: headline numbers when it is an institution dashboard, raw data always.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow"><a href="{% url 'staffdesk:snapshots' %}">Report snapshots</a></span><h3>{{ snap.scope|capfirst }} · {{ snap.get_period_display }}</h3>
+      <p>Taken {{ snap.generated_at|date:"j F Y, H:i" }}</p></div>
+  </div>
+
+  {% if tiles %}
+  <div class="tc-kpis">{% for label, value in tiles %}<div class="tc-kpi"><span>{{ label }}</span><b>{{ value }}</b></div>{% endfor %}</div>
+  {% endif %}
+
+  {% if module_rows %}
+  <div class="tc-card mb-3">
+    <div class="tc-card__head"><h6>Subject performance</h6></div>
+    <div class="tc-table-wrap"><table class="tc-table">
+      <thead><tr>{% for k in module_rows.0.keys %}<th>{{ k|capfirst }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for row in module_rows %}<tr>{% for v in row.values %}<td class="small">{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table></div>
+  </div>
+  {% endif %}
+
+  <div class="tc-card">
+    <div class="tc-card__head"><h6>Raw data</h6></div>
+    <div class="tc-card__body"><pre class="sda-pre">{{ raw }}</pre></div>
+  </div>
+</div></div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static commerce %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Finance</span><h3>Estimates</h3><p>Quotes customers can accept online, then turn into invoices.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:invoices' %}"><i class="bi bi-receipt me-1"></i>Invoices</a>
+      <a class="btn btn-sm btn-primary" href="{% url 'finance:estimate-new' %}"><i class="bi bi-plus-lg me-1"></i>New estimate</a>
+    </div>
+  </div>
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Awaiting an answer</span><b>{{ kpis.open_total|rand }}</b><em>{{ kpis.open_count }} estimate{{ kpis.open_count|pluralize }}</em></div>
+    <div class="tc-kpi"><span>Win rate</span><b>{% if kpis.decided %}{% widthratio kpis.accepted kpis.decided 100 %}%{% else %}—{% endif %}</b><em>{{ kpis.accepted }} of {{ kpis.decided }} decided</em></div>
+    <div class="tc-kpi"><span>Drafts</span><b>{{ kpis.drafts }}</b><em>not yet sent</em></div>
+  </div>
+  <form method="get" class="tc-toolbar">
+    <label class="visually-hidden" for="estSearch">Search</label>
+    <input id="estSearch" class="form-control form-control-sm tc-search" type="search" name="q" value="{{ search }}" placeholder="Search by number, customer or summary">
+    <label class="visually-hidden" for="estStatus">Status</label>
+    <select id="estStatus" name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">All statuses</option>{% for v, l in STATUS_CHOICES %}<option value="{{ v }}" {% if status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i><span class="visually-hidden">Search</span></button>
+  </form>
+  <div class="tc-card"><div class="tc-table-wrap"><table class="tc-table">
+    <thead><tr><th>Status</th><th>Date</th><th>Number</th><th>Customer</th><th>Valid until</th><th class="r">Total</th><th></th></tr></thead>
+    <tbody>
+    {% for e in estimates %}
+      <tr><td>{% include 'finance/_status.html' with doc=e %}</td><td class="small text-muted">{{ e.issue_date|date:"j M Y" }}</td>
+        <td><a class="fw-semibold" href="{% url 'finance:estimate-detail' e.pk %}">{{ e.number }}</a>{% if e.summary %}<div class="small text-muted">{{ e.summary|truncatechars:40 }}</div>{% endif %}</td>
+        <td>{{ e.bill_to_name }}</td><td class="small {% if e.is_expired %}text-danger{% endif %}">{{ e.valid_until|date:"j M Y" }}</td>
+        <td class="r fw-semibold">{{ e.total|rand }}</td><td class="r"><a class="btn btn-sm tc-btn-soft" href="{% url 'finance:estimate-detail' e.pk %}">View</a></td></tr>
+    {% empty %}
+      <tr><td colspan="7"><div class="tc-empty"><i class="bi bi-file-earmark-text"></i><h5>No estimates yet</h5><p class="mb-3">Send a quote for a package, a sponsor or a custom fee package.</p><a class="btn btn-sm btn-primary" href="{% url 'finance:estimate-new' %}">Create an estimate</a></div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div></div>
+</div></div>
+{% endblock %}

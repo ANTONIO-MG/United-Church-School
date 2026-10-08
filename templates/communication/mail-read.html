@@ -1,0 +1,36 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}Read a single in-system message.{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <h3 class="mb-3">Email</h3>
+  <div class="row g-3">
+    <div class="col-lg-3">{% include 'communication/_mail-rail.html' %}</div>
+
+    <div class="col-lg-9">
+      <div class="card"><div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <h4 class="mb-0">{{ mail.subject }}</h4>
+          <div class="d-flex gap-2">
+            {% if row %}
+            <form method="post" action="{% url 'communication:mail-action' mail.pk %}">{% csrf_token %}<input type="hidden" name="action" value="star"><input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-sm btn-outline-secondary" title="Star"><i class="bi bi-star{% if row.starred %}-fill text-warning{% endif %}"></i></button></form>
+            <form method="post" action="{% url 'communication:mail-action' mail.pk %}">{% csrf_token %}<input type="hidden" name="action" value="trash"><button class="btn btn-sm btn-outline-danger" title="Trash"><i class="bi bi-trash"></i></button></form>
+            {% endif %}
+            <a href="{% url 'communication:mail-compose' %}" class="btn btn-sm btn-primary"><i class="bi bi-reply me-1"></i>New</a>
+          </div>
+        </div>
+        <div class="d-flex align-items-center mb-3 pb-3 border-bottom">
+          <div class="avatar-img rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center fw-bold me-3" style="width:46px;height:46px">
+            {{ mail.sender.get_username|slice:":1"|upper }}</div>
+          <div>
+            <strong>{{ mail.sender|person_name }}</strong>
+            <span class="text-muted">&lt;{{ mail.sender_email|default:mail.sender.email }}&gt;</span>
+            <div class="small text-muted">To: {{ mail.recipient_names }} · {{ mail.created_at|date:"M d, Y H:i" }}</div>
+          </div>
+        </div>
+        <div style="line-height:1.7;white-space:pre-wrap">{{ mail.body|linebreaks }}</div>
+      </div></div>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

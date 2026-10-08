@@ -1,0 +1,41 @@
+{% comment %}Cohort standing — the student's rank and percentile within each module.
+Deliberately counts-only: no classmate is ever named and no individual peer mark
+is shown, just the cohort size and its average.{% endcomment %}
+
+{% if cohort.has_data %}
+<div class="dash-card">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--primary"><i class="bi bi-bar-chart-steps"></i></span>
+    <h6>How you compare</h6>
+    <a class="dash-link" href="{% url 'reports:my-reports' %}">Reports</a>
+  </div>
+
+  <div class="dash-card__body dash-card__body--flush pt-1">
+    {% for row in cohort.rows %}
+    <div class="dash-module">
+      <span class="dash-module__ico dash-glyph--{{ row.tone }}">{{ row.ordinal }}</span>
+
+      <div class="dash-module__main">
+        <span class="dash-module__title">{{ row.module.name }}</span>
+        <span class="dash-module__meta">
+          {{ row.ordinal }} of {{ row.size }} · class average {{ row.average }}%
+          {% if row.delta > 0 %}· you're {{ row.delta_abs }} pt{{ row.delta_abs|pluralize }} above
+          {% elif row.delta < 0 %}· you're {{ row.delta_abs }} pt{{ row.delta_abs|pluralize }} below
+          {% else %}· exactly on average{% endif %}
+        </span>
+        <div class="dash-bar dash-bar--{{ row.tone }}"><span style="width: {{ row.percentile }}%"></span></div>
+      </div>
+
+      <div class="dash-module__side">
+        <div class="fw-bold" style="font-size:.95rem; color:var(--dash-ink);">{{ row.mark }}%</div>
+        {% if row.show_percentile %}
+          <span class="dash-chip dash-chip--{{ row.tone }}">top {{ row.top_pct }}%</span>
+        {% else %}
+          <span class="dash-chip dash-chip--{{ row.tone }}">of {{ row.size }}</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}

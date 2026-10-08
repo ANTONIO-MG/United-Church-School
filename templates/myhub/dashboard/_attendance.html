@@ -1,0 +1,51 @@
+{% comment %}Attendance — an overall ring plus a small ring per module. Present and
+late both count as attended; excused sessions are excluded from the denominator
+rather than counted as misses.{% endcomment %}
+
+{% if attendance.has_data %}
+<div class="dash-card">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--info"><i class="bi bi-person-check"></i></span>
+    <h6>Attendance</h6>
+    <a class="dash-link" href="{% url 'communication:attendance' %}">Register</a>
+  </div>
+
+  <div class="dash-card__body">
+    <div class="d-flex align-items-center gap-3 mb-3">
+      <div class="dash-mini-ring dash-mini-ring--lg dash-mini-ring--{{ attendance.tone }}">
+        <svg viewBox="0 0 36 36" aria-hidden="true">
+          <circle class="dash-mini-ring__track" cx="18" cy="18" r="15.5"/>
+          <circle class="dash-mini-ring__bar" cx="18" cy="18" r="15.5" pathLength="100"
+                  style="stroke-dasharray: {{ attendance.overall }} 100;"/>
+        </svg>
+        <b>{{ attendance.overall }}%</b>
+      </div>
+      <div class="min-w-0">
+        <p class="dash-row__name mb-1">{{ attendance.attended }} of {{ attendance.held }} classes attended</p>
+        <p class="dash-module__meta mb-0">
+          {% if attendance.excused %}{{ attendance.excused }} excused (not counted) · {% endif %}
+          {% if attendance.overall >= 85 %}Comfortably above the usual 80% requirement.
+          {% elif attendance.overall >= 80 %}Just above the usual 80% requirement.
+          {% else %}Below the usual 80% requirement — worth catching up.{% endif %}
+        </p>
+      </div>
+    </div>
+
+    <div class="dash-ring-grid">
+      {% for row in attendance.rows %}
+      <div class="dash-ring-cell" title="{{ row.module.name }} — {{ row.attended }}/{{ row.held }} attended{% if row.late %}, {{ row.late }} late{% endif %}{% if row.excused %}, {{ row.excused }} excused{% endif %}">
+        <div class="dash-mini-ring dash-mini-ring--{{ row.tone }}">
+          <svg viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="dash-mini-ring__track" cx="18" cy="18" r="15.5"/>
+            <circle class="dash-mini-ring__bar" cx="18" cy="18" r="15.5" pathLength="100"
+                    style="stroke-dasharray: {{ row.pct }} 100;"/>
+          </svg>
+          <b>{{ row.pct }}</b>
+        </div>
+        <span class="dash-ring-cell__name">{{ row.module.name|truncatechars:14 }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}

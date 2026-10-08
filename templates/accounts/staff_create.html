@@ -1,0 +1,60 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Superuser: create an admin / staff / educator account. The account is made
+with a verified e-mail + a random password; an invitation with the login details is
+e-mailed to them, and they complete their profile on first login.{% endcomment %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row g-3 justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <div class="card">
+        <div class="card-header pb-0">
+          <h5 class="mb-0">Create a team account</h5>
+          <p class="text-xs text-muted mb-0">Admin, staff or educator. They get a verified e-mail and a
+            random password by e-mail, then set their own password and complete their profile on first login.</p>
+        </div>
+        <div class="card-body">
+          <form method="post" class="app-form">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="mb-3">
+              <label class="form-label text-sm fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-text text-xs">{{ field.help_text }}</div>{% endif %}
+              {% for error in field.errors %}<div class="text-danger text-xs mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            {% if form.non_field_errors %}<div class="alert alert-danger text-sm">{{ form.non_field_errors }}</div>{% endif %}
+            <button type="submit" class="btn bg-gradient-info mb-0"><i class="bi bi-person-plus me-1"></i>Create &amp; send invitation</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6 col-md-8">
+      <div class="card h-100">
+        <div class="card-header pb-0"><h6 class="mb-0">Team accounts</h6></div>
+        <div class="card-body pt-2">
+          <div class="list-group">
+            {% for p in recent %}
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <span class="fw-bold">{{ p.first_name }} {{ p.last_name }}</span>
+                <div class="text-xs text-muted">{{ p.user.email }} · {{ p.get_user_type_display }}</div>
+              </div>
+              {% if p.registered %}
+                <span class="badge bg-gradient-success">Active</span>
+              {% else %}
+                <span class="badge bg-gradient-secondary" title="Invited — not yet completed first login">Invited</span>
+              {% endif %}
+            </div>
+            {% empty %}
+            <p class="text-sm text-muted mb-0">No team accounts yet.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

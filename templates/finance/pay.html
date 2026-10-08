@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% comment %}Public PayFast redirect page — auto-submits the signed form to PayFast.{% endcomment %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height:100vh;background:#f5f4ee">
+  <div class="card shadow-sm" style="max-width:440px;width:100%">
+    <div class="card-body text-center p-4">
+      <h4 class="mb-1">Pay invoice {{ invoice.number }}</h4>
+      <p class="text-muted mb-3">Amount due: <strong class="text-primary">R{{ invoice.balance }}</strong></p>
+
+      {% if payments_disabled %}
+        {# settings.PAYMENTS_ENABLED is off — no gateway is configured on this deployment. #}
+        <div class="alert alert-secondary small mb-0 text-start">
+          <strong>Online payment is not available on this site.</strong>
+          <p class="mb-0 mt-2">This invoice is still due. Please arrange payment with the
+          administrator, who can record it against invoice <strong>{{ invoice.number }}</strong> once received.</p>
+        </div>
+      {% elif simulate %}
+        {# No PayFast credentials configured — settle locally so the flow is testable. #}
+        <a href="{{ return_url }}" class="btn btn-primary w-100"><i class="bi bi-shield-lock me-1"></i>Complete test payment</a>
+        <div class="alert alert-warning small mt-3 mb-0">
+          <strong>Sandbox simulation.</strong> No PayFast credentials are configured, so this settles the invoice locally for testing.
+          To test the real PayFast redirect, set <code>PAYFAST_MERCHANT_ID</code>, <code>PAYFAST_MERCHANT_KEY</code> and
+          <code>PAYFAST_PASSPHRASE</code> from your <a href="https://sandbox.payfast.co.za" target="_blank" rel="noopener">PayFast sandbox account</a>.
+        </div>
+      {% else %}
+        <form id="payfastForm" action="{{ process_url }}" method="post">
+          {% for key, value in fields.items %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-shield-lock me-1"></i>Continue to PayFast</button>
+        </form>
+        {% if sandbox %}
+          <div class="alert alert-warning small mt-3 mb-0">Sandbox mode — use PayFast's sandbox test card. You'll be returned here and the invoice settled for testing.</div>
+        {% endif %}
+        <p class="small text-muted mt-3 mb-0">Redirecting you to PayFast to pay securely…</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<script>
+  // Auto-submit so the buyer goes straight to PayFast (real-redirect mode only).
+  setTimeout(function(){ var f = document.getElementById('payfastForm'); if (f) f.submit(); }, 1200);
+</script>
+{% endblock %}

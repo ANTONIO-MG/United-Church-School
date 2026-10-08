@@ -1,0 +1,1 @@
+{% load org_branding %}{% org_brand as brand %}Password reset attempted — {{ brand.name|default:"United Church School" }}

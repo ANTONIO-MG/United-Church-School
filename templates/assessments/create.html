@@ -1,0 +1,53 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% block content %}
+<div class="card mb-3"><div class="card-body">
+  <h1 class="h5 mb-0"><i class="bi bi-plus-square text-primary me-2"></i>New assessment</h1>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <form method="post" action="{% url 'assessments:create' %}" class="row g-3">
+    {% csrf_token %}
+    <div class="col-md-8">
+      <label class="form-label small">Title</label>
+      <input type="text" name="title" class="form-control" required placeholder="e.g. Chapter 3 Quiz">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label small">Subject</label>
+      <select name="module" class="form-select" required>
+        {% for s in modules %}<option value="{{ s.id }}">{{ s }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">Type</label>
+      <select name="kind" class="form-select">
+        {% for value, label in kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">Grade component <span class="text-muted">(optional)</span></label>
+      <select name="component" class="form-select">
+        <option value="">Auto (from type)</option>
+        {% for value, label in components %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small">Pass %</label>
+      <input type="number" name="pass_mark_pct" class="form-control" value="50" min="0" max="100">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small">Time (min)</label>
+      <input type="number" name="time_limit_minutes" class="form-control" value="0" min="0">
+      <div class="form-text">0 = no limit</div>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small">Attempts</label>
+      <input type="number" name="attempts_allowed" class="form-control" value="1" min="0">
+      <div class="form-text">0 = unlimited</div>
+    </div>
+    <div class="col-12">
+      <button class="btn btn-primary"><i class="bi bi-arrow-right me-1"></i>Create &amp; add questions</button>
+      <a href="{% url 'assessments:manage' %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div></div>
+{% endblock %}

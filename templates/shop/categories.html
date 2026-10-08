@@ -1,0 +1,49 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% load custom_tags %}
+
+{% block content %}
+<div class="content-body">
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text"><h4>{{ page_title }}</h4></div>
+            </div>
+            <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex align-items-center">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'shop:all-products' %}">Shop</a></li>
+                    <li class="breadcrumb-item active"><a href="javascript:void(0);">{{ page_title }}</a></li>
+                </ol>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-5">
+                <div class="card">
+                    <div class="card-header"><h5 class="card-title">Add category</h5></div>
+                    <div class="card-body">
+                        {% include 'myhub/elements/_form.html' with form=form submit_label='Save' %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-7">
+                <div class="card">
+                    <div class="card-header"><h5 class="card-title">Categories</h5></div>
+                    <div class="card-body">
+                        <table class="table">
+                            <thead><tr><th>Name</th><th>Status</th><th>Action</th></tr></thead>
+                            <tbody>
+                            {% for c in categories %}
+                                <tr><td>{{ c.name }}</td><td><span class="badge badge-{{ badges.status_badges|get_item:c.status|get_item:'class' }} light">{{ c.get_status_display }}</span></td>
+                                <td><form method="post" action="{% url 'shop:delete-category' c.pk %}" onsubmit="return confirm('Delete this category?');">{% csrf_token %}<button class="btn btn-danger shadow btn-xs sharp"><i class="fa fa-trash"></i></button></form></td></tr>
+                            {% empty %}
+                                <tr><td colspan="3" class="text-center text-muted">No categories yet.</td></tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

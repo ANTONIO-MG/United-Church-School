@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% load static %}
+{% comment %}Public parent/guardian registration via a student's invite token.{% endcomment %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height:100vh;background:#eef1f6">
+  <div class="card shadow-sm" style="max-width:480px;width:100%">
+    <div class="card-body p-4">
+      <div class="text-center mb-3">
+        <h4 class="mb-1">{{ brand.name|default:"United Church School" }}</h4>
+        <p class="text-muted mb-0">Parent / guardian registration</p>
+      </div>
+
+      <div class="alert alert-light border small">
+        You're registering as a parent/guardian of
+        <strong>{{ student.get_full_name|default:student.get_username }}</strong>.
+        Up to {{ max_parents }} guardians can be linked to each student.
+      </div>
+
+      {% if full %}
+        <div class="alert alert-warning">This student already has the maximum of {{ max_parents }} linked guardians.</div>
+        <a href="{% url 'myhub:page-login' %}" class="btn btn-outline-primary w-100">Go to sign in</a>
+      {% elif user.is_authenticated %}
+        <p>You're signed in as <strong>{{ user.get_username }}</strong>. Link your account as a guardian of this student?</p>
+        <form method="post">{% csrf_token %}
+          <button class="btn btn-primary w-100">Link me as a guardian</button>
+        </form>
+      {% else %}
+        {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+        <form method="post">
+          {% csrf_token %}
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label">First name</label><input class="form-control" name="first_name"></div>
+            <div class="col-6"><label class="form-label">Last name</label><input class="form-control" name="last_name"></div>
+            <div class="col-12"><label class="form-label">E-mail</label><input class="form-control" type="email" name="email" required></div>
+            <div class="col-12"><label class="form-label">Password</label><input class="form-control" type="password" name="password" required></div>
+          </div>
+          <button class="btn btn-primary w-100 mt-3">Create guardian account</button>
+        </form>
+        <p class="small text-muted text-center mt-3">Already have an account? <a href="{% url 'myhub:page-login' %}">Sign in</a> first, then open this link.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

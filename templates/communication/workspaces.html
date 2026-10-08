@@ -1,0 +1,44 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Collaboration workspaces — shared files + notes tied to a course or module.{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">{{ page_title }}</h3>
+    <button class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#newWs">+ New workspace</button>
+  </div>
+
+  <div class="collapse mb-3" id="newWs">
+    <div class="card"><div class="card-body">
+      <form method="post" class="row g-2">
+        {% csrf_token %}
+        {% for field in form %}
+          <div class="col-md-6">
+            <label class="form-label small">{{ field.label }}</label>{{ field }}
+            {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
+          </div>
+        {% endfor %}
+        <div class="col-12"><button class="btn btn-primary btn-sm">Create workspace</button></div>
+      </form>
+    </div></div>
+  </div>
+
+  <div class="row g-3">
+    {% for ws in workspaces %}
+      <div class="col-md-4">
+        <div class="card h-100"><div class="card-body">
+          <h5><a href="{% url 'communication:workspace-detail' ws.pk %}">{{ ws.name }}</a></h5>
+          <p class="text-muted small mb-2">{{ ws.description|truncatewords:20 }}</p>
+          <div class="small text-muted">
+            {% if ws.module %}<span class="badge bg-light text-dark">{{ ws.module }}</span>{% endif %}
+            {% if ws.course %}<span class="badge bg-light text-dark">{{ ws.course }}</span>{% endif %}
+          </div>
+          <div class="mt-2 small"><i class="bi bi-paperclip"></i> {{ ws.files.count }} files · <i class="bi bi-journal-text"></i> {{ ws.notes.count }} notes</div>
+        </div></div>
+      </div>
+    {% empty %}
+      <div class="col-12"><p class="text-muted">No workspaces yet — create one to share files and notes with your class.</p></div>
+    {% endfor %}
+  </div>
+</div></div>
+{% endblock %}

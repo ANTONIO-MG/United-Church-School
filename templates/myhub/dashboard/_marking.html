@@ -1,0 +1,53 @@
+{% comment %}Marking turnaround — work you've submitted that hasn't come back yet, with
+how long it has waited measured against the median turnaround on your already
+marked work.{% endcomment %}
+
+{% if marking.has_data %}
+<div class="dash-card">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--warning"><i class="bi bi-hourglass-split"></i></span>
+    <h6>Waiting to be marked</h6>
+    {% if marking.typical_days %}
+      <span class="dash-chip dash-chip--secondary">usually {{ marking.typical_days }} day{{ marking.typical_days|pluralize }}</span>
+    {% endif %}
+    <a class="dash-link" href="{% url 'assessments:index' %}">My work</a>
+  </div>
+
+  <div class="dash-card__body dash-card__body--flush pt-1">
+    {% for item in marking.pending %}
+    <a class="dash-row" href="{{ item.url|default:'#' }}">
+      <span class="dash-row__initials dash-glyph--{{ item.tone }}">
+        <i class="bi bi-{% if item.late %}exclamation-circle{% else %}clock{% endif %}"></i>
+      </span>
+      <div class="dash-row__main">
+        <p class="dash-row__name">{{ item.title }}</p>
+        <p class="dash-row__text">
+          {{ item.module.name }} · {{ item.kind }} · submitted {{ item.submitted_at|date:"d M" }}
+        </p>
+      </div>
+      <span class="dash-chip dash-chip--{{ item.tone }}">
+        {% if item.days == 0 %}today{% else %}{{ item.days }}d{% endif %}
+      </span>
+    </a>
+    {% endfor %}
+
+    {% if marking.more %}
+    <div class="px-3 pt-2">
+      <span class="dash-module__meta">+{{ marking.more }} more awaiting marking</span>
+    </div>
+    {% endif %}
+
+    {% if marking.overdue %}
+    <div class="px-3 pt-2 pb-1">
+      <div class="dash-advice">
+        <i class="bi bi-info-circle"></i>
+        <span>
+          {{ marking.overdue }} item{{ marking.overdue|pluralize }} {{ marking.overdue|pluralize:"is,are" }}
+          past the usual turnaround. A message to your educator is reasonable at this point.
+        </span>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

@@ -1,0 +1,20 @@
+{% load org_branding %}{% org_brand as brand %}{{ announcement.title }}
+{% if announcement.is_important %}Important · {% endif %}Announcement{% if announcement.sender %} from {{ announcement.sender|greeting_name:"" }}{% endif %}
+
+{{ announcement.body }}
+{% if announcement.media_url %}
+Watch the video: {{ announcement.media_url }}
+{% endif %}{% if link_url %}
+{{ announcement.url_label|default:"Details" }}: {{ link_url }}
+{% endif %}{% if attachment_list %}
+Files{% if not attached %} (open the notification to download){% endif %}:
+{% for f in attachment_list %}  - {{ f.original_name }}
+{% endfor %}{% endif %}{% if open_url %}
+Open on the learning platform: {{ open_url }}
+{% endif %}
+Kind regards,
+The {{ brand.name|default:"United Church School" }} team
+{% if brand.support_email %}Questions? E-mail {{ brand.support_email }}
+{% endif %}
+--
+{{ brand.copyright|default:"United Church School" }}

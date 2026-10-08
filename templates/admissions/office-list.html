@@ -1,0 +1,54 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Admissions — the school office's list of applications, filterable by
+status, grade and a search across names, ID numbers and account numbers.{% endcomment %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header border-0 pb-0">
+    <h1 class="h4 card-title mb-1">Admissions</h1>
+    <p class="text-sm text-muted mb-3">Online applications for {{ brand.name }}. Open one to work the office checklist and decide.</p>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <a class="btn btn-sm {% if not filters.status %}bg-gradient-info{% else %}btn-outline-secondary{% endif %} mb-0" href="?">All submitted</a>
+      {% for value, label, count in status_rows %}
+      <a class="btn btn-sm {% if filters.status == value %}bg-gradient-info{% else %}btn-outline-secondary{% endif %} mb-0" href="?status={{ value }}">
+        {{ label }} <span class="badge bg-light text-dark ms-1">{{ count }}</span></a>
+      {% endfor %}
+    </div>
+    <form class="row g-2 mb-2" method="get">
+      <input type="hidden" name="status" value="{{ filters.status }}">
+      <div class="col-md-3">
+        <select name="grade" class="form-control form-select" onchange="this.form.submit()">
+          <option value="">All grades</option>
+          {% for g in grades %}<option value="{{ g }}" {% if filters.grade == g|stringformat:"s" %}selected{% endif %}>Grade {{ g }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6"><input type="search" name="q" class="form-control" value="{{ filters.q }}" placeholder="Search learner, parent, ID number or account number"></div>
+      <div class="col-md-3"><button class="btn bg-gradient-info w-100 mb-0">Search</button></div>
+    </form>
+  </div>
+  <div class="card-body pt-2">
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead><tr class="text-xs text-uppercase text-muted">
+          <th>Learner</th><th>Grade</th><th>Status</th><th>New</th><th>Documents</th><th>Submitted</th><th></th>
+        </tr></thead>
+        <tbody>
+          {% for app in applications %}
+          <tr>
+            <td class="text-sm"><strong>{{ app.learner_name }}</strong><div class="text-xs text-muted">{{ app.person.user.email }}</div></td>
+            <td class="text-sm">{{ app.programme.display_name|default:"—" }}</td>
+            <td><span class="badge {% if app.status == 'admitted' %}bg-gradient-success{% elif app.status == 'documents' %}bg-gradient-warning{% elif app.status == 'declined' or app.status == 'withdrawn' %}bg-gradient-secondary{% else %}bg-gradient-info{% endif %}">{{ app.get_status_display }}</span></td>
+            <td class="text-sm">{{ app.is_new_learner|yesno:"Yes,No" }}</td>
+            <td class="text-sm">{{ app.document_count }}</td>
+            <td class="text-sm">{{ app.submitted_at|date:"j M Y"|default:"—" }}</td>
+            <td class="text-end"><a class="btn btn-sm btn-outline-info mb-0" href="{% url 'admissions:office-detail' public_id=app.public_id %}">Open</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-4">No applications match.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

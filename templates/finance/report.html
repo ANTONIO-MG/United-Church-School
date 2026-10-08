@@ -1,0 +1,116 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static commerce %}
+{% comment %}One template for every institution report; the slug picks the body.
+Each table exports as CSV with the same period (?format=csv).{% endcomment %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><a class="small" href="{% url 'finance:reports' %}?period={{ period.key }}&from={{ period.start|date:'Y-m-d' }}&to={{ period.end|date:'Y-m-d' }}"><i class="bi bi-arrow-left me-1"></i>Financial overview</a>
+      <h3 class="mt-1">{{ meta.1 }}</h3><p>{{ meta.2 }} {% if slug == 'receivables' %}As at today.{% else %}{{ period.start|date:"j M Y" }} – {{ period.end|date:"j M Y" }}.{% endif %}</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="?period={{ period.key }}&from={{ period.start|date:'Y-m-d' }}&to={{ period.end|date:'Y-m-d' }}&format=csv"><i class="bi bi-filetype-csv me-1"></i>Export CSV</a>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print</button>
+    </div>
+  </div>
+  {% if slug != 'receivables' %}{% include 'finance/_period.html' %}{% endif %}
+
+  {% if slug == 'profit-and-loss' %}{% with p=pnl %}
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Net profit — paid</span><b class="{% if p.net_paid < 0 %}text-danger{% else %}text-success{% endif %}">{{ p.net_paid|rand }}</b><em>on money actually received</em></div>
+    <div class="tc-kpi"><span>Net profit — invoiced</span><b class="{% if p.net_invoiced < 0 %}text-danger{% else %}text-success{% endif %}">{{ p.net_invoiced|rand }}</b><em>on everything billed</em></div>
+    <div class="tc-kpi"><span>Expenses</span><b>{{ p.expenses_total|rand }}</b><em>{% if p.vat_registered %}excluding VAT{% endif %}</em></div>
+  </div>
+  <div class="tc-card"><div class="tc-table-wrap"><table class="tc-table tc-pnl">
+    <thead><tr><th></th><th class="r">Paid (cash)</th><th class="r">Invoiced (accrual)</th></tr></thead>
+    <tbody>
+      <tr class="is-head"><td colspan="3">Income</td></tr>
+      {% for r in p.income %}<tr><td class="indent">{{ r.label }}</td><td class="r">{{ r.paid|rand }}</td><td class="r">{{ r.invoiced|rand }}</td></tr>{% endfor %}
+      <tr class="is-sum"><td>Total income</td><td class="r">{{ p.total_paid|rand }}</td><td class="r">{{ p.total_invoiced|rand }}</td></tr>
+      {% if p.vat_registered %}<tr class="text-muted"><td class="indent">Less VAT included in income</td><td class="r">−{{ p.vat_paid|rand }}</td><td class="r">−{{ p.vat_invoiced|rand }}</td></tr>
+      <tr class="is-sum"><td>Revenue excluding VAT</td><td class="r">{{ p.revenue_paid|rand }}</td><td class="r">{{ p.revenue_invoiced|rand }}</td></tr>{% endif %}
+      {% for g in p.groups %}
+        <tr class="is-head"><td colspan="3">{{ g.label }}</td></tr>
+        {% for l in g.lines %}<tr><td class="indent">{{ l.label }}</td><td class="r">−{{ l.amount|rand }}</td><td class="r">−{{ l.amount|rand }}</td></tr>{% endfor %}
+        <tr class="is-sum"><td>Total {{ g.label|lower }}</td><td class="r">−{{ g.total|rand }}</td><td class="r">−{{ g.total|rand }}</td></tr>
+        {% if g.key == 'cost_of_sales' %}<tr class="is-sum"><td>Gross profit</td><td class="r">{{ p.gross_paid|rand }}</td><td class="r">{{ p.gross_invoiced|rand }}</td></tr>{% endif %}
+      {% endfor %}
+      <tr class="is-net"><td>Net profit</td><td class="r {% if p.net_paid < 0 %}text-danger{% endif %}">{{ p.net_paid|rand }}</td><td class="r {% if p.net_invoiced < 0 %}text-danger{% endif %}">{{ p.net_invoiced|rand }}</td></tr>
+    </tbody>
+  </table></div></div>
+  <p class="small text-muted mt-2">Paid counts income on the day money arrived; Invoiced counts it on the invoice date. Expenses count on their date in both columns{% if p.vat_registered %}, excluding the VAT you can claim back{% endif %}.</p>
+  {% endwith %}
+
+  {% elif slug == 'sales-by-item' %}
+  <div class="tc-card"><div class="tc-table-wrap"><table class="tc-table">
+    <thead><tr><th>Item</th><th>Stream</th><th class="r">Units</th><th class="r">Gross</th><th class="r">Discounts</th><th class="r">Invoiced</th><th class="r">Paid</th><th style="width:18%"></th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td class="fw-semibold">{{ r.label }}</td><td class="small">{{ r.stream }}</td><td class="r">{{ r.units }}</td><td class="r">{{ r.gross|rand }}</td><td class="r text-success">{% if r.discount %}−{{ r.discount|rand }}{% endif %}</td><td class="r">{{ r.invoiced|rand }}</td><td class="r fw-semibold">{{ r.paid|rand }}</td>
+      <td><span class="tc-bar__track d-block"><span class="tc-bar__fill" style="width:{% widthratio r.paid top 100 %}%"></span></span></td></tr>
+    {% empty %}<tr><td colspan="8" class="text-center text-muted py-4">No sales in this period.</td></tr>{% endfor %}</tbody>
+  </table></div></div>
+
+  {% elif slug == 'sales-by-customer' %}
+  <div class="tc-card"><div class="tc-table-wrap"><table class="tc-table">
+    <thead><tr><th>#</th><th>Student</th><th class="r">Invoices</th><th class="r">Invoiced</th><th class="r">Paid</th><th class="r">Still owed</th><th>Last payment</th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td class="text-muted">{{ forloop.counter }}</td><td><a class="fw-semibold" href="{% url 'finance:statement-for' r.user.pk %}">{{ r.name }}</a><div class="small text-muted">{{ r.email }}</div></td>
+      <td class="r">{{ r.invoice_count }}</td><td class="r">{{ r.invoiced|rand }}</td><td class="r fw-semibold">{{ r.paid|rand }}</td><td class="r {% if r.outstanding %}text-danger{% endif %}">{{ r.outstanding|rand }}</td><td class="small">{{ r.last_paid|date:"j M Y"|default:"—" }}</td></tr>
+    {% empty %}<tr><td colspan="7" class="text-center text-muted py-4">No activity in this period.</td></tr>{% endfor %}</tbody>
+  </table></div></div>
+
+  {% elif slug == 'income-by-programme' %}
+  <div class="tc-card"><div class="tc-table-wrap"><table class="tc-table">
+    <thead><tr><th>Grade</th><th>School</th><th class="r">Students</th><th class="r">Invoiced</th><th class="r">Paid</th><th style="width:20%"></th></tr></thead>
+    <tbody>{% for r in rows %}<tr><td class="fw-semibold">{{ r.programme }}</td><td class="small">{{ r.institution }}</td><td class="r">{{ r.students }}</td><td class="r">{{ r.invoiced|rand }}</td><td class="r fw-semibold">{{ r.paid|rand }}</td>
+      <td><span class="tc-bar__track d-block"><span class="tc-bar__fill" style="width:{% widthratio r.paid top 100 %}%"></span></span></td></tr>
+    {% empty %}<tr><td colspan="6" class="text-center text-muted py-4">No income in this period.</td></tr>{% endfor %}</tbody>
+  </table></div></div>
+  <p class="small text-muted mt-2">Students on more than one grade are counted under the one they enrolled on first.</p>
+
+  {% elif slug == 'receivables' %}
+  <div class="tc-card mb-3"><div class="tc-card__body pt-3"><div class="tc-aging">
+    {% for b in aging.buckets %}<div class="{% if b.key == '1_30' or b.key == '31_60' %}is-late{% elif b.key == '61_90' or b.key == '90_plus' %}is-bad{% endif %}"><b>{{ b.amount|rand }}</b>{{ b.label }}</div>{% endfor %}
+  </div></div></div>
+  <div class="tc-card"><div class="tc-table-wrap"><table class="tc-table">
+    <thead><tr><th>Student</th><th class="r">Not yet due</th><th class="r">1–30</th><th class="r">31–60</th><th class="r">61–90</th><th class="r">90+</th><th class="r">Total</th><th></th></tr></thead>
+    <tbody>{% for r in aging.customers %}<tr><td><a class="fw-semibold" href="{% url 'finance:statement-for' r.user.pk %}">{{ r.name }}</a><div class="small text-muted">{% for inv in r.invoices %}<a href="{% url 'finance:invoice-detail' inv.pk %}">{{ inv.number }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div></td>
+      <td class="r">{{ r.current|rand }}</td><td class="r">{{ r.1_30|rand }}</td><td class="r">{{ r.31_60|rand }}</td><td class="r text-danger">{{ r.61_90|rand }}</td><td class="r text-danger">{{ r.90_plus|rand }}</td><td class="r fw-semibold">{{ r.total|rand }}</td>
+      <td class="r">{% with inv=r.invoices.0 %}<form method="post" action="{% url 'finance:invoice-action' inv.pk %}">{% csrf_token %}<input type="hidden" name="action" value="remind"><button class="btn btn-sm tc-btn-soft" title="E-mail a reminder for {{ inv.number }}">Remind</button></form>{% endwith %}</td></tr>
+    {% empty %}<tr><td colspan="8" class="text-center text-muted py-4">Nobody owes anything.</td></tr>{% endfor %}</tbody>
+  </table></div></div>
+
+  {% elif slug == 'payments' %}
+  <div class="tc-kpis"><div class="tc-kpi"><span>Received</span><b class="text-success">{{ data.total|rand }}</b><em>{{ data.payments|length }} payment{{ data.payments|length|pluralize }}</em></div>
+    {% for m in data.by_method %}<div class="tc-kpi"><span>{{ m.label }}</span><b>{{ m.total|rand }}</b></div>{% endfor %}</div>
+  <div class="tc-card"><div class="tc-table-wrap"><table class="tc-table">
+    <thead><tr><th>Date</th><th>Invoice</th><th>Student</th><th>Method</th><th>Reference</th><th class="r">Amount</th></tr></thead>
+    <tbody>{% for p in data.payments %}<tr><td class="small">{{ p.paid_at|date:"j M Y, H:i" }}</td><td><a href="{% url 'finance:invoice-detail' p.invoice.pk %}">{{ p.invoice.number }}</a></td>
+      <td>{{ p.invoice.customer|person_name }}</td><td class="small">{{ p.get_method_display }}</td><td class="small text-muted">{{ p.gateway_ref|default:p.reference|default:"—"|truncatechars:28 }}</td><td class="r fw-semibold">{{ p.amount|rand }}</td></tr>
+    {% empty %}<tr><td colspan="6" class="text-center text-muted py-4">No payments in this period.</td></tr>{% endfor %}</tbody>
+  </table></div></div>
+
+  {% elif slug == 'expenses' %}
+  <div class="row g-4">
+    <div class="col-lg-5"><div class="tc-card"><div class="tc-card__head"><h5>By category</h5></div><div class="tc-card__body"><div class="tc-bars">
+      {% for r in data.rows %}<div class="tc-bar"><span class="text-truncate">{{ r.category__name }}</span><span class="tc-bar__track"><span class="tc-bar__fill is-out" style="width:{% widthratio r.total top 100 %}%"></span></span><span class="tc-bar__v">{{ r.total|rand }}</span></div>
+      {% empty %}<p class="small text-muted mb-0">No expenses.</p>{% endfor %}
+      </div><div class="d-flex justify-content-between mt-3 fw-bold"><span>Total</span><span class="num">{{ data.total|rand }}</span></div></div></div></div>
+    <div class="col-lg-7"><div class="tc-card"><div class="tc-table-wrap"><table class="tc-table">
+      <thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="r">Amount</th></tr></thead>
+      <tbody>{% for e in data.expenses %}<tr><td class="small">{{ e.date|date:"j M Y" }}</td><td><a href="{% url 'finance:expense-edit' e.pk %}">{{ e.description }}</a><div class="small text-muted">{{ e.vendor.name|default:"" }}</div></td><td class="small">{{ e.category.name }}</td><td class="r">{{ e.amount|rand }}</td></tr>
+      {% empty %}<tr><td colspan="4" class="text-center text-muted py-4">No expenses in this period.</td></tr>{% endfor %}</tbody>
+    </table></div></div></div>
+  </div>
+
+  {% elif slug == 'cash-flow' %}
+  <div class="tc-card"><div class="tc-card__body pt-3"><div class="tc-chart"><canvas id="flowChart" role="img" aria-label="Money in and money out per month"></canvas></div></div></div>
+  <div class="tc-card"><div class="tc-table-wrap"><table class="tc-table">
+    <thead><tr><th>Month</th><th class="r">Money in</th><th class="r">Money out</th><th class="r">Net</th><th class="r">Running total</th></tr></thead>
+    <tbody>{% for r in series %}<tr><td>{{ r.month|date:"F Y" }}</td><td class="r">{{ r.paid|rand }}</td><td class="r">{{ r.expenses|rand }}</td><td class="r fw-semibold {% if r.net < 0 %}text-danger{% endif %}">{{ r.net|rand }}</td><td class="r {% if r.running < 0 %}text-danger{% endif %}">{{ r.running|rand }}</td></tr>{% endfor %}</tbody>
+  </table></div></div>
+  {% include 'finance/_chart_js.html' with canvas_id='flowChart' in_label='Money in' %}
+  {% endif %}
+
+  <h6 class="mt-4 mb-2 text-muted">Other reports</h6>
+  <div class="tc-reportnav">{% for s, title, blurb, icon in reports %}{% if s != slug %}<a href="{% url 'finance:report' s %}?period={{ period.key }}&from={{ period.start|date:'Y-m-d' }}&to={{ period.end|date:'Y-m-d' }}"><i class="bi {{ icon }}"></i><b>{{ title }}</b><small>{{ blurb }}</small></a>{% endif %}{% endfor %}</div>
+</div></div>
+{% endblock %}

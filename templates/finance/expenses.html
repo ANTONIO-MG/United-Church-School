@@ -1,0 +1,64 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static commerce %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Finance</span><h3>Expenses</h3><p>Money going out — one-off costs and the ones that repeat.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:recurring' %}"><i class="bi bi-arrow-repeat me-1"></i>Recurring ({{ recurring_count }})</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:expense-setup' %}"><i class="bi bi-tags me-1"></i>Vendors &amp; categories</a>
+      <a class="btn btn-sm btn-primary" href="{% url 'finance:expense-add' %}"><i class="bi bi-plus-lg me-1"></i>Record expense</a>
+    </div>
+  </div>
+  <nav class="tc-aisles" aria-label="Period">
+    <a class="tc-aisle {% if period == 'month' %}is-active{% endif %}" href="?period=month">This month</a>
+    <a class="tc-aisle {% if period == 'last_month' %}is-active{% endif %}" href="?period=last_month">Last month</a>
+    <a class="tc-aisle {% if period == 'quarter' %}is-active{% endif %}" href="?period=quarter">This quarter</a>
+    <a class="tc-aisle {% if period == 'year' %}is-active{% endif %}" href="?period=year">Year to date</a>
+  </nav>
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Spent</span><b>{{ total|rand }}</b><em>{{ start|date:"j M" }} – {{ end|date:"j M Y" }}</em></div>
+    <div class="tc-kpi"><span>VAT paid (claimable)</span><b>{{ vat|rand }}</b><em>on VAT-inclusive expenses</em></div>
+    <div class="tc-kpi"><span>Recurring commitments</span><b>{{ monthly_recurring|rand }}</b><em>per month</em></div>
+    <div class="tc-kpi"><span>Unpaid bills</span><b class="{% if unpaid %}text-danger{% endif %}">{{ unpaid|rand }}</b><em>still to pay</em></div>
+  </div>
+  <div class="row g-4">
+    <div class="col-xl-8">
+      <form method="get" class="tc-toolbar"><input type="hidden" name="period" value="{{ period }}">
+        <label class="visually-hidden" for="expSearch">Search</label>
+        <input id="expSearch" class="form-control form-control-sm tc-search" type="search" name="q" value="{{ search }}" placeholder="Search description, vendor or reference">
+        <label class="visually-hidden" for="expCat">Category</label>
+        <select id="expCat" name="category" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">All categories</option>
+          {% for c in categories %}<option value="{{ c.pk }}" {% if sel_category == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>
+        <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i><span class="visually-hidden">Search</span></button>
+      </form>
+      <div class="tc-card"><div class="tc-table-wrap"><table class="tc-table">
+        <thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Paid through</th><th class="r">Amount</th><th></th></tr></thead>
+        <tbody>
+          {% for e in expenses %}
+          <tr><td class="small">{{ e.date|date:"j M Y" }}</td>
+            <td><a class="fw-semibold" href="{% url 'finance:expense-edit' e.pk %}">{{ e.description }}</a>
+              <div class="small text-muted">{% if e.vendor %}{{ e.vendor.name }}{% endif %}{% if e.reference %} · {{ e.reference }}{% endif %}{% if e.recurring %} · <i class="bi bi-arrow-repeat"></i> recurring{% endif %}{% if e.institution %} · {{ e.institution.code }}{% endif %}</div></td>
+            <td class="small">{{ e.category.name }}</td>
+            <td class="small">{{ e.get_paid_through_display }}{% if e.status == 'unpaid' %} <span class="tc-chip tc-chip--danger">Unpaid</span>{% endif %}</td>
+            <td class="r fw-semibold">{{ e.amount|rand }}{% if e.vat_amount %}<div class="small text-muted fw-normal">VAT {{ e.vat_amount|rand }}</div>{% endif %}</td>
+            <td class="r">{% if e.receipt %}<a href="{% url 'finance:expense-receipt' e.pk %}" title="Receipt"><i class="bi bi-paperclip"></i><span class="visually-hidden">Receipt</span></a>{% endif %}</td></tr>
+          {% empty %}<tr><td colspan="6"><div class="tc-empty"><i class="bi bi-wallet2"></i><h5>No expenses in this period</h5><p class="mb-3">Record rent, licences, printing, educator fees…</p><a class="btn btn-sm btn-primary" href="{% url 'finance:expense-add' %}">Record an expense</a></div></td></tr>{% endfor %}
+        </tbody>
+      </table></div></div>
+    </div>
+    <div class="col-xl-4">
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Where it went</h5></div>
+        <div class="tc-card__body">
+          {% for row in by_category %}
+            <div class="mb-2"><div class="d-flex justify-content-between small"><span>{{ row.category__name }}</span><b class="num">{{ row.t|rand }}</b></div>
+              <div class="progress" style="height:6px" role="progressbar" aria-label="{{ row.category__name }}" aria-valuenow="{{ row.pct }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width:{{ row.pct }}%;background:var(--tc-cyan)"></div></div></div>
+          {% empty %}<p class="text-muted small mb-0">Nothing recorded yet.</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

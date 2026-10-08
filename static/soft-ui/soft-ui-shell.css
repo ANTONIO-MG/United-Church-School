@@ -1,0 +1,455 @@
+/* =============================================================================
+   Soft UI shell — floating navbar + soft flash alerts.
+   Self-contained + prefixed (.su-*) so it renders identically whether the page
+   loads the full Soft UI CSS (account pages) or the Social theme (app pages),
+   and never collides with either. Dropdowns/collapse are handled by whichever
+   Bootstrap 5 bundle the page already ships.
+   ========================================================================== */
+
+/* ---- Floating, blurred, rounded top navbar ---- */
+.su-navbar{
+  position: fixed; top: 0; left: 0; right: 0;
+  margin: .9rem 1.25rem 0; z-index: 1040;
+  border-radius: 1rem;
+  /* Frosted glass (Soft UI .blur) — more transparent, with the white inset rim. */
+  background: hsla(0,0%,100%,.6);
+  -webkit-backdrop-filter: saturate(200%) blur(30px);
+  backdrop-filter: saturate(200%) blur(30px);
+  box-shadow: inset 0 0 1px hsla(0,0%,100%,.82), 0 6px 24px rgba(20,20,43,.10), 0 1px 2px rgba(20,20,43,.06);
+  padding: .45rem .9rem;
+}
+@media (max-width: 991.98px){ .su-navbar{ margin: .6rem .6rem 0; } }
+[data-bs-theme="dark"] .su-navbar{ background: rgba(23,25,39,.58); box-shadow: inset 0 0 1px rgba(255,255,255,.14), 0 6px 24px rgba(0,0,0,.45); }
+
+/* Content offset so the fixed navbar doesn't cover the page (app pages set body.su-shell). */
+body.su-shell{ padding-top: 5.6rem; }
+@media (max-width: 991.98px){ body.su-shell{ padding-top: 4.8rem; } }
+
+/* ---- Navbar pills (brand, Dashboard, My Programme, whose-hub, Login) ----
+   These were .btn-outline-primary, which resolves --bs-primary from whichever
+   stylesheet the page happens to load: #0f6fec blue under css/style.css on the
+   app shell, #f97316 orange under soft-ui/css/soft-ui-dashboard.min.css on the
+   registration and account pages. The same navbar therefore changed colour
+   depending on which screen you were on, and the brand never matched the
+   Dashboard beside it.
+
+   One .su-pill instead, sized and coloured off the same #344767 / #e9ecef as
+   the .su-icon-btn controls on the right, so every control in the bar is 40px
+   tall and one colour on every screen. This file is loaded by all four navbar
+   hosts (base, admin, auth_base, landing), so the rule reaches all of them.
+   Deliberately NOT applied to the solid call-to-action buttons (Get the
+   Blueprint, Sign up) — those are meant to stand out. */
+.su-pill{
+  display:inline-flex; align-items:center; gap:.55rem;
+  height:40px; padding:0 .95rem; border-radius:999px;
+  font-size:.875rem; font-weight:600; line-height:1; white-space:nowrap;
+  color:#000; background:transparent; border:1px solid rgba(0,0,0,.28);
+  text-decoration:none;
+}
+.su-pill:hover, .su-pill:focus-visible{
+  background:rgba(0,0,0,.06); color:#000; border-color:rgba(0,0,0,.5);
+}
+.su-pill .bi{ font-size:1.05rem; }
+
+/* Flat nav links (Dashboard, My Programme, …): no pill outline, just icon + text,
+   sized like the sidebar links (.85rem). */
+.su-pill--flat{
+  height:auto; padding:.35rem .5rem; gap:.35rem;
+  border:0; background:transparent; border-radius:.6rem;
+  font-size:.85rem; font-weight:600;
+}
+.su-pill--flat .bi{ font-size:1rem; }
+.su-pill--flat:hover, .su-pill--flat:focus-visible{
+  background:rgba(0,0,0,.06); border-color:transparent;
+}
+[data-bs-theme="dark"] .su-pill--flat{ border-color:transparent; }
+[data-bs-theme="dark"] .su-pill--flat:hover, [data-bs-theme="dark"] .su-pill--flat:focus-visible{
+  background:rgba(255,255,255,.08); border-color:transparent;
+}
+
+/* Brand: just the round logo, no pill outline. */
+.su-brand-logo{ display:inline-flex; align-items:center; text-decoration:none; }
+.su-brand-logo .su-avatar{ width:34px; height:34px; }
+[data-bs-theme="dark"] .su-pill{ color:#e9ecef; border-color:rgba(255,255,255,.26); }
+[data-bs-theme="dark"] .su-pill:hover, [data-bs-theme="dark"] .su-pill:focus-visible{
+  background:rgba(255,255,255,.08); color:#e9ecef; border-color:rgba(255,255,255,.45);
+}
+
+/* ---- Brand (org logo + name) — a .su-pill that carries the logo, so it is the
+        same height, type and colour as the Dashboard pill next to it. ---- */
+.su-brand{ gap:.5rem; padding-left:.3rem; }
+.su-brand .su-avatar{ width:32px; height:32px; }
+.su-org-name{ font-weight:600; line-height:1; }
+
+/* ---- Avatars ---- */
+.su-avatar{ width:40px; height:40px; border-radius:.7rem; object-fit:cover; background:#e9ecef; display:inline-block; }
+.su-avatar-sm{ width:34px; height:34px; border-radius:.6rem; object-fit:cover; background:#e9ecef; }
+.su-avatar-round{ border-radius:50% !important; }
+
+/* ---- Icon buttons (search/cart/chat/settings/bell/profile) ---- */
+.su-icon-btn{ width:40px; height:40px; display:inline-flex; align-items:center; justify-content:center;
+  border-radius:.7rem; color:#344767; background:transparent; border:0; position:relative; text-decoration:none; }
+.su-icon-btn:hover{ background: rgba(52,71,103,.09); color:#344767; }
+.su-icon-btn .bi, .su-icon-btn .fa, .su-icon-btn .fas{ font-size:1.05rem; }
+[data-bs-theme="dark"] .su-icon-btn{ color:#e9ecef; }
+[data-bs-theme="dark"] .su-icon-btn:hover{ background: rgba(255,255,255,.08); }
+.su-dot{ position:absolute; top:7px; right:8px; width:9px; height:9px; border-radius:50%; background:#f5365c; box-shadow:0 0 0 2px rgba(255,255,255,.9); }
+.su-count{ position:absolute; top:1px; right:0; font-size:.58rem; padding:.15rem .3rem; }
+
+/* ---- Search field ---- */
+.su-search{ position:relative; min-width: 200px; max-width: 340px; flex: 1 1 auto; }
+.su-search .form-control{ border-radius:.7rem; background: rgba(233,236,239,.65); border:0; padding-left:2.2rem; }
+.su-search .su-search-ico{ position:absolute; top:50%; left:.7rem; transform:translateY(-50%); color:#67748e; pointer-events:none; }
+
+/* ---- Soft flash alerts, anchored right under the navbar ---- */
+.app-alerts{
+  position: fixed; top: 5.7rem; left: 50%; transform: translateX(-50%);
+  z-index: 1039; width: min(560px, calc(100% - 2rem));
+  display:flex; flex-direction:column; gap:.5rem; pointer-events:none;
+}
+@media (max-width: 991.98px){ .app-alerts{ top: 4.9rem; } }
+.app-alerts .app-alert{
+  pointer-events:auto; border:0; border-radius:.85rem; margin:0;
+  background: rgba(255,255,255,.82);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: 0 10px 30px rgba(20,20,43,.15);
+  color:#344767; padding:.7rem .95rem;
+}
+/* --- Icon-font <i class="bi"> vs Bootstrap's SVG icon helper -----------------
+   Bootstrap 5.3 ships `.bi { width:1em; height:1em; flex-shrink:0; fill:currentcolor }`
+   for INLINE SVG icons (`<svg class="bi">`), and that rule is bundled inside
+   soft-ui-dashboard.min.css. We use the icon FONT instead — `<i class="bi bi-bell">`.
+
+   On its own the clash is invisible, because width/height do not apply to an
+   inline box. But the moment such an <i> is a child of a flex container — the
+   alert rows (`.d-flex`), the navbar groups, a flex button — it is blockified
+   into a flex item, the 1em box takes effect, and the glyph is cropped to a
+   blank square. That is the "empty square" on the login, sign-up and
+   registration pages: the font is fine, the glyph is being clipped.
+
+   Undo it for the font elements only. `<svg class="bi">` keeps the real helper.  */
+i.bi, span.bi, i[class*=" bi-"], span[class*=" bi-"]{
+  width:auto !important; height:auto !important;
+  fill:none; flex-shrink:0;
+  display:inline-flex; align-items:center; justify-content:center;
+  line-height:1;
+}
+/* An <i class="bi bi-"> with no icon name (a template variable that resolved to
+   nothing) matches the font selector but has no glyph, so it reserves a blank
+   box. Collapse it rather than let it read as a broken icon. */
+i.bi-:empty::before, i[class$=" bi-"]::before{ content:none; }
+
+.app-alerts .app-alert .bi{ font-size:1.1rem; }
+.app-alerts .app-alert.alert-success{ border-left:4px solid #82d616; }
+.app-alerts .app-alert.alert-danger { border-left:4px solid #ea0606; }
+.app-alerts .app-alert.alert-warning{ border-left:4px solid #fbcf33; }
+.app-alerts .app-alert.alert-info   { border-left:4px solid #17c1e8; }
+[data-bs-theme="dark"] .app-alerts .app-alert{ background: rgba(23,25,39,.85); color:#e9ecef; }
+
+/* Notifications dropdown card sizing */
+.su-navbar .dropdown-menu{ border:0; box-shadow: 0 8px 26px rgba(20,20,43,.16); border-radius:1rem; }
+.su-notif-menu{ width: 340px; max-width: 92vw; }
+
+/* =============================================================================
+   Global Soft UI typography + forms — applied site-wide (this file loads last,
+   after the Social theme, so these win). Gives every form the Soft UI look:
+   Inter font, rounded soft input boxes, comfortable padding, soft focus glow,
+   muted placeholders and clean labels.
+   ========================================================================== */
+:root{ --su-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+body, input, select, textarea, button,
+.form-control, .form-select, .btn, .dropdown-menu, .card, .nav, .navbar{
+  font-family: var(--su-font);
+}
+
+/* Inputs / selects / textareas */
+.form-control, .form-select{
+  border: 1px solid #d2d6da;
+  border-radius: .5rem;
+  padding: .5rem .75rem;
+  font-size: .875rem;
+  line-height: 1.4;
+  color: #495057;
+  background-color: #fff;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+.form-control-lg, .form-select-lg{ border-radius: .75rem; padding: .65rem 1rem; font-size: 1rem; }
+.form-control-sm, .form-select-sm{ border-radius: .5rem; padding: .35rem .6rem; font-size: .8rem; }
+.form-control:focus, .form-select:focus{
+  border-color: #6ec1e4;                /* soft info */
+  box-shadow: 0 0 0 2px rgba(23,193,232,.20);
+  outline: 0;
+}
+.form-control::placeholder, textarea::placeholder{ color: #adb5bd; opacity: 1; font-size: .85rem; }
+textarea.form-control{ line-height: 1.5; }
+
+/* Labels / form titles */
+.form-label, .col-form-label{
+  font-size: .82rem; font-weight: 600; color: #344767; margin-bottom: .4rem;
+}
+[data-bs-theme="dark"] .form-label, [data-bs-theme="dark"] .col-form-label{ color:#e9ecef; }
+
+/* Input groups */
+.input-group-text{ border-radius:.5rem; border:1px solid #d2d6da; background:#f8f9fa; color:#67748e; font-size:.85rem; }
+
+/* Checkboxes / switches — Soft UI accent */
+.form-check-input:checked{ background-color:#17c1e8; border-color:#17c1e8; }
+.form-check-input:focus{ box-shadow:0 0 0 2px rgba(23,193,232,.2); border-color:#6ec1e4; }
+.form-check-label{ font-size:.85rem; color:#344767; }
+
+/* Buttons — Soft UI rounded pill-ish feel (light touch, keeps theme colours) */
+.btn{ border-radius:.5rem; font-weight:600; letter-spacing:.02em; }
+.btn-lg{ border-radius:.75rem; }
+.btn-sm{ border-radius:.4rem; }
+
+/* Dark-mode input surfaces */
+[data-bs-theme="dark"] .form-control, [data-bs-theme="dark"] .form-select{
+  background-color: rgba(255,255,255,.05); border-color: rgba(255,255,255,.15); color:#e9ecef;
+}
+[data-bs-theme="dark"] .form-control::placeholder{ color:#8a94a6; }
+
+/* =============================================================================
+   FLOATING GLASS SIDEBAR — makes the left nav match the floating navbar
+   (.su-navbar): same translucent blurred background, rounded corners, shadow,
+   font and colours, floating away from the edge, with soft rounded menu items
+   and floating sub-menus. Scoped to #offcanvasSideNavbar (the id lives in the
+   shared partials/sidenav.html, so this applies on every page) — structure,
+   links, menus and sub-menus are untouched; this is styling only.
+   ========================================================================== */
+
+/* The visible panel = the .card inside the sidebar offcanvas. Give it the exact
+   glass treatment as the navbar. */
+#offcanvasSideNavbar > .offcanvas-body > .card{
+  /* Identical frosted glass to the navbar — more transparent, white inset rim. */
+  background: hsla(0,0%,100%,.6);
+  -webkit-backdrop-filter: saturate(200%) blur(30px);
+  backdrop-filter: saturate(200%) blur(30px);
+  border: 0;
+  border-radius: 1rem;
+  box-shadow: inset 0 0 1px hsla(0,0%,100%,.82), 0 6px 24px rgba(20,20,43,.10), 0 1px 2px rgba(20,20,43,.06);
+}
+[data-bs-theme="dark"] #offcanvasSideNavbar > .offcanvas-body > .card{
+  background: rgba(23,25,39,.58);
+  box-shadow: inset 0 0 1px rgba(255,255,255,.14), 0 6px 24px rgba(0,0,0,.45);
+}
+/* The cover strip is opaque and fights the glass — hide it so the panel reads as
+   one translucent surface like the navbar. (Keeps the avatar/name/stats below.) */
+#offcanvasSideNavbar > .offcanvas-body > .card > .h-50px{ display: none; }
+#offcanvasSideNavbar > .offcanvas-body > .card > .card-body{ padding-top: 1rem; }
+#offcanvasSideNavbar .avatar.mt-n5{ margin-top: 0 !important; }
+/* Round the cover strip to match the card's radius. */
+#offcanvasSideNavbar > .offcanvas-body > .card > .h-50px{ border-radius: 1rem 1rem 0 0; }
+/* Translucent inner surfaces so the glass reads through. */
+#offcanvasSideNavbar .card-body{ background: transparent; }
+#offcanvasSideNavbar .card-footer{ background: transparent; border-top-color: rgba(52,71,103,.10); }
+#offcanvasSideNavbar hr{ border-color: rgba(52,71,103,.10); opacity: 1; }
+
+/* Float the whole rail a touch off the left edge, like the navbar's side margin,
+   and float it down from the top by the same feel. */
+@media (min-width: 992px){
+  #appSidebarCol{ padding-left: .6rem; top: 5.9rem !important; }
+}
+
+/* Menu items → soft navbar look: #344767 ink, rounded hover/active pill, smooth. */
+#offcanvasSideNavbar .nav-link{
+  color: #344767;
+  border-radius: .7rem;
+  padding: .5rem .7rem;
+  transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+#offcanvasSideNavbar .nav-link:hover,
+#offcanvasSideNavbar .nav-link:focus{ background: rgba(52,71,103,.09); color: #344767; }
+#offcanvasSideNavbar .nav-link.active,
+#offcanvasSideNavbar .nav-link[aria-expanded="true"]{
+  background: rgba(52,71,103,.12); color: #344767; font-weight: 700;
+}
+[data-bs-theme="dark"] #offcanvasSideNavbar .nav-link{ color: #e9ecef; }
+[data-bs-theme="dark"] #offcanvasSideNavbar .nav-link:hover,
+[data-bs-theme="dark"] #offcanvasSideNavbar .nav-link:focus,
+[data-bs-theme="dark"] #offcanvasSideNavbar .nav-link.active,
+[data-bs-theme="dark"] #offcanvasSideNavbar .nav-link[aria-expanded="true"]{
+  background: rgba(255,255,255,.08); color: #fff;
+}
+
+/* Sub-menus → a soft floating nested panel (keeps the collapse animation). */
+#offcanvasSideNavbar .sidenav-sub{
+  border-left: 0;
+  margin-left: 1.4rem;
+  padding: .25rem .3rem;
+  background: rgba(52,71,103,.05);
+  border-radius: .8rem;
+}
+[data-bs-theme="dark"] #offcanvasSideNavbar .sidenav-sub{ background: rgba(255,255,255,.05); }
+#offcanvasSideNavbar .sidenav-sub .nav-link{ padding: .3rem .55rem; font-size: .88rem; }
+/* Smooth caret + collapse feel (menu transitions). */
+#offcanvasSideNavbar .sidenav-caret{ transition: transform .2s ease; }
+#offcanvasSideNavbar .collapsing{ transition: height .25s ease; }
+
+/* Collapsed → hover-reveal rail: let the glass .card carry the look (chrome.css
+   otherwise paints the column solid white). Keep its slide transition. */
+body.sidebar-start-enabled #appSidebarCol{
+  background: transparent !important;
+  box-shadow: none !important;
+  border-right: 0 !important;
+  padding: .9rem .5rem 1rem .9rem;
+}
+
+/* =============================================================================
+   GLOBAL SOFT UI COMPONENTS — buttons, tables, switches and cards get the exact
+   look of the Soft UI sign-in page, everywhere. Ported from soft-ui-dashboard.css
+   into this shell (which loads last) so it wins over the Social theme WITHOUT
+   loading the whole conflicting stylesheet. Gradients per Soft UI palette.
+   ========================================================================== */
+
+/* ---- Buttons: soft raised shadow + gradient fills (the "Sign in" button) ---- */
+.btn{
+  box-shadow: 0 4px 7px -1px rgba(0,0,0,.11), 0 2px 4px -1px rgba(0,0,0,.07);
+  letter-spacing: .0025rem;
+  transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+}
+.btn:hover:not(.btn-icon-only){ box-shadow: 0 3px 5px -1px rgba(0,0,0,.09), 0 2px 3px -1px rgba(0,0,0,.07); transform: translateY(-1px); }
+.btn:active{ opacity:.85; transform: translateY(0); }
+.btn.btn-link, .btn[class*="btn-outline-"]{ box-shadow:none; }
+.btn.btn-link:hover, .btn[class*="btn-outline-"]:hover{ box-shadow:none; transform:none; }
+
+/* Gradient fills — semantic .btn-* AND .bg-gradient-* utilities (so templates
+   that already say bg-gradient-info, like the sign-in page, work on every page). */
+.btn-primary, .bg-gradient-primary,
+.btn-info,    .bg-gradient-info{
+  border:0; color:#fff !important;
+  background-image: linear-gradient(310deg, #0ea5e9 0%, #06b6d4 100%);   /* the Sign-in blue */
+}
+.btn-success, .bg-gradient-success{ border:0; color:#fff !important; background-image: linear-gradient(310deg, #22c55e 0%, #98ec2d 100%); }
+.btn-danger,  .bg-gradient-danger { border:0; color:#fff !important; background-image: linear-gradient(310deg, #ef4444 0%, #ec4899 100%); }
+.btn-warning, .bg-gradient-warning{ border:0; color:#fff !important; background-image: linear-gradient(310deg, #eab308 0%, #f97316 100%); }
+.btn-dark,    .bg-gradient-dark   { border:0; color:#fff !important; background-image: linear-gradient(310deg, #27272a 0%, #18181b 100%); }
+.btn-secondary,.bg-gradient-secondary{ border:0; color:#fff !important; background-image: linear-gradient(310deg, #627594 0%, #a8b8d8 100%); }
+/* Soft-tint buttons (btn-*-soft used across the app) — keep them subtle, no gradient. */
+[class*="btn-"][class*="-soft"]{ box-shadow:none; background-image:none; }
+
+/* ---- Forms: exact Soft UI input focus (already rounded above) ---- */
+.form-control:focus, .form-select:focus{
+  border-color:#0ea5e9; box-shadow: 0 0 0 2px rgba(14,165,233,.20);
+}
+
+/* ---- Toggle switch (the "Remember me" switch) ---- */
+.form-switch .form-check-input{
+  width:2.5rem; height:1.25em; margin-top:.15em;
+  border:1px solid #e3e3e7; border-radius:2.5rem;
+  background-color: rgba(24,24,27,.1); background-image:none; position:relative;
+  transition: background-color .25s ease, border-color .25s ease;
+}
+.form-switch .form-check-input:after{
+  content:""; position:absolute; top:1px; left:1px; width:1rem; height:1rem; border-radius:50%;
+  background-color:#fff; box-shadow:0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
+  transition: transform .25s ease-in-out; transform: translateX(0);
+}
+.form-switch .form-check-input:checked{ background-color:#18181b; border-color:#18181b; }
+.form-switch .form-check-input:checked:after{ transform: translateX(20px); }
+.form-switch .form-check-input:focus{ box-shadow:none; }
+
+/* ---- Cards: Soft UI rounded + soft drop shadow (utilities like .shadow-none
+   still win because Bootstrap marks them !important). ---- */
+.card{ border:0; border-radius:1rem; box-shadow: 0 20px 27px 0 rgba(0,0,0,.05); }
+[data-bs-theme="dark"] .card{ box-shadow: 0 20px 27px 0 rgba(0,0,0,.35); }
+
+/* ---- Tables: Soft UI look — capitalised header, hairline borders, roomy cells. */
+.table{ color:#67748e; }
+.table > :not(caption) > * > *{ border-bottom-color:#e3e3e7; }
+.table thead th{
+  padding:.75rem 1.5rem; text-transform:uppercase; font-size:.65rem; font-weight:700;
+  letter-spacing:.04em; color:#8392ab; border-bottom:1px solid #e3e3e7;
+}
+.table tbody td{ padding:.75rem 1.5rem; font-size:.8rem; border-bottom:1px solid #f0f1f4; vertical-align:middle; }
+.table.table-sm thead th, .table.table-sm tbody td{ padding:.5rem .9rem; }
+[data-bs-theme="dark"] .table{ color:#adb5bd; }
+[data-bs-theme="dark"] .table thead th{ color:#8a94a6; border-bottom-color:rgba(255,255,255,.12); }
+[data-bs-theme="dark"] .table tbody td{ border-bottom-color:rgba(255,255,255,.07); }
+
+/* =============================================================================
+   NAVBAR POP-OUTS — always on screen, always opening leftwards
+   ---------------------------------------------------------------------------
+   Every menu that drops from the right-hand icon row (bell, profile, and any
+   submenu they open) is anchored to its trigger's RIGHT edge and grows to the
+   left, so it can never run off the right of the viewport. The width is capped
+   against the viewport too, and the list inside scrolls rather than pushing the
+   box past the bottom of the screen — which is what "a fixed bottom position"
+   asks for: the box ends where the screen does, and the content scrolls.
+   ========================================================================== */
+.su-navbar .dropdown-menu.su-popout{
+  --su-popout-w: 340px;
+  width: var(--su-popout-w);
+  min-width: var(--su-popout-w);
+  max-width: calc(100vw - 1.5rem);
+  right: 0;
+  left: auto;
+  /* Never taller than the space under the navbar. */
+  max-height: calc(100vh - var(--app-nav-h, 66px) - 1.5rem);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.su-navbar .dropdown-menu.su-popout.show{ display: flex; }
+.su-navbar .dropdown-menu.su-popout > *{ flex: 0 0 auto; }
+
+/* Nothing inside a pop-out may be wider than the pop-out. `.dropdown-item` is
+   width:100%, so any horizontal margin on one pushed it past the edge. */
+.su-navbar .dropdown-menu.su-popout .dropdown-item{
+  margin-left: 0; margin-right: 0; width: 100%;
+  white-space: normal; overflow-wrap: anywhere;
+}
+.su-navbar .dropdown-menu.su-popout .btn{ max-width: 100%; }
+
+/* Submenus opened from inside a pop-out grow leftwards as well, rather than
+   off the right-hand edge. */
+.su-navbar .dropdown-menu.su-popout .dropdown-menu{
+  right: 100%; left: auto; top: 0; margin-right: .25rem;
+  max-width: calc(100vw - 1.5rem);
+}
+
+@media (max-width: 575.98px){
+  .su-navbar .dropdown-menu.su-popout{ --su-popout-w: calc(100vw - 1.5rem); }
+}
+
+/* ---- The merged alert list (notifications + messages in one bell) ---- */
+.su-alert-list{
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 -.25rem;
+  padding: 0 .25rem;
+}
+.su-alert-row{
+  display: flex; align-items: flex-start; gap: .6rem;
+  padding: .5rem .55rem; border-radius: .6rem;
+  text-decoration: none; color: #344767;
+}
+.su-alert-row:hover{ background: rgba(33,82,255,.07); }
+.su-alert-row.is-unread{ background: rgba(33,82,255,.05); }
+.su-alert-row.is-unread .su-alert-title{ font-weight: 700; }
+
+/* One menu, two identities: the icon is what says which kind a row is. */
+.su-alert-ico{
+  flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: .8rem;
+}
+.su-alert-ico--notification{ background: rgba(251,159,10,.15); color: #c77700; }
+.su-alert-ico--message{ background: rgba(33,82,255,.12); color: #2152ff; }
+
+.su-alert-main{ min-width: 0; flex: 1 1 auto; }
+.su-alert-title{
+  display: block; font-size: .82rem; font-weight: 600; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.su-alert-body{
+  display: block; font-size: .74rem; color: #8392ab; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.su-alert-when{ flex: 0 0 auto; font-size: .68rem; color: #8392ab; padding-top: .15rem; }
+
+[data-bs-theme="dark"] .su-alert-row{ color: #e9ecef; }
+[data-bs-theme="dark"] .su-alert-row:hover{ background: rgba(110,168,255,.12); }
+[data-bs-theme="dark"] .su-alert-body,
+[data-bs-theme="dark"] .su-alert-when{ color: #a3aed0; }

@@ -1,0 +1,374 @@
+{% load people %}{% comment %}The messenger's behaviour: polling, rendering, read ticks, replies,
+edits, typing, calls and the conversation list. Shared by the Messages page and
+by embedded threads — the conversation-list and new-group hooks simply find
+nothing to bind to when a page embeds only a thread.
+
+Context: ``active_group`` (may be unset → the script idles).{% endcomment %}
+<script>
+(function(){
+  const GROUP_ID = {{ active_group.id|default:"null" }};
+  const API = "/api/communication/";
+  const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  const msgsEl = document.getElementById('msgs');
+  const me = {{ request.user.id|default:"null" }};
+  const MY_NAME = "{{ request.user|person_name|escapejs }}";
+  const CALL_TITLE = "{{ active_group.chat_title|escapejs }}";
+  const TAB = String(Math.random()).slice(2);
+  // Consecutive messages from the same person inside this window are drawn as
+  // one run: one name/time line, one avatar, tighter bubbles.
+  const RUN_GAP_MS = 5 * 60 * 1000;
+  let signature = '', editingId = null, replyTo = null;
+  let prevLast = {}, firstGroupPoll = true;
+  let seenMeetings = null;
+
+  function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  function who(u){ return u ? (u.display_name || ('User '+u.id)) : '?'; }
+  function throttle(fn, ms){ let t=0; return function(){ const n=Date.now(); if(n-t>=ms){ t=n; fn.apply(this, arguments); } }; }
+  function sound(name){ try{ if(window.appSound && window.appSound[name]) window.appSound[name](); }catch(e){} }
+
+  const seenStore = {
+    get(){ try{ return JSON.parse(localStorage.getItem('thrivehub.chat.seen')||'{}'); }catch(e){ return {}; } },
+    set(o){ try{ localStorage.setItem('thrivehub.chat.seen', JSON.stringify(o)); }catch(e){} }
+  };
+
+  // ---- Avatar: the sender's photo, initials only when they have none ----
+  function avatarHtml(u, size){
+    const cls = 'ava ava-' + (size || 28);
+    if(u && u.avatar) return `<span class="${cls}"><img src="${esc(u.avatar)}" alt="${esc(who(u))}"></span>`;
+    const ini = esc((u && u.initials) || (who(u)||'?').slice(0,1));
+    return `<span class="${cls}">${ini}</span>`;
+  }
+
+  // ---- Day dividers: Today / Yesterday / weekday / Last week / month ----
+  function startOfDay(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
+  function dayLabel(d){
+    const now = new Date();
+    const days = Math.round((startOfDay(now) - startOfDay(d)) / 86400000);
+    if(days <= 0) return 'Today';
+    if(days === 1) return 'Yesterday';
+    if(days < 7)  return d.toLocaleDateString(undefined, {weekday:'long'});
+    if(days < 14) return 'Last week';
+    if(d.getFullYear() === now.getFullYear()) return d.toLocaleDateString(undefined, {month:'long'});
+    return d.toLocaleDateString(undefined, {month:'long', year:'numeric'});
+  }
+  function timeLabel(d){ return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+
+  // ---- Read ticks: one tick sent, two blue ticks once someone has read it ----
+  function ticksHtml(m){
+    const read = (m.read_by_count || 0) > 0;
+    return `<span class="ticks ${read?'read':''}" title="${read?'Read':'Sent'}">
+      <i class="bi bi-${read?'check2-all':'check2'}"></i></span>`;
+  }
+
+  function quoteHtml(m){
+    const q = m.reply_preview;
+    if(!q) return '';
+    const body = q.body ? esc(q.body) : (q.has_attachment ? 'Attachment' : '');
+    return `<span class="quote" data-jump="${q.id}" title="Go to the message being replied to">
+      <span class="q-who">${esc(q.sender)}</span><span class="q-body">${body}</span></span>`;
+  }
+
+  function renderMsg(m, prev){
+    const mine = m.sender && m.sender.id === me;
+    const at = new Date(m.created_at);
+    const prevAt = prev ? new Date(prev.created_at) : null;
+    // A run starts on a new day, a new sender, or after a gap.
+    const runStart = !prev
+      || !prev.sender || !m.sender || prev.sender.id !== m.sender.id
+      || startOfDay(prevAt) !== startOfDay(at)
+      || (at - prevAt) > RUN_GAP_MS;
+
+    let out = '';
+    if(!prevAt || startOfDay(prevAt) !== startOfDay(at)){
+      out += `<div class="day-sep"><span>${esc(dayLabel(at))}</span></div>`;
+    }
+
+    // Shared media grid → thumbnails + grid layout; clicking opens the lightbox.
+    const atts = (window.OrgMedia && m.attachments && m.attachments.length)
+      ? OrgMedia.grid(m.attachments.map(a=>({url:a.url, kind:a.kind, name:a.original_name})))
+      : '';
+    const mentions = (m.mention_links||[]).map(x=>'@'+esc(who(x.user))).join(' ');
+    const meta = runStart
+      ? `<div class="meta">${esc(who(m.sender))} · ${timeLabel(at)}${m.is_edited?' · edited':''}</div>` : '';
+    const avatar = runStart ? avatarHtml(m.sender, 28) : '<span class="ava-slot"></span>';
+    const acts = `<span class="msg-acts">
+        <button type="button" data-reply="${m.id}" title="Reply to this message"><i class="bi bi-reply-fill"></i></button>
+        ${mine ? `<button type="button" data-edit="${m.id}" data-body="${esc(m.body)}" title="Edit"><i class="bi bi-pencil"></i></button>` : ''}
+      </span>`;
+
+    out += `<div class="msg ${mine?'me':''} ${runStart?'run-start':''}" id="m${m.id}">
+      ${avatar}
+      <div class="col">
+        ${meta}
+        <div class="bubble">${quoteHtml(m)}${esc(m.body)}${mentions?'<br><small>'+mentions+'</small>':''}${atts}</div>
+        ${mine ? `<div class="stamp">${timeLabel(at)}${ticksHtml(m)}</div>` : ''}
+      </div>
+      ${acts}
+    </div>`;
+    return out;
+  }
+
+  function renderAll(items){
+    if(!items.length) return '<p class="text-muted p-3">No messages yet — say hi 👋</p>';
+    return items.map((m, i)=> renderMsg(m, i ? items[i-1] : null)).join('');
+  }
+
+  async function load(){
+    if(GROUP_ID==null) return;
+    const r = await fetch(`${API}messages/?group=${GROUP_ID}&ordering=created_at`, {credentials:'same-origin', appQuiet:true});
+    if(!r.ok) return;
+    const data = await r.json();
+    const items = data.results || data;
+    // Re-render only when something actually changed — the read ticks and edits
+    // mean a plain length check would miss updates.
+    const next = items.map(m=>`${m.id}:${m.read_by_count||0}:${m.is_edited?1:0}`).join(',');
+    if(next !== signature){
+      const grew = signature && items.length > signature.split(',').filter(Boolean).length;
+      const atBottom = msgsEl.scrollHeight - msgsEl.scrollTop - msgsEl.clientHeight < 80;
+      msgsEl.innerHTML = renderAll(items);
+      if(atBottom || !signature) msgsEl.scrollTop = msgsEl.scrollHeight;
+      signature = next;
+      // Sound when a NEW message arrives from someone else
+      const last = items[items.length-1];
+      if(grew && last && !(last.sender && last.sender.id===me)) sound('message');
+    }
+    // Keep the active conversation marked read (server + local seen store)
+    const last = items[items.length-1];
+    if(last){ const s=seenStore.get(); s[GROUP_ID]=last.id; seenStore.set(s); prevLast[GROUP_ID]=last.id; }
+    fetch(`${API}chat-groups/${GROUP_ID}/mark_read/`, {method:'POST', headers:{'X-CSRFToken':csrftoken}, credentials:'same-origin', appQuiet:true});
+  }
+
+  // ---- Conversation list: unread rings + green "new" badges + sound ----
+  async function pollGroups(){
+    const r = await fetch(`${API}chat-groups/`, {credentials:'same-origin', appQuiet:true});
+    if(!r.ok) return;
+    const data = await r.json(); const items = data.results || data;
+    const seen = seenStore.get(); let play = false;
+    items.forEach(g=>{
+      const el = document.querySelector(`.convo[data-group="${g.id}"]`);
+      if(!el) return;
+      const lastId = g.last_message ? g.last_message.id : 0;
+      const isActive = (g.id === GROUP_ID);
+      if(isActive){ seen[g.id] = lastId; }
+      const unread = !isActive && lastId > (seen[g.id]||0);
+      el.classList.toggle('has-unread', unread);
+      const dot = el.querySelector('.new-dot'); if(dot) dot.classList.toggle('d-none', !unread);
+      if(unread && lastId > (prevLast[g.id]||0)) play = true;
+      prevLast[g.id] = lastId;
+    });
+    seenStore.set(seen);
+    if(play && !firstGroupPoll) sound('message');
+    firstGroupPoll = false;
+  }
+
+  // ---- Incoming meeting call: ring when a meeting goes live ----
+  const incoming = document.getElementById('incomingCall');
+  function showIncoming(m){
+    if(!incoming) return;
+    document.getElementById('incomingTitle').textContent = m.title || 'Incoming call';
+    document.getElementById('incomingJoin').href = m.join_url || '{% url "communication:meetings" %}';
+    incoming.classList.add('show');
+    sound('call');
+  }
+  function hideIncoming(){ if(incoming) incoming.classList.remove('show'); sound('stopCall'); }
+  const incDismiss = document.getElementById('incomingDismiss');
+  if(incDismiss) incDismiss.addEventListener('click', hideIncoming);
+  const incJoin = document.getElementById('incomingJoin');
+  if(incJoin) incJoin.addEventListener('click', ()=> sound('stopCall'));
+
+  async function pollMeetings(){
+    const r = await fetch(`${API}meetings/`, {credentials:'same-origin', appQuiet:true});
+    if(!r.ok) return;
+    const data = await r.json(); const items = data.results || data;
+    const live = items.filter(m=>m.is_live_now);
+    if(seenMeetings !== null){
+      const fresh = live.find(m=>!seenMeetings.has(m.id));
+      if(fresh) showIncoming(fresh);
+    }
+    seenMeetings = new Set(live.map(m=>m.id));
+  }
+
+  // ---- Typing indicator (best-effort: cross-tab now; websocket-ready) ----
+  const typingBar = document.getElementById('typingBar');
+  const typingWho = document.getElementById('typingWho');
+  let typingTimer = null;
+  function showTyping(name){
+    if(!typingBar) return;
+    typingWho.textContent = (name ? name : 'Someone') + ' is typing…';
+    typingBar.classList.add('show');
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(()=> typingBar.classList.remove('show'), 3000);
+  }
+  window.chatShowTyping = showTyping;   // let a future websocket/presence signal drive it
+  const bc = ('BroadcastChannel' in window) ? new BroadcastChannel('thrivehub-chat-typing') : null;
+  if(bc) bc.onmessage = (ev)=>{ const d = ev.data||{}; if(d.type==='typing' && d.group===GROUP_ID && d.tab!==TAB) showTyping(d.name); };
+
+  // ---- Reply / edit / jump-to-quote ----
+  const replyBar = document.getElementById('replyBar');
+  function setReply(id){
+    const el = document.getElementById('m'+id);
+    if(!el) return;
+    replyTo = id;
+    document.getElementById('replyWho').textContent =
+      'Replying to ' + (el.querySelector('.meta')?.textContent.split('·')[0].trim()
+        || (el.classList.contains('me') ? MY_NAME : 'message'));
+    document.getElementById('replyBody').textContent = el.querySelector('.bubble')?.textContent.trim().slice(0,160) || '';
+    replyBar.classList.add('show');
+    const form = document.getElementById('composeForm');
+    if(form) form.body.focus();
+  }
+  function clearReply(){ replyTo = null; if(replyBar) replyBar.classList.remove('show'); }
+  const replyCancel = document.getElementById('replyCancel');
+  if(replyCancel) replyCancel.addEventListener('click', clearReply);
+
+  if(msgsEl) msgsEl.addEventListener('click', e=>{
+    const reply = e.target.closest('[data-reply]');
+    if(reply){ e.preventDefault(); setReply(reply.dataset.reply); return; }
+    const edit = e.target.closest('[data-edit]');
+    if(edit){
+      e.preventDefault();
+      const f = document.getElementById('composeForm'); if(!f) return;
+      editingId = edit.dataset.edit; clearReply();
+      f.body.value = edit.dataset.body; f.body.focus();
+      return;
+    }
+    const jump = e.target.closest('[data-jump]');
+    if(jump){
+      const target = document.getElementById('m'+jump.dataset.jump);
+      if(target){
+        target.scrollIntoView({block:'center', behavior:'smooth'});
+        target.classList.remove('flash'); void target.offsetWidth; target.classList.add('flash');
+      }
+    }
+  });
+
+  const form = document.getElementById('composeForm');
+  if(form){
+    form.body.addEventListener('input', throttle(()=>{
+      if(bc && GROUP_ID!=null) bc.postMessage({type:'typing', group:GROUP_ID, tab:TAB, name:MY_NAME});
+    }, 1200));
+    form.addEventListener('submit', async e=>{
+      e.preventDefault();
+      // Nothing to send? (no text and no files) — do nothing.
+      if(!form.body.value.trim() && !(form.files.files && form.files.files.length)) return;
+      const btn = form.querySelector('button[type=submit],button:not([type])');
+      if(btn) btn.classList.add('is-loading');
+      const fd = new FormData();
+      fd.append('group', GROUP_ID);
+      fd.append('body', form.body.value);
+      if(replyTo && !editingId) fd.append('reply_to', replyTo);
+      for(const f of form.files.files) fd.append('files', f);
+      const url = editingId ? `${API}messages/${editingId}/` : `${API}messages/`;
+      const method = editingId ? 'PATCH' : 'POST';
+      try{
+        const r = await fetch(url, {method, headers:{'X-CSRFToken':csrftoken}, body:fd, credentials:'same-origin', appQuiet:true});
+        if(r.ok){ form.reset(); if(form.mzReset) form.mzReset(); editingId=null; clearReply(); signature=''; await load(); }
+        else { alert('Could not send message.'); }
+      } finally { if(btn) btn.classList.remove('is-loading'); }
+    });
+  }
+
+  // ---- Call buttons ----
+  let callModal = null;
+  function openCall(kind){
+    const icon = document.getElementById('callModalIcon');
+    const title = document.getElementById('callModalTitle');
+    const sub = document.getElementById('callModalSub');
+    if(icon) icon.className = kind==='video' ? 'bi bi-camera-video-fill' : 'bi bi-telephone-fill';
+    if(title) title.textContent = (kind==='video'?'Video calling ':'Calling ') + CALL_TITLE;
+    if(sub) sub.textContent = 'Ringing everyone in this conversation…';
+    if(window.bootstrap){ callModal = callModal || new bootstrap.Modal(document.getElementById('callModal')); callModal.show(); }
+    sound('call');
+    const el = document.getElementById('callModal');
+    if(el) el.addEventListener('hidden.bs.modal', ()=> sound('stopCall'), {once:true});
+  }
+  // Start a real call for this conversation. Staff/educators host on Teams,
+  // students on Jitsi; the call page returns here when it ends.
+  function startCall(kind){
+    if(GROUP_ID==null) return;
+    sound('call');
+    window.location.href = `/communication/chat/${GROUP_ID}/call/?kind=${kind}`;
+  }
+  const vBtn = document.getElementById('voiceCallBtn'); if(vBtn) vBtn.addEventListener('click', ()=>startCall('audio'));
+  const cBtn = document.getElementById('videoCallBtn'); if(cBtn) cBtn.addEventListener('click', ()=>startCall('video'));
+  const markReadBtn = document.getElementById('markReadBtn');
+  if(markReadBtn) markReadBtn.addEventListener('click', (e)=>{ e.preventDefault();
+    fetch(`${API}chat-groups/${GROUP_ID}/mark_read/`, {method:'POST', headers:{'X-CSRFToken':csrftoken}, credentials:'same-origin', appQuiet:true}); });
+
+  // ---- New group ----
+  const newGroupBtn = document.getElementById('newGroupBtn');
+  if(newGroupBtn) newGroupBtn.addEventListener('click', async ()=>{
+    const name = prompt('Name for the new group:'); if(!name) return;
+    const r = await fetch(`${API}chat-groups/`, {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':csrftoken}, body:JSON.stringify({name}), credentials:'same-origin'});
+    if(r.ok){ const g = await r.json(); location.href = `/communication/chat/${g.id}/`; } else alert('Could not create group.');
+  });
+
+  // ---- Client-side conversation search ----
+  const search = document.getElementById('convoSearch');
+  if(search) search.addEventListener('input', ()=>{
+    const q = search.value.toLowerCase();
+    document.querySelectorAll('#groupList .convo').forEach(el=>{
+      el.style.display = (el.dataset.name||'').includes(q) ? '' : 'none';
+    });
+  });
+
+  // ---- Boot ----
+  // The WebSocket is the primary channel: it pokes an instant refresh on every
+  // new message. Polling stays only as a fallback, and is deliberately quiet:
+  //   • paused whenever the tab is hidden (no work in a background tab), and
+  //   • slowed right down while the socket is live (the socket does the work).
+  // When the socket drops, polling speeds back up so nothing is missed.
+  let chatSocket = null, socketLive = false, torn = false;
+  const timers = [];                       // interval ids, cleared on teardown
+  const hidden = () => document.hidden;
+
+  function openChatSocket(){
+    if(torn || GROUP_ID==null || !window.WebSocket) return;
+    const proto = location.protocol==='https:' ? 'wss' : 'ws';
+    let ws;
+    try { ws = new WebSocket(`${proto}://${location.host}/ws/chat/${GROUP_ID}/`); }
+    catch(e){ return; }
+    chatSocket = ws;
+    ws.onopen  = ()=>{ socketLive = true; };
+    ws.onmessage = ()=>{ load(); pollGroups(); };   // pull the new message(s) at once
+    ws.onclose = ()=>{ socketLive = false; chatSocket = null; if(!torn) setTimeout(openChatSocket, 5000); };
+    ws.onerror = ()=>{ try{ ws.close(); }catch(e){} };
+  }
+
+  // A guarded interval: runs fn every `fast` ms, but skips the tick when the tab
+  // is hidden, and only every `slowEvery`-th tick while the socket is live (so a
+  // safety reconcile still happens, just rarely). Its id is tracked for teardown.
+  function guardedPoll(fn, fast, slowEvery){
+    let n = 0;
+    timers.push(setInterval(()=>{
+      if(hidden()) return;
+      n++;
+      if(socketLive && (n % slowEvery !== 0)) return;
+      fn();
+    }, fast));
+  }
+
+  function onVisible(){ if(!hidden()){ if(GROUP_ID!=null) load(); pollGroups(); } }
+
+  if(GROUP_ID!=null){
+    load();
+    openChatSocket();
+    guardedPoll(load, 5000, 6);   // 5s when no socket; ~30s safety net when socket live
+  }
+  pollGroups();   guardedPoll(pollGroups, 6000, 5);    // ~30s while socket live
+  pollMeetings(); guardedPoll(pollMeetings, 20000, 3); // ~60s while socket live
+  document.addEventListener('visibilitychange', onVisible);
+
+  // Phase 2: when HTMX swaps this page away, tear the chat down cleanly — close
+  // the socket (and stop it reconnecting), clear every interval, and drop the
+  // document-level listener — so nothing leaks. No-op without HTMX.
+  if(window.Thrive && Thrive.onTeardown){
+    Thrive.onTeardown(function(){
+      torn = true;
+      try{ if(chatSocket) chatSocket.close(); }catch(e){}
+      timers.forEach(clearInterval);
+      document.removeEventListener('visibilitychange', onVisible);
+    });
+  }
+})();
+</script>

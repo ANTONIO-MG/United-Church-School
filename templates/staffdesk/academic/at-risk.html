@@ -1,0 +1,81 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}At-risk triage: open flags first, highest risk first.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk · Academic</span><h3>At-risk students</h3>
+      <p>Students the risk model flagged (score {{ threshold }}+): failing subjects, no study in two weeks, repeated failed assessments.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'staffdesk:snapshots' %}"><i class="bi bi-camera me-1"></i>Snapshots</a>
+      <form method="post" action="{% url 'staffdesk:at-risk-scan' %}">{% csrf_token %}
+        <button class="btn btn-sm btn-primary"><i class="bi bi-radar me-1"></i>Run risk scan</button></form>
+    </div>
+  </div>
+
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Open flags</span><b>{{ kpis.open }}</b><em>not yet resolved</em></div>
+    <div class="tc-kpi"><span>High risk</span><b class="{% if kpis.high %}text-danger{% endif %}">{{ kpis.high }}</b><em>score 70+</em></div>
+    <div class="tc-kpi"><span>Resolved</span><b class="text-success">{{ kpis.resolved_30d }}</b><em>last 30 days</em></div>
+  </div>
+
+  <nav class="tc-aisles" aria-label="Queue">
+    <a class="tc-aisle {% if tab == 'open' %}is-active{% endif %}" href="?{{ filter_query }}{% if filter_query %}&amp;{% endif %}tab=open"><i class="bi bi-inbox"></i>Needs attention<span class="tc-count">{{ counts.open }}</span></a>
+    <a class="tc-aisle {% if tab == 'acknowledged' %}is-active{% endif %}" href="?{{ filter_query }}{% if filter_query %}&amp;{% endif %}tab=acknowledged"><i class="bi bi-eye"></i>Acknowledged<span class="tc-count">{{ counts.acknowledged }}</span></a>
+    <a class="tc-aisle {% if tab == 'resolved' %}is-active{% endif %}" href="?{{ filter_query }}{% if filter_query %}&amp;{% endif %}tab=resolved"><i class="bi bi-check2-circle"></i>Resolved<span class="tc-count">{{ counts.resolved }}</span></a>
+    <a class="tc-aisle {% if tab == 'all' %}is-active{% endif %}" href="?{{ filter_query }}{% if filter_query %}&amp;{% endif %}tab=all">All<span class="tc-count">{{ counts.all }}</span></a>
+  </nav>
+
+  <form method="get" class="tc-toolbar"><input type="hidden" name="tab" value="{{ tab }}">
+    <label class="visually-hidden" for="rSeverity">Severity</label>
+    <select id="rSeverity" name="severity" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">Any severity</option>
+      <option value="high" {% if severity == 'high' %}selected{% endif %}>High (70+)</option>
+      <option value="medium" {% if severity == 'medium' %}selected{% endif %}>Medium (40–69)</option>
+      <option value="low" {% if severity == 'low' %}selected{% endif %}>Low (under 40)</option>
+    </select>
+    <label class="visually-hidden" for="rModule">Subject</label>
+    <select id="rModule" name="module" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">Any subject</option>
+      {% for m in modules %}<option value="{{ m.pk }}" {% if m.pk == module_id %}selected{% endif %}>{{ m.reference }}</option>{% endfor %}
+    </select>
+    <label class="visually-hidden" for="rSearch">Student</label>
+    <input id="rSearch" class="form-control form-control-sm tc-search" type="search" name="q" value="{{ search }}" placeholder="Student name or e-mail">
+    <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i><span class="visually-hidden">Filter</span></button>
+  </form>
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>Severity</th><th>Student</th><th>Why</th><th class="d-none d-md-table-cell">Subject</th><th>Age</th><th></th></tr></thead>
+      <tbody>
+      {% for f in page %}
+        <tr>
+          <td class="text-nowrap"><span class="tc-chip tc-chip--{{ f.severity_variant }}">{{ f.severity }} · {{ f.score }}</span></td>
+          <td><a class="fw-semibold" href="{% url 'staffdesk:at-risk-detail' f.pk %}">{{ f.student|person_name }}</a>
+            <div class="small text-muted">{{ f.student.email }}</div></td>
+          <td class="small sda-reasons">{% for r in f.reasons %}<span class="tc-chip">{{ r }}</span>{% empty %}<span class="text-muted">—</span>{% endfor %}</td>
+          <td class="d-none d-md-table-cell small">{{ f.module.reference|default:"All subjects" }}</td>
+          <td class="small text-nowrap">{{ f.created_at|timesince }}
+            {% if f.resolved %}<div><span class="tc-chip tc-chip--success">Resolved</span></div>
+            {% elif f.acknowledged %}<div><span class="tc-chip tc-chip--primary">Acknowledged</span></div>{% endif %}
+            {% if f.n_notes %}<div class="text-muted"><i class="bi bi-sticky"></i> {{ f.n_notes }}</div>{% endif %}</td>
+          <td class="r text-nowrap">
+            {% if not f.resolved %}
+            <form method="post" action="{% url 'staffdesk:at-risk-triage' f.pk %}" class="d-inline">{% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              {% if tab == 'open' %}<button class="btn btn-sm btn-outline-secondary" name="action" value="ack" title="Acknowledge"><i class="bi bi-eye"></i><span class="visually-hidden">Acknowledge</span></button>{% endif %}
+              <button class="btn btn-sm btn-outline-success" name="action" value="resolve" title="Resolve"><i class="bi bi-check2"></i><span class="visually-hidden">Resolve</span></button>
+            </form>
+            {% endif %}
+            <a class="btn btn-sm tc-btn-soft" href="{% url 'staffdesk:at-risk-detail' f.pk %}">Open</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6"><div class="tc-empty"><i class="bi bi-emoji-smile"></i><h5>Nobody here</h5><p class="mb-0">{% if tab == 'open' %}No unhandled flags. Run a risk scan to check again.{% else %}No flags match.{% endif %}</p></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% include 'staffdesk/academic/_pager.html' %}
+</div></div>
+{% endblock %}

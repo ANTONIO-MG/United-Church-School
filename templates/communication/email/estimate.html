@@ -1,0 +1,12 @@
+{% extends 'communication/email/base_email.html' %}{% load org_branding %}
+{% comment %}Estimate / quote. Context: estimate, view_url.{% endcomment %}
+{% block heading %}Estimate {{ estimate.number }}{% endblock %}
+{% block content %}
+  <p style="margin:0 0 14px">Hi {{ estimate.customer|greeting_name }},</p>
+  <p style="margin:0 0 14px">Here is the estimate you asked for{% if estimate.summary %}: <strong>{{ estimate.summary }}</strong>{% endif %}. You can view it and accept it online.</p>
+  <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
+    <tr><td style="padding:6px 0;color:#97a2da">Total</td><td style="text-align:right"><strong style="font-size:18px;color:#506bec">R{{ estimate.total|floatformat:2 }}</strong></td></tr>
+    <tr><td style="padding:6px 0;color:#97a2da">Valid until</td><td style="text-align:right">{{ estimate.valid_until|date:"j F Y" }}</td></tr>
+  </table>
+{% endblock %}
+{% block cta %}{% include 'communication/email/_button.html' with url=view_url label="VIEW ESTIMATE" %}{% endblock %}

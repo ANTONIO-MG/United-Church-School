@@ -1,0 +1,68 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% comment %}Revision home — what is due today, by module, and the day streak.{% endcomment %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}"><link rel="stylesheet" href="{% static 'css/revision.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc rv">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Study</span><h3>Revision</h3>
+      <p>Questions you got wrong come back on a schedule until they stick.</p></div>
+    <div class="tc-head__actions">
+      {% if due_total %}
+        <a class="btn btn-primary rv-start" href="{% url 'revision:session' %}"><i class="bi bi-play-fill me-1"></i>Start review<span class="rv-start__n">{{ due_total }}</span></a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Due now</span><b class="{% if due_total %}text-primary{% endif %}">{{ due_total }}</b><em>card{{ due_total|pluralize }} ready to review</em></div>
+    <div class="tc-kpi"><span>Day streak</span><b><i class="bi bi-fire rv-flame{% if streak %} is-lit{% endif %}" aria-hidden="true"></i> {{ streak }}</b><em>{% if reviewed_today %}{{ reviewed_today }} reviewed today{% elif streak %}review today to keep it{% else %}review a card to start one{% endif %}</em></div>
+    <div class="tc-kpi"><span>Coming up</span><b>{{ upcoming_week }}</b><em>{% if next_due %}next {{ next_due|timeuntil }}{% else %}in the next 7 days{% endif %}</em></div>
+    <div class="tc-kpi"><span>All cards</span><b>{{ total }}</b><em>{% if suspended %}{{ suspended }} suspended{% else %}in your deck{% endif %}</em></div>
+  </div>
+
+  {% if held.memo or held.locked %}
+  <div class="tc-alert tc-alert--info mb-3"><i class="bi bi-hourglass-split"></i><div>
+    {% if held.memo %}{{ held.memo }} card{{ held.memo|pluralize }} will appear once the memo for {{ held.memo|pluralize:"its,their" }} paper is released.{% endif %}
+    {% if held.locked %}{{ held.locked }} card{{ held.locked|pluralize }} {{ held.locked|pluralize:"is,are" }} waiting on a subject you can't open right now.{% endif %}
+  </div></div>
+  {% endif %}
+
+  {% if total %}
+  <div class="rv-grid">
+    <div class="tc-card">
+      <div class="tc-card__head"><h6><i class="bi bi-collection me-1 text-primary"></i>Due by subject</h6></div>
+      <div class="tc-card__body">
+        {% for g in by_module %}
+          <a class="rv-module" href="{% url 'revision:session' %}?module={{ g.id }}">
+            <span class="rv-module__name">{% if g.code %}<span class="tc-chip tc-chip--primary me-2">{{ g.code }}</span>{% endif %}{{ g.label }}</span>
+            <span class="rv-module__n">{{ g.count }}</span>
+            <i class="bi bi-chevron-right text-muted" aria-hidden="true"></i>
+          </a>
+        {% empty %}
+          <div class="rv-clear"><i class="bi bi-check2-circle"></i><div><b>All caught up.</b><br><span>{% if next_due %}Your next card is due {{ next_due|timeuntil }} from now.{% else %}Nothing is scheduled.{% endif %}</span></div></div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="tc-card">
+      <div class="tc-card__head"><h6><i class="bi bi-bar-chart-steps me-1 text-primary"></i>Your boxes</h6></div>
+      <div class="tc-card__body">
+        <div class="rv-boxes">
+          {% for box, n in boxes.items %}
+            <div class="rv-box rv-box--{{ box }}"><b>{{ n }}</b><span>Box {{ box }}</span></div>
+          {% endfor %}
+        </div>
+        <p class="small text-muted mb-0 mt-2">Box 1 comes back tomorrow, box 2 in 3 days, box 3 in a week, box 4 in 16 days and box 5 in 5 weeks. A card you forget goes back to box 1.</p>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="tc-card"><div class="tc-empty">
+    <i class="bi bi-arrow-repeat"></i>
+    <h5>No revision cards yet</h5>
+    <p>When a quiz or test is marked, every question you didn't get full marks for becomes a card here.</p>
+    <a class="btn btn-sm tc-btn-soft" href="/assessments/">Go to assessments</a>
+  </div></div>
+  {% endif %}
+</div></div>
+{% endblock %}

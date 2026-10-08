@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="{{ ui_language|default:'en' }}"{% if ui_theme_attr %} data-bs-theme="{{ ui_theme_attr }}"{% endif %}>
+
+<head>
+	{% load static %}
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="keywords" content="" />
+	<meta name="author" content="{{ strings.meta.author|default:'United Church School' }}" />
+	<meta name="robots" content="" />
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="{{ strings.meta.description }}" />
+	<meta property="og:title" content="{{ strings.meta.og_title }}" />
+	<meta property="og:description" content="{{ strings.meta.og_description }}" />
+	<meta property="og:image" content="{{ strings.meta.og_image }}" />
+	<meta name="format-detection" content="telephone=no">
+
+	<title>{{ strings.meta.page_title|default:"United Church School" }}</title>
+	
+	{% include 'partials/_favicons.html' %}
+	{% block additional_css %}
+	{% endblock %}
+	
+</head>
+
+<body>      
+    <div class="fix-wrapper">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-5">
+                    <div class="form-input-content text-center error-page">
+                        <h1 class="error-text font-weight-bold">503</h1>
+                        <h4><i class="fa fa-times-circle text-danger"></i> {{ strings.errors.503.title|default:"Service unavailable" }}</h4>
+                        <p>{{ strings.errors.503.message|default:"We're temporarily offline for maintenance. Please check back soon." }}</p>
+						<div>
+                            <a class="btn btn-primary" href="{% url 'myhub:index' %}">{{ strings.errors.back_home|default:"Back to home" }}</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% block additional_js %}
+{% endblock %}
+</body>
+</html>

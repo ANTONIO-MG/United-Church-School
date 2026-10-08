@@ -1,0 +1,93 @@
+{% extends 'soft_ui/auth_base.html' %}
+{% load static %}
+{% comment %}Step 4 of the UCS application — the medical form (application form
+page 5) and the supporting documents (page 1). Documents can be added later
+under My application; the application is marked "documents outstanding" until
+they are in.{% endcomment %}
+{% block title %}Medical &amp; documents · {{ brand.name|default:"United Church School" }}{% endblock %}
+{% block card_col %}col-xl-9 col-lg-11{% endblock %}
+{% block oblique %}{% endblock %}
+
+{% block auth_card %}
+<div class="card mt-7 mb-4 shadow-lg">
+  <div class="card-body p-4">
+    {% include 'accounts/register/_steps.html' with step=4 %}
+
+    <div class="text-center mb-4">
+      <h4 class="font-weight-bolder text-info text-gradient mb-1">Medical &amp; documents</h4>
+      <p class="text-sm text-muted mb-0">Updated information in case of emergency, and the documents the school
+        needs to process the application.</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="regForm" novalidate>
+      {% csrf_token %}
+      <div class="accordion wz-accordion" id="medAcc">
+        <div class="accordion-item rf-sec border rounded-3 mb-2 overflow-hidden">
+          <h2 class="accordion-header"><button class="accordion-button py-3" type="button" data-bs-toggle="collapse" data-bs-target="#sec-medical" aria-expanded="true">
+            <span class="sec-chev" aria-hidden="true"></span><span class="sec-title">Medical information</span></button></h2>
+          <div id="sec-medical" class="accordion-collapse collapse show"><div class="accordion-body rf-body">
+            <div class="alert alert-light border text-xs mb-3">
+              <i class="bi bi-exclamation-circle me-1"></i>UCS <strong>will not</strong> administer any medication to any learner
+              in the event of any illness or discomfort. It is the parent's responsibility to ensure the appropriate medical
+              assistance is provided. Learners only go home in extreme cases, signed out by a parent with the principal's permission.
+            </div>
+            {% include 'accounts/register/_formgrid.html' with form=medical_form %}
+          </div></div>
+        </div>
+
+        <div class="accordion-item rf-sec border rounded-3 mb-2 overflow-hidden">
+          <h2 class="accordion-header"><button class="accordion-button py-3" type="button" data-bs-toggle="collapse" data-bs-target="#sec-docs" aria-expanded="true">
+            <span class="sec-chev" aria-hidden="true"></span><span class="sec-title">Supporting documents</span></button></h2>
+          <div id="sec-docs" class="accordion-collapse collapse show"><div class="accordion-body rf-body">
+            <p class="text-xs text-muted mb-3">
+              Your child's application will only be processed once these are included. Upload a clear photo or PDF of each
+              (max 25 MB). The payslip is kept confidential and is only for reference to support fees responsibility.
+              You can also add documents later under <strong>My application</strong>.
+            </p>
+            {% for e in upload_errors %}<div class="alert alert-danger py-2 text-sm">{{ e }}</div>{% endfor %}
+            <div class="d-grid gap-2">
+              {% for row in document_rows %}
+              <div class="doc-row border rounded-3 p-2 px-3 {% if row.held %}is-held{% endif %}">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                  <div class="flex-grow-1">
+                    <span class="text-sm fw-bold">{{ row.label }}</span>
+                    {% if row.required %}<span class="req">*</span>{% else %}<span class="text-xs text-muted">(optional)</span>{% endif %}
+                    {% for doc in row.held %}
+                      <div class="text-xs text-success"><i class="bi bi-check-circle-fill me-1"></i>{{ doc.original_name|default:"Uploaded" }}{% if doc.verified %} · verified by the office{% endif %}</div>
+                    {% endfor %}
+                  </div>
+                  <div class="doc-input">
+                    <input type="file" class="form-control form-control-sm" name="doc_{{ row.kind }}"
+                           accept="image/*,.pdf,.doc,.docx" aria-label="{{ row.label }}">
+                    {% if row.kind == 'id_document' or row.kind == 'study_permit' %}
+                    <input type="date" class="form-control form-control-sm mt-1" name="expiry_{{ row.kind }}" aria-label="Expiry date" title="Expiry date (passport / permit)">
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mt-4">
+        <button type="submit" name="nav" value="back" class="btn btn-light mb-0" formnovalidate>
+          <i class="bi bi-arrow-left-circle me-2"></i>Back
+        </button>
+        <button type="submit" class="btn bg-gradient-info mb-0">Continue to agreements &amp; fees<i class="bi bi-arrow-right-circle ms-2"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+{% include 'accounts/register/_reg_styles.html' %}
+<style>
+  .doc-row.is-held{ border-color:#2dce89 !important; background:#f2fbf7; }
+  .doc-input{ min-width:15rem; }
+  [data-bs-theme="dark"] .doc-row.is-held{ background:rgba(45,206,137,.08); }
+</style>
+{% endblock %}
+{% block extra_js %}{% include 'accounts/register/_reg_scripts.html' %}{% endblock %}

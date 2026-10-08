@@ -1,0 +1,28 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static commerce %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><a class="small" href="{% url 'finance:expenses' %}"><i class="bi bi-arrow-left me-1"></i>Expenses</a><h3 class="mt-1">Recurring expenses</h3>
+      <p>Costs that book themselves on schedule — {{ monthly|rand }} a month while active. Set one up by choosing "Repeat" when you record an expense.</p></div>
+    <div class="tc-head__actions"><a class="btn btn-sm btn-primary" href="{% url 'finance:expense-add' %}"><i class="bi bi-plus-lg me-1"></i>Record expense</a></div>
+  </div>
+  <div class="tc-card"><div class="tc-table-wrap"><table class="tc-table">
+    <thead><tr><th>Profile</th><th>Category</th><th>Repeats</th><th>Next</th><th class="r">Amount</th><th class="r">Per month</th><th></th></tr></thead>
+    <tbody>
+      {% for p in profiles %}
+      <tr class="{% if not p.is_active %}text-muted{% endif %}">
+        <td><a class="fw-semibold" href="{% url 'finance:recurring-edit' p.pk %}">{{ p.name }}</a><div class="small text-muted">{{ p.vendor.name|default:"" }}</div></td>
+        <td class="small">{{ p.category.name }}</td>
+        <td class="small">Every {% if p.every > 1 %}{{ p.every }} {% endif %}{{ p.get_frequency_display|lower|cut:"(s)" }}{% if p.every > 1 %}s{% endif %}{% if p.end_date %} until {{ p.end_date|date:"j M Y" }}{% endif %}</td>
+        <td class="small">{% if p.is_active %}{{ p.next_date|date:"j M Y" }}{% else %}<span class="tc-chip">Paused</span>{% endif %}</td>
+        <td class="r">{{ p.amount|rand }}</td><td class="r fw-semibold">{{ p.monthly_equivalent|rand }}</td>
+        <td class="r"><form method="post">{% csrf_token %}<input type="hidden" name="pk" value="{{ p.pk }}"><input type="hidden" name="action" value="toggle">
+          <button class="btn btn-sm {% if p.is_active %}btn-outline-secondary{% else %}tc-btn-soft{% endif %}">{% if p.is_active %}Pause{% else %}Resume{% endif %}</button></form></td>
+      </tr>
+      {% empty %}<tr><td colspan="7"><div class="tc-empty"><i class="bi bi-arrow-repeat"></i><h5>No recurring expenses</h5><p class="mb-0">Rent, Microsoft 365, the bookkeeper's retainer — record one and choose how often it repeats.</p></div></td></tr>{% endfor %}
+    </tbody>
+  </table></div></div>
+</div></div>
+{% endblock %}

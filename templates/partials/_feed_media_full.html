@@ -1,0 +1,30 @@
+{% comment %}One attachment rendered full-width — used for single-attachment posts
+and for message items. Opens in the feed lightbox (feed.html). Expects `m` =
+{url, kind, name} and `group` (a per-card id used to group a post's media).{% endcomment %}
+{% if m.kind == "image" %}
+  <a class="flb-item d-block mt-2" href="{{ m.url }}"
+     data-flb-group="flb-card-{{ group }}" data-flb-type="image"
+     data-flb-src="{{ m.url }}" data-flb-name="{{ m.name|default:'image' }}">
+    <img class="card-img rounded" src="{{ m.url }}" alt="{{ m.name|default:'Shared image' }}">
+  </a>
+{% elif m.kind == "video" %}
+  <a class="flb-item d-block mt-2" href="{{ m.url }}"
+     data-flb-group="flb-card-{{ group }}" data-flb-type="video"
+     data-flb-src="{{ m.url }}" data-flb-name="{{ m.name|default:'video' }}">
+    <video class="w-100 rounded" src="{{ m.url }}" preload="metadata" muted></video>
+  </a>
+{% else %}
+  {% comment %}A document is a first-class post here — a card that opens the doc in
+  the lightbox viewer (scrollable) rather than a bare link.{% endcomment %}
+  <a class="flb-item d-flex align-items-center gap-2 border rounded p-2 mt-2 text-decoration-none text-body feed-doc"
+     href="{{ m.url }}"
+     data-flb-group="flb-card-{{ group }}" data-flb-type="doc"
+     data-flb-src="{{ m.url }}" data-flb-name="{{ m.name|default:'Document' }}">
+    <span class="text-danger" style="font-size:1.9rem;line-height:1"><i class="bi bi-file-earmark-text-fill"></i></span>
+    <span class="min-w-0 flex-grow-1">
+      <span class="d-block small fw-semibold text-truncate">{{ m.name|default:"Document" }}</span>
+      <span class="d-block text-muted" style="font-size:.75rem">Click to open</span>
+    </span>
+    <i class="bi bi-arrows-fullscreen text-muted"></i>
+  </a>
+{% endif %}

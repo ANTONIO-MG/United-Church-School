@@ -1,0 +1,132 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Notification inbox. Mentions, meeting invites and announcements all land here.
+Each row opens the notification in full detail (blog-details-style page).
+
+A row is labelled by *who sent it*, not by a severity word like "Success" — the
+sender is the useful fact. The type icon sits on the avatar corner so the kind of
+notification is readable at a glance, and starred notifications are collected in
+a small rail so they can be found again.{% endcomment %}
+
+{% block additional_css %}
+<style>
+  .notif-ava{ position:relative; width:48px; height:48px; flex:0 0 48px; }
+  .notif-ava > img, .notif-ava > .fallback{ width:48px;height:48px;border-radius:50%;object-fit:cover;
+    display:flex;align-items:center;justify-content:center;font-weight:700; }
+  /* The type badge, pinned to the avatar so the row reads "who + what". */
+  .notif-kind{ position:absolute; right:-3px; bottom:-3px; width:20px; height:20px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:.62rem; color:#fff; border:2px solid #fff; }
+  .notif-row.unread{ background:#f2f7ff; }
+  .notif-row.unread .notif-title{ font-weight:700; }
+  .new-pip{ display:inline-block; width:8px; height:8px; border-radius:50%; background:#0d6efd;
+    box-shadow:0 0 0 3px rgba(13,110,253,.18); }
+  .fav-btn{ position:relative; z-index:2; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header py-3 border-0 d-flex align-items-center justify-content-between">
+          <h1 class="h5 mb-0">
+            Notifications
+            {% if unread %}<span class="badge bg-danger ms-1">{{ unread }}</span>{% endif %}
+          </h1>
+          <div class="d-flex gap-2 align-items-center">
+          {% if is_admin_staff %}
+          <a class="btn btn-sm btn-primary mb-0" href="{% url 'communication:announcement-compose' %}"><i class="bi bi-megaphone me-1"></i>Send a notification</a>
+          {% endif %}
+          {% if unread %}
+          <form method="post" class="mb-0">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="mark_all_read">
+            <button class="btn btn-sm btn-primary-soft mb-0"><i class="bi bi-check-lg me-1"></i>Mark all read</button>
+          </form>
+          {% endif %}
+          </div>
+        </div>
+
+        <div class="card-body p-2">
+          <ul class="list-unstyled mb-0">
+            {% for n in notifications %}
+            <li>
+              <div class="notif-row rounded {% if not n.is_read %}unread{% endif %} d-sm-flex align-items-center border-0 mb-1 p-3 position-relative">
+                <div class="notif-ava">
+                  {% if n.actor_avatar %}
+                    <img src="{{ n.actor_avatar }}" alt="{{ n.actor_name }}">
+                  {% else %}
+                    <div class="fallback bg-{{ n.color }} bg-opacity-10 text-{{ n.color }}">{{ n.actor_initial }}</div>
+                  {% endif %}
+                  <span class="notif-kind bg-{{ n.color }}" title="{{ n.category_label }}"><i class="bi bi-{{ n.icon }}"></i></span>
+                </div>
+                <div class="mx-sm-3 my-2 my-sm-0 min-w-0">
+                  <a href="{% url 'communication:notification-detail' pk=n.pk %}" class="stretched-link small text-body d-block mb-1">
+                    <b class="notif-title">{{ n.title|default:n.verb|default:"Notification" }}</b>
+                  </a>
+                  {% if n.body %}<p class="small text-muted mb-1">{{ n.body|truncatewords:24 }}</p>{% endif %}
+                  <span class="small"><i class="bi bi-person-circle text-muted me-1"></i>{{ n.actor_name }}</span>
+                  {% if not n.is_read %}<span class="new-pip ms-2" title="Unread"></span>{% endif %}
+                </div>
+                <div class="d-flex ms-auto align-items-center gap-2">
+                  <p class="small mb-0 text-nowrap text-muted">{{ n.created_at|timesince }} ago</p>
+                  <form method="post" class="mb-0 fav-btn">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_favourite">
+                    <input type="hidden" name="pk" value="{{ n.pk }}">
+                    <button class="btn btn-sm btn-link p-0 text-decoration-none"
+                            title="{% if n.is_favourite %}Remove from favourites{% else %}Add to favourites{% endif %}">
+                      <i class="bi bi-star{% if n.is_favourite %}-fill text-warning{% else %} text-muted{% endif %}"></i>
+                    </button>
+                  </form>
+                  <i class="bi bi-chevron-right text-muted"></i>
+                </div>
+              </div>
+            </li>
+            {% empty %}
+            <li>
+              <div class="text-center text-muted py-5">
+                <i class="bi bi-bell-slash display-5 d-block mb-2"></i>
+                <p class="mb-0">No notifications yet.</p>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card">
+        <div class="card-header border-0 pb-0">
+          <h6 class="card-title mb-0"><i class="bi bi-star-fill text-warning me-2"></i>Favourites</h6>
+        </div>
+        <div class="card-body pt-2">
+          <ul class="list-unstyled mb-0 small">
+            {% for n in favourites %}
+            <li class="d-flex align-items-start gap-2 py-2 border-bottom">
+              <i class="bi bi-{{ n.icon }} text-{{ n.color }} mt-1"></i>
+              <span class="min-w-0 flex-grow-1">
+                <a href="{% url 'communication:notification-detail' pk=n.pk %}" class="d-block text-body text-truncate fw-semibold">
+                  {{ n.title|default:n.verb|default:"Notification" }}</a>
+                <span class="text-muted">{{ n.actor_name }} · {{ n.created_at|date:"j M" }}</span>
+              </span>
+              <form method="post" class="mb-0">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="toggle_favourite">
+                <input type="hidden" name="pk" value="{{ n.pk }}">
+                <button class="btn btn-sm btn-link p-0" title="Remove from favourites"><i class="bi bi-x-lg text-muted"></i></button>
+              </form>
+            </li>
+            {% empty %}
+            <li class="text-muted py-3">
+              Nothing starred yet. Use the <i class="bi bi-star"></i> on a notification to keep it here.
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

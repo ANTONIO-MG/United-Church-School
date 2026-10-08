@@ -1,0 +1,35 @@
+/* People: the person chip ({% person_chip %}) and the person card pop-up. */
+.pchip{ display:inline-flex; align-items:center; gap:.5rem; color:inherit; text-decoration:none; max-width:100%; vertical-align:middle; }
+.pchip:hover .pchip__name{ text-decoration:underline; }
+.pchip__img{ width:1.75rem; height:1.75rem; border-radius:50%; object-fit:cover; flex-shrink:0; background:#e9eef7; }
+.pchip--xs .pchip__img{ width:1.35rem; height:1.35rem; }
+.pchip--md .pchip__img{ width:2.4rem; height:2.4rem; }
+.pchip--lg .pchip__img{ width:3.2rem; height:3.2rem; }
+.pchip__text{ display:flex; flex-direction:column; min-width:0; line-height:1.2; }
+.pchip__name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pchip__sub{ color:#7b8aa6; font-size:.75rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.pc-modal .modal-content{ border:0; border-radius:1rem; overflow:hidden; }
+.pc-modal .modal-body{ padding:1.25rem; }
+.pc-modal__close{ position:absolute; top:.75rem; right:.75rem; z-index:2; }
+.pc--loading{ display:grid; place-items:center; min-height:8rem; }
+.pc__head{ display:flex; align-items:center; gap:.9rem; margin-bottom:1rem; padding-right:1.5rem; }
+.pc__avatar{ width:4.25rem; height:4.25rem; border-radius:50%; object-fit:cover; flex-shrink:0; box-shadow:0 4px 14px rgba(20,20,43,.12); }
+.pc__name{ margin:0 0 .3rem; font-weight:700; line-height:1.2; word-break:break-word; }
+.pc__role{ display:inline-block; font-size:.72rem; font-weight:700; padding:.2rem .55rem; border-radius:1rem; background:#e6effe; color:#0f6fec; margin-right:.25rem; }
+.pc__role--educator{ background:#dcf5ec; color:#0a8f67; }
+.pc__role--admin, .pc__role--staff{ background:#fdf3d4; color:#946a00; }
+.pc__role--parent{ background:#f3e8fd; color:#7a3fc2; }
+.pc__facts{ list-style:none; margin:0 0 1rem; padding:0; display:flex; flex-direction:column; gap:.6rem; font-size:.88rem; }
+.pc__facts li{ display:flex; gap:.6rem; align-items:flex-start; }
+.pc__facts > li > i{ color:#7b8aa6; margin-top:.1rem; }
+.pc__facts small{ display:block; color:#7b8aa6; font-size:.76rem; }
+.pc__chips{ display:flex; flex-wrap:wrap; gap:.3rem; margin-top:.3rem; }
+.pc__chip{ font-size:.72rem; font-weight:600; padding:.15rem .45rem; border-radius:.4rem; background:#f2f4f8; }
+.pc__note{ color:#7b8aa6; font-size:.88rem; margin:0; }
+.pc__actions{ display:flex; flex-wrap:wrap; gap:.4rem; }
+[data-bs-theme="dark"] .pc__chip{ background:#222637; }
+[data-bs-theme="dark"] .pc__role{ background:#1b2c49; color:#7fb0f7; }
+[data-bs-theme="dark"] .pchip__img{ background:#222637; }
+.app-search-item .asi-avatar{ width:1.6rem; height:1.6rem; border-radius:50%; object-fit:cover; flex-shrink:0; }
+.plink{ color:inherit; font-weight:600; text-decoration:none; } .plink:hover{ text-decoration:underline; }

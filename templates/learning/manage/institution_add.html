@@ -1,0 +1,116 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Add a school (institution) — its details on the left, the structure template (form field
+`blueprint`) that gives it grades and subjects on the right. The template panel describes what each choice
+builds so the person filling this in can see what they are about to get before they
+submit, rather than discovering it on the institution page afterwards.{% endcomment %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row justify-content-center">
+    <div class="col-xl-10">
+      <div class="d-flex align-items-center mb-3">
+        <div>
+          <h4 class="mb-0">{% firstof form_title page_title "Manage" %}</h4>
+          <p class="text-sm text-muted mb-0">Its details, and the structure to build under it —
+            grades, their subjects and the year's dates, in one go.</p>
+        </div>
+      </div>
+
+      <form method="post" enctype="multipart/form-data" class="app-form">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger text-sm">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="row g-3">
+
+          <div class="col-lg-7">
+            <div class="card h-100">
+              <div class="card-header pb-0"><h6 class="mb-0">The school</h6></div>
+              <div class="card-body">
+                {% for field in form %}
+                  {% if field.name not in blueprint_fields %}
+                  <div class="mb-3">
+                    {% if field.field.widget.input_type == 'checkbox' %}
+                      <div class="form-check">{{ field }}<label class="form-check-label text-sm ms-1" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+                    {% else %}
+                      <label class="form-label text-sm fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                      {{ field }}
+                    {% endif %}
+                    {% if field.help_text %}<div class="form-text text-xs">{{ field.help_text }}</div>{% endif %}
+                    {% for error in field.errors %}<div class="text-danger text-xs mt-1">{{ error }}</div>{% endfor %}
+                  </div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-5">
+            <div class="card h-100">
+              <div class="card-header pb-0">
+                <h6 class="mb-0">Structure template</h6>
+                <p class="text-xs text-muted mb-0">Everything a new school needs to be usable:
+                  without grades and subjects nobody can register for it.</p>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label class="form-label text-sm fw-bold" for="{{ form.blueprint.id_for_label }}">{{ form.blueprint.label }}</label>
+                  {{ form.blueprint }}
+                  {% for error in form.blueprint.errors %}<div class="text-danger text-xs mt-1">{{ error }}</div>{% endfor %}
+                </div>
+
+                {% for key, spec in blueprints.items %}
+                <div class="blueprint-summary border-radius-md bg-gray-100 p-3 mb-3 d-none" data-blueprint="{{ key }}">
+                  <p class="text-sm mb-2">{{ spec.summary }}</p>
+                  {% if spec.programmes %}
+                  <p class="text-xs text-uppercase text-muted fw-bold mb-1">It creates</p>
+                  <ul class="text-sm mb-0 ps-3">
+                    {% for programme in spec.programmes %}
+                    <li class="mb-1">
+                      <strong>{{ programme.full_name }} ({{ programme.abbreviation }})</strong>
+                      <span class="text-muted">— {{ programme.modules|length }} subject{{ programme.modules|length|pluralize }}:
+                        {% for code, _canonical in programme.modules %}{{ code }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+                    </li>
+                    {% endfor %}
+                  </ul>
+                  {% endif %}
+                </div>
+                {% endfor %}
+
+                <div class="mb-3">
+                  <label class="form-label text-sm fw-bold" for="{{ form.price_per_month.id_for_label }}">{{ form.price_per_month.label }}</label>
+                  {{ form.price_per_month }}
+                  <div class="form-text text-xs">{{ form.price_per_month.help_text }}</div>
+                  {% for error in form.price_per_month.errors %}<div class="text-danger text-xs mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="mb-1">
+                  <div class="form-check">{{ form.create_calendar }}<label class="form-check-label text-sm ms-1" for="{{ form.create_calendar.id_for_label }}">{{ form.create_calendar.label }}</label></div>
+                  <div class="form-text text-xs">{{ form.create_calendar.help_text }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between mt-4">
+          <a href="{% url cancel_url %}" class="btn btn-light mb-0">Cancel</a>
+          <button type="submit" class="btn bg-gradient-info mb-0"><i class="bi bi-check2 me-1"></i>Create school</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Show the summary for whichever template is selected, so what the submit will
+// build is on screen before it is pressed.
+(function () {
+  var select = document.getElementById('{{ form.blueprint.id_for_label }}');
+  var panels = document.querySelectorAll('.blueprint-summary');
+  function show() {
+    panels.forEach(function (panel) {
+      panel.classList.toggle('d-none', panel.dataset.blueprint !== select.value);
+    });
+  }
+  if (select) { select.addEventListener('change', show); show(); }
+})();
+</script>
+{% endblock %}

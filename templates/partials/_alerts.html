@@ -1,0 +1,32 @@
+{% comment %}Global alert / toast stack — the ONE place Django `messages` are shown
+system-wide. Anchored just below the navbar (see .app-alerts in css/chrome.css),
+stacks multiple alerts, and each auto-dismisses after 5s (js/chrome.js). Included
+once by templates/base.html and myhub/elements/layouts/admin.html — pages must NOT
+render `messages` in their own content.{% endcomment %}
+<div id="appAlerts" class="app-alerts" aria-live="polite" aria-atomic="true">
+  {% if messages %}
+    {% for message in messages %}
+    {% if message.level_tag == 'error' %}
+      <div class="app-alert alert alert-danger d-flex align-items-start" role="alert">
+        <i class="bi bi-exclamation-octagon-fill me-2 mt-1"></i><div class="flex-grow-1">{{ message }}</div>
+        <button type="button" class="btn-close ms-2" aria-label="Close"></button>
+      </div>
+    {% elif message.level_tag == 'success' %}
+      <div class="app-alert alert alert-success d-flex align-items-start" role="alert">
+        <i class="bi bi-check-circle-fill me-2 mt-1"></i><div class="flex-grow-1">{{ message }}</div>
+        <button type="button" class="btn-close ms-2" aria-label="Close"></button>
+      </div>
+    {% elif message.level_tag == 'warning' %}
+      <div class="app-alert alert alert-warning d-flex align-items-start" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2 mt-1"></i><div class="flex-grow-1">{{ message }}</div>
+        <button type="button" class="btn-close ms-2" aria-label="Close"></button>
+      </div>
+    {% else %}
+      <div class="app-alert alert alert-info d-flex align-items-start" role="alert">
+        <i class="bi bi-info-circle-fill me-2 mt-1"></i><div class="flex-grow-1">{{ message }}</div>
+        <button type="button" class="btn-close ms-2" aria-label="Close"></button>
+      </div>
+    {% endif %}
+    {% endfor %}
+  {% endif %}
+</div>

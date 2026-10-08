@@ -1,0 +1,231 @@
+{% load static %}
+{% comment %}
+One feed card — the Social theme's post card from my-profile.html, driven by a
+real Discussion. Expects `post` (a Discussion, ideally prefetched with
+attachments / replies__author / likes).
+
+Comments are DiscussionReply rows: top-level ones (reply_to=None) render as
+comments, their children as the nested replies.
+{% endcomment %}
+
+<div class="card">
+
+  <div class="card-header border-0 pb-0">
+    <div class="d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center">
+        <div class="avatar me-2">
+          <a href="{% if post.author.profile %}{% url 'accounts:profile' post.author.profile.pk %}{% else %}#!{% endif %}">
+            {% if post.author.profile %}
+              <img class="avatar-img rounded-circle" src="{{ post.author.profile.avatar_url }}" alt="">
+            {% else %}
+              <div class="avatar-img rounded-circle bg-primary d-flex align-items-center justify-content-center">
+                <span class="text-white small fw-bold">{{ post.author.profile.first_name|default:post.author.username|slice:":1"|upper }}</span>
+              </div>
+            {% endif %}
+          </a>
+        </div>
+        <div>
+          <div class="nav nav-divider">
+            <h6 class="nav-item card-title mb-0">
+              <a href="{% if post.author.profile %}{% url 'accounts:profile' post.author.profile.pk %}{% else %}#!{% endif %}">
+                {{ post.author.profile|default:post.author.username }}</a>
+            </h6>
+            <span class="nav-item small">{{ post.created_at|timesince }}</span>
+          </div>
+          <p class="mb-0 small">
+            {% if post.module %}{{ post.module.name }}
+            {% elif post.course %}{{ post.course.title }}
+            {% else %}{{ post.author.profile.get_user_type_display|default:"Member" }}{% endif %}
+          </p>
+        </div>
+      </div>
+
+      <div class="dropdown">
+        <a href="#" class="text-secondary btn btn-secondary-soft-hover py-1 px-2" id="cardFeedAction{{ post.pk }}"
+           data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-three-dots"></i>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="cardFeedAction{{ post.pk }}">
+          <li><a class="dropdown-item" href="{% url 'communication:discussion-detail' post.pk %}"><i class="bi bi-box-arrow-up-right fa-fw pe-2"></i>Open post</a></li>
+          <li><a class="dropdown-item" href="{% url 'communication:discussion-detail' post.pk %}"><i class="bi bi-bookmark fa-fw pe-2"></i>Save post</a></li>
+          {% if post.author_id == user.id or user.is_staff %}
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="{% url 'communication:discussion-detail' post.pk %}"><i class="bi bi-pencil-square fa-fw pe-2"></i>Manage post</a></li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-body">
+    {% if post.body %}<p>{{ post.body|linebreaksbr }}</p>{% endif %}
+
+    {# Attachments → the shared media grid; clicking a tile opens the lightbox. #}
+    {% with atts=post.attachments.all %}
+    {% if atts %}
+    <div class="media-grid" data-count="{{ post.grid_count }}" data-media-group>
+      {% for a in post.grid_attachments %}
+        {% if a.kind == 'image' %}
+          <div class="cell" data-media="{{ a.file.url }}" data-kind="image" data-name="{{ a.original_name }}">
+            <img src="{{ a.file.url }}" alt="{{ a.original_name }}" loading="lazy">
+            {% if forloop.last and post.grid_extra %}<div class="more">+{{ post.grid_extra }}</div>{% endif %}
+          </div>
+        {% elif a.kind == 'video' %}
+          <div class="cell" data-media="{{ a.file.url }}" data-kind="video" data-name="{{ a.original_name }}">
+            <video src="{{ a.file.url }}" muted preload="metadata"></video><div class="play-badge"><i class="bi bi-play-circle-fill"></i></div>
+            {% if forloop.last and post.grid_extra %}<div class="more">+{{ post.grid_extra }}</div>{% endif %}
+          </div>
+        {% else %}
+          <div class="cell doc" data-media="{{ a.file.url }}" data-kind="file" data-name="{{ a.original_name }}">
+            <div class="doc-inner"><i class="bi bi-file-earmark-text"></i><span class="doc-name">{{ a.original_name|default:"Document" }}</span></div>
+            {% if forloop.last and post.grid_extra %}<div class="more">+{{ post.grid_extra }}</div>{% endif %}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <ul class="nav nav-stack py-3 small">
+      <li class="nav-item">
+        <form method="post" action="{% url 'communication:wall-like' post.pk %}" class="wall-like-form">{% csrf_token %}
+          <button type="submit" class="nav-link btn btn-link p-0 border-0 wall-like {% if user.id in post.liker_ids %}active{% endif %}">
+            <i class="bi bi-hand-thumbs-up{% if user.id in post.liker_ids %}-fill{% endif %} pe-1"></i>Like
+            <span class="wall-like-count">({{ post.like_count }})</span>
+          </button>
+        </form>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#comments-{{ post.pk }}" data-bs-toggle="collapse">
+          <i class="bi bi-chat-fill pe-1"></i>Comments ({{ post.reply_count }})</a>
+      </li>
+      <li class="nav-item dropdown ms-sm-auto">
+        <a class="nav-link mb-0" href="#" id="cardShareAction{{ post.pk }}" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-reply-fill flip-horizontal ps-1"></i>Share
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="cardShareAction{{ post.pk }}">
+          <li><a class="dropdown-item" href="{% url 'communication:chat-home' %}"><i class="bi bi-envelope fa-fw pe-2"></i>Send via Direct Message</a></li>
+          <li><a class="dropdown-item" href="{% url 'communication:discussion-detail' post.pk %}"><i class="bi bi-link fa-fw pe-2"></i>Copy link to post</a></li>
+        </ul>
+      </li>
+    </ul>
+
+    {% comment %}The comment box and the thread live in one collapse, so the
+    "Comments" button opens and closes the whole conversation rather than leaving
+    an orphan reply box under every post.{% endcomment %}
+    <div class="collapse" id="comments-{{ post.pk }}">
+
+    <div class="d-flex mb-3">
+      <div class="avatar avatar-xs me-2">
+        {% if user.profile %}
+          <img class="avatar-img rounded-circle" src="{{ user.profile.avatar_url }}" alt="">
+        {% else %}
+          <div class="avatar-img rounded-circle bg-primary d-flex align-items-center justify-content-center">
+            <span class="text-white small fw-bold">{{ user.profile.first_name|default:user.username|slice:":1"|upper }}</span>
+          </div>
+        {% endif %}
+      </div>
+      <form class="position-relative w-100" method="post" action="{% url 'communication:wall-comment' post.pk %}">
+        {% csrf_token %}
+        <textarea class="form-control pe-4 bg-light" name="body" rows="1" placeholder="Add a comment..."
+                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.form.submit();}"></textarea>
+      </form>
+    </div>
+
+    <ul class="comment-wrap list-unstyled">
+      {% for c in post.top_comments %}
+      <li class="comment-item">
+        <div class="d-flex position-relative">
+          <div class="avatar avatar-xs">
+            <a href="{% if c.author.profile %}{% url 'accounts:profile' c.author.profile.pk %}{% else %}#!{% endif %}">
+              {% if c.author.profile %}
+                <img class="avatar-img rounded-circle" src="{{ c.author.profile.avatar_url }}" alt="">
+              {% else %}
+                <div class="avatar-img rounded-circle bg-secondary d-flex align-items-center justify-content-center">
+                  <span class="text-white small">{{ c.author.profile.first_name|default:c.author.username|slice:":1"|upper }}</span>
+                </div>
+              {% endif %}
+            </a>
+          </div>
+          <div class="ms-2">
+            <div class="bg-light rounded-start-top-0 p-3 rounded">
+              <div class="d-flex justify-content-between">
+                <h6 class="mb-1">
+                  <a href="{% if c.author.profile %}{% url 'accounts:profile' c.author.profile.pk %}{% else %}#!{% endif %}">
+                    {{ c.author.profile|default:c.author.username }}</a>
+                </h6>
+                <small class="ms-2">{{ c.created_at|timesince }}</small>
+              </div>
+              <p class="small mb-0">{{ c.body|linebreaksbr }}</p>
+            </div>
+            <ul class="nav nav-divider py-2 small">
+              <li class="nav-item">
+                <form method="post" action="{% url 'communication:wall-comment-like' c.pk %}">{% csrf_token %}
+                  <button type="submit" class="nav-link btn btn-link p-0 border-0">Like ({{ c.likes.count }})</button>
+                </form>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#reply-{{ c.pk }}" data-bs-toggle="collapse">Reply</a>
+              </li>
+            </ul>
+
+            <div class="collapse mb-2" id="reply-{{ c.pk }}">
+              <form method="post" action="{% url 'communication:wall-comment' post.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="reply_to" value="{{ c.pk }}">
+                <textarea class="form-control form-control-sm bg-light" name="body" rows="1"
+                          placeholder="Reply to {{ c.author.profile|default:c.author.username }}..."></textarea>
+                <button type="submit" class="btn btn-sm btn-primary-soft mt-1">Reply</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        {% if c.child_replies.all %}
+        <ul class="comment-item-nested list-unstyled">
+          {% for r in c.child_replies.all %}
+          <li class="comment-item">
+            <div class="d-flex">
+              <div class="avatar avatar-xs">
+                <a href="{% if r.author.profile %}{% url 'accounts:profile' r.author.profile.pk %}{% else %}#!{% endif %}">
+                  {% if r.author.profile %}
+                    <img class="avatar-img rounded-circle" src="{{ r.author.profile.avatar_url }}" alt="">
+                  {% else %}
+                    <div class="avatar-img rounded-circle bg-secondary d-flex align-items-center justify-content-center">
+                      <span class="text-white small">{{ r.author.profile.first_name|default:r.author.username|slice:":1"|upper }}</span>
+                    </div>
+                  {% endif %}
+                </a>
+              </div>
+              <div class="ms-2">
+                <div class="bg-light p-3 rounded">
+                  <div class="d-flex justify-content-between">
+                    <h6 class="mb-1">
+                      <a href="{% if r.author.profile %}{% url 'accounts:profile' r.author.profile.pk %}{% else %}#!{% endif %}">
+                        {{ r.author.profile|default:r.author.username }}</a>
+                    </h6>
+                    <small class="ms-2">{{ r.created_at|timesince }}</small>
+                  </div>
+                  <p class="small mb-0">{{ r.body|linebreaksbr }}</p>
+                </div>
+                <ul class="nav nav-divider py-2 small">
+                  <li class="nav-item">
+                    <form method="post" action="{% url 'communication:wall-comment-like' r.pk %}">{% csrf_token %}
+                      <button type="submit" class="nav-link btn btn-link p-0 border-0">Like ({{ r.likes.count }})</button>
+                    </form>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </li>
+      {% empty %}
+      <li class="text-muted small">No comments yet — be the first.</li>
+      {% endfor %}
+    </ul>
+    </div>{# /collapse #}
+  </div>
+</div>

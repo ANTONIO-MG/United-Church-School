@@ -1,0 +1,12 @@
+{% comment %}
+The branded CTA button — the rounded blue pill from the base design, with a
+bulletproof VML fallback for Outlook. Include with a url and a label:
+
+    {% include 'communication/email/_button.html' with url=action_url label='Reset my password' %}
+{% endcomment %}
+{% if url %}
+<table class="button_block" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0"><tr><td class="pad" style="padding-bottom:20px;padding-left:10px;padding-right:10px;padding-top:20px;text-align:left"><div class="alignment" align="left">
+<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ url }}" style="height:48px;width:260px;v-text-anchor:middle;" arcsize="34%" stroke="false" fillcolor="#506bec"><w:anchorlock/><v:textbox inset="5px,0px,0px,0px"><center style="color:#ffffff; font-family:Arial, sans-serif; font-size:15px"><![endif]-->
+<a href="{{ url }}" target="_blank" style="text-decoration:none;display:inline-block;color:#ffffff;background-color:#506bec;border-radius:16px;width:auto;padding-top:8px;padding-bottom:8px;font-family:Helvetica Neue, Helvetica, Arial, sans-serif;font-size:15px;text-align:center;word-break:keep-all;"><span style="padding-left:25px;padding-right:25px;font-size:15px;display:inline-block;letter-spacing:normal;"><span style="word-break:break-word;"><span style="line-height:30px;"><strong>{{ label|default:"OPEN" }}</strong></span></span></span></a>
+<!--[if mso]></center></v:textbox></v:roundrect><![endif]--></div></td></tr></table>
+{% endif %}

@@ -1,0 +1,55 @@
+{% comment %}The candidate's registered modules — replaces the old module-progress
+panel, which was built on courses and modules.
+
+A module row says what it is, who awards it, and whether it is open. It does not
+claim a completion percentage: modules carry study guides, worksheets, mock
+papers and playlists rather than a fixed set of segments to tick off, so a "62%
+complete" here would be a number with nothing behind it. Progress lives where it
+is actually measured — assessment results.
+
+Reads `module_rows` from apps.myhub.dashboard.module_progress.{% endcomment %}
+
+<div class="dash-card">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--primary"><i class="bi bi-grid-1x2-fill"></i></span>
+    <h6>My subjects</h6>
+    <a class="dash-link" href="{% url 'learning:my-modules' %}">Open subjects</a>
+  </div>
+
+  <div class="dash-card__body dash-card__body--flush pt-1">
+    {% for row in module_rows %}
+    <div class="dash-row dash-row--module">
+      <span class="dash-row__initials dash-glyph--{{ row.tone }}">{{ row.code|slice:":4" }}</span>
+
+      <div class="dash-row__main">
+        <p class="dash-row__name">
+          <a class="text-reset" href="{% url 'learning:module-feed' row.offering.id %}">{{ row.name }}</a>
+        </p>
+        <p class="dash-row__text">
+          {{ row.institution.code }}
+          {% if row.price %}· R{{ row.price|floatformat:0 }}/month{% else %}· Free{% endif %}
+          {% if row.status == 'trial' and row.trial_ends_at %}
+            · free week ends {{ row.trial_ends_at|date:"j M" }}
+          {% elif row.status == 'active' and row.paid_until %}
+            · paid to {{ row.paid_until|date:"j M" }}
+          {% endif %}
+        </p>
+      </div>
+
+      {% if row.is_unlocked %}
+        <a class="dash-chip dash-chip--{{ row.tone }}"
+           href="{% url 'learning:module-feed' row.offering.id %}">{{ row.status_label|truncatechars:18 }}</a>
+      {% else %}
+        <a class="btn btn-sm bg-gradient-warning mb-0 py-1 px-3"
+           href="{% url 'learning:module-unlock' row.offering.id %}">Unlock</a>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="dash-empty">
+      <i class="bi bi-grid-1x2"></i>
+      You're not registered for any subjects yet.
+      <a href="{% url 'accounts:register-course' %}">Register now</a>.
+    </div>
+    {% endfor %}
+  </div>
+</div>

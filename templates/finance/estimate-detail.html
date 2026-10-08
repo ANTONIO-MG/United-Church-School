@@ -1,0 +1,42 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static commerce %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><a class="small" href="{% url 'finance:estimates' %}"><i class="bi bi-arrow-left me-1"></i>Estimates</a>
+      <h3 class="mt-1 d-flex align-items-center gap-2 flex-wrap">Estimate {{ estimate.number }} {% include 'finance/_status.html' with doc=estimate %}</h3>
+      <p>{{ estimate.bill_to_name }} · {{ estimate.total|rand }} · valid until {{ estimate.valid_until|date:"j M Y" }}</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:estimate-pdf' estimate.pk %}"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+      {% if estimate.status != 'converted' %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:estimate-edit' estimate.pk %}"><i class="bi bi-pencil me-1"></i>Edit</a>{% endif %}
+      <a class="btn btn-sm btn-outline-secondary" href="{{ public_url }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Customer view</a>
+    </div>
+  </div>
+  <div class="row g-4">
+    <div class="col-xl-8">{% include 'finance/_paper.html' with doc=estimate kind='estimate' %}</div>
+    <div class="col-xl-4">
+      <div class="tc-card"><div class="tc-card__body pt-3"><div class="tc-rail">
+        <div class="tc-rail__step is-done"><span class="tc-rail__dot"><i class="bi bi-check"></i></span>
+          <div><h6>Create</h6><p>Created {{ estimate.created_at|date:"j M Y" }}.</p></div></div>
+        <div class="tc-rail__step {% if estimate.sent_at %}is-done{% else %}is-now{% endif %}"><span class="tc-rail__dot">{% if estimate.sent_at %}<i class="bi bi-check"></i>{% else %}2{% endif %}</span>
+          <div><h6>Send</h6><p>{% if estimate.sent_at %}Sent {{ estimate.sent_at|date:"j M, H:i" }}{% if estimate.viewed_at %} · viewed {{ estimate.viewed_at|date:"j M" }}{% endif %}{% else %}Not e-mailed yet{% endif %}</p>
+            {% if estimate.status != 'converted' %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="send"><button class="btn btn-sm {% if estimate.sent_at %}btn-outline-secondary{% else %}btn-primary{% endif %}"><i class="bi bi-envelope me-1"></i>{% if estimate.sent_at %}Resend{% else %}Send estimate{% endif %}</button></form>{% endif %}</div></div>
+        <div class="tc-rail__step {% if estimate.status == 'accepted' or estimate.status == 'converted' %}is-done{% elif estimate.sent_at %}is-now{% endif %}"><span class="tc-rail__dot">{% if estimate.status == 'accepted' or estimate.status == 'converted' %}<i class="bi bi-check"></i>{% else %}3{% endif %}</span>
+          <div><h6>Answer</h6><p>{% if estimate.responded_at %}{{ estimate.get_status_display }} {{ estimate.responded_at|date:"j M" }}{% elif estimate.is_expired %}Expired unanswered{% else %}Waiting for the customer{% endif %}</p>
+            {% if estimate.status == 'sent' or estimate.status == 'viewed' or estimate.status == 'draft' %}
+              <div class="d-flex gap-2 flex-wrap">
+                <form method="post">{% csrf_token %}<input type="hidden" name="action" value="accept"><button class="btn btn-sm btn-outline-success">Mark accepted</button></form>
+                <form method="post">{% csrf_token %}<input type="hidden" name="action" value="decline"><button class="btn btn-sm btn-outline-danger">Mark declined</button></form>
+              </div>{% endif %}</div></div>
+        <div class="tc-rail__step {% if estimate.status == 'converted' %}is-done{% elif estimate.status == 'accepted' %}is-now{% endif %}"><span class="tc-rail__dot">{% if estimate.status == 'converted' %}<i class="bi bi-check"></i>{% else %}4{% endif %}</span>
+          <div><h6>Invoice</h6>
+            {% if estimate.converted_invoice %}<p>Became <a href="{{ estimate.converted_invoice.get_absolute_url }}">{{ estimate.converted_invoice.number }}</a>.</p>
+            {% elif estimate.status != 'declined' %}<p>Turn it into a draft invoice with the same lines.</p>
+              <form method="post">{% csrf_token %}<input type="hidden" name="action" value="convert"><button class="btn btn-sm btn-primary"><i class="bi bi-arrow-right-circle me-1"></i>Convert to invoice</button></form>
+            {% else %}<p>Declined — nothing to invoice.</p>{% endif %}</div></div>
+      </div></div></div>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

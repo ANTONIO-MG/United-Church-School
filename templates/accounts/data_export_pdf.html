@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 1.6cm; }
+  body { font-family: Helvetica, Arial, sans-serif; color: #333; font-size: 11px; }
+  h1 { color: #17c1e8; font-size: 20px; margin: 0; }
+  h2 { font-size: 13px; color: #344767; border-bottom: 2px solid #eef1f6; padding-bottom: 4px; margin: 18px 0 6px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 4px 6px; border-bottom: 1px solid #f2f4f8; vertical-align: top; }
+  .k { color: #8392ab; width: 38%; }
+  .muted { color: #8392ab; }
+</style>
+</head>
+<body>
+  <h1>{{ brand.name|default:"United Church School" }}</h1>
+  <p class="muted">Personal data export — {{ now|date:"d M Y, H:i" }}<br>
+    Prepared for {{ person.first_name }} {{ person.last_name }} ({{ person.user.email }})</p>
+
+  {% for title, rows in sections %}
+  <h2>{{ title }}</h2>
+  <table>
+    {% for label, value in rows %}
+    <tr><td class="k">{{ label }}</td><td>{{ value }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endfor %}
+
+  <p class="muted" style="margin-top: 24px; font-size: 10px;">
+    This document contains the personal information we hold about you, provided under your POPIA right of access.
+    Uploaded files are referenced by name only.
+  </p>
+</body>
+</html>

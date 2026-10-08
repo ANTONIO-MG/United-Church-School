@@ -1,0 +1,30 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static commerce %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Shop · staff</span><h3>Educators &amp; availability</h3>
+      <p>Weekly hours each educator takes 1-on-1s. Slots are only offered inside these hours, and never over a class session they host.</p></div>
+    <div class="tc-head__actions"><a class="btn btn-sm btn-outline-secondary" href="{% url 'shop:my-bookings' %}?view=all"><i class="bi bi-calendar2-week me-1"></i>All bookings</a></div>
+  </div>
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>Educator</th><th>Services &amp; rates</th><th>Weekly hours</th><th></th></tr></thead>
+      <tbody>
+      {% for person in people %}
+        <tr>
+          <td><div class="d-flex gap-2 align-items-center"><span class="tc-avatar">{{ person.user.first_name|slice:":1" }}{{ person.user.last_name|slice:":1" }}</span>
+            <div><b>{{ person }}</b><div class="small text-muted">{{ person.get_user_type_display }}</div></div></div></td>
+          <td class="small">{% for r in person.session_rates.all %}<div>{{ r.product.name }} · <b>{{ r.hourly_rate|rand }}/h</b>{% if not r.is_active %} <span class="text-muted">(paused)</span>{% endif %}</div>{% empty %}<span class="text-muted">None yet</span>{% endfor %}</td>
+          <td class="small">{% for w in person.availability.all %}<div>{{ w.get_weekday_display|slice:":3" }} {{ w.start_time|time:"H:i" }}–{{ w.end_time|time:"H:i" }}</div>{% empty %}<span class="text-danger">No hours set — no slots offered</span>{% endfor %}</td>
+          <td class="r"><a class="btn btn-sm tc-btn-soft" href="{% url 'shop:educator-hours' person.pk %}"><i class="bi bi-clock me-1"></i>Set hours</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4"><div class="tc-empty"><i class="bi bi-person-badge"></i><h5>No educators yet</h5><p class="mb-0">People with the educator, staff or admin role appear here.</p></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div></div>
+{% endblock %}

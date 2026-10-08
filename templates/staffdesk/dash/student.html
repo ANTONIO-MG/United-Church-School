@@ -1,0 +1,288 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load commerce %}
+{% comment %}Student 360: one person, everything the platform knows about them, with the actions staff take most. Panels come from apps.staffdesk.dashboards.student_360; each renders its own empty state.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/dash/_head.html' %}{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head mb-2">
+    <div><span class="tc-eyebrow"><a href="{% url 'staffdesk:students' %}"><i class="bi bi-chevron-left"></i> Student 360</a></span></div>
+  </div>
+
+  {# --- Who they are -------------------------------------------------- #}
+  <section class="tc-card sdd-hero mb-3">
+    {% if person %}<img class="sdd-avatar" src="{{ person.avatar_url }}" alt="">{% else %}<span class="sdd-avatar">{{ page_title|slice:":1" }}</span>{% endif %}
+    <div class="min-w-0">
+      <h3>{{ page_title }}</h3>
+      <div class="sdd-meta">
+        <span><i class="bi bi-envelope"></i><a href="mailto:{{ student.email }}">{{ student.email }}</a></span>
+        {% if d.contact.phone %}<span><i class="bi bi-telephone"></i><a href="tel:{{ d.contact.phone }}">{{ d.contact.phone }}</a></span>{% endif %}
+        {% if d.contact.city %}<span><i class="bi bi-geo-alt"></i>{{ d.contact.city }}</span>{% endif %}
+        <span><i class="bi bi-calendar-check"></i>Joined {{ student.date_joined|date:"j M Y" }}</span>
+        <span><i class="bi bi-clock-history"></i>{% if student.last_login %}Last seen {{ student.last_login|timesince }} ago{% else %}Never signed in{% endif %}</span>
+      </div>
+      <div class="sdd-chips">
+        <span class="tc-chip tc-chip--primary">{{ person.get_user_type_display }}</span>
+        {% if not student.is_active %}<span class="tc-chip tc-chip--danger">Account closed</span>{% endif %}
+        {% if not person.onboarding_complete %}<span class="tc-chip tc-chip--warning">Onboarding incomplete</span>{% endif %}
+        {% for flag in d.risk %}<span class="tc-chip {% if flag.score >= 70 %}tc-chip--danger{% else %}tc-chip--warning{% endif %}"><i class="bi bi-life-preserver"></i>At risk {{ flag.score }}%{% if flag.module %} · {{ flag.module.code }}{% endif %}</span>{% endfor %}
+      </div>
+    </div>
+    <div class="sdd-hero-actions">
+      <a class="btn btn-sm btn-primary mb-0" href="{{ d.actions.notify }}"><i class="bi bi-megaphone me-1"></i>Send notification</a>
+      <a class="btn btn-sm btn-outline-secondary mb-0" href="{{ d.actions.message }}"><i class="bi bi-chat-dots me-1"></i>Message</a>
+      <a class="btn btn-sm btn-outline-secondary mb-0" href="{{ d.actions.invoice }}"><i class="bi bi-receipt me-1"></i>New invoice</a>
+      <a class="btn btn-sm btn-outline-secondary mb-0" href="{{ d.actions.profile }}"><i class="bi bi-person-badge me-1"></i>Profile</a>
+    </div>
+  </section>
+
+  {# --- Headline numbers --------------------------------------------- #}
+  <div class="tc-kpis">
+    <div class="tc-kpi sdd-kpi {% if d.money.balance > 0 %}{% if d.money.overdue_count %}is-danger{% else %}is-warning{% endif %}{% endif %}"><i class="bi bi-wallet2"></i>
+      <span>Balance owed</span><b>{{ d.money.balance|default:0|rand }}</b><em>{% if d.money.overdue_count %}{{ d.money.overdue_count }} overdue invoice{{ d.money.overdue_count|pluralize }}{% else %}{{ d.money.paid|default:0|rand }} paid to date{% endif %}</em></div>
+    <div class="tc-kpi sdd-kpi {% if d.attendance.rate is not None and d.attendance.rate < 60 %}is-warning{% endif %}"><i class="bi bi-person-check"></i>
+      <span>Attendance</span><b>{% if d.attendance.rate is not None %}{{ d.attendance.rate }}%{% else %}—{% endif %}</b><em>{{ d.attendance.present|default:0 }} of {{ d.attendance.total|default:0 }} sessions</em></div>
+    <div class="tc-kpi sdd-kpi {% if d.attempts.avg is not None and d.attempts.avg < 50 %}is-warning{% endif %}"><i class="bi bi-clipboard-data"></i>
+      <span>Average mark</span><b>{% if d.attempts.avg is not None %}{{ d.attempts.avg|floatformat:0 }}%{% else %}—{% endif %}</b><em>{{ d.attempts.marked|default:0 }} marked · {{ d.attempts.waiting|default:0 }} waiting</em></div>
+    <div class="tc-kpi sdd-kpi {% if d.tasks.overdue %}is-danger{% endif %}"><i class="bi bi-check2-square"></i>
+      <span>Open tasks</span><b>{{ d.tasks.open|default:0 }}</b><em>{{ d.tasks.overdue|default:0 }} overdue · {{ d.tasks.done|default:0 }} done</em></div>
+    <div class="tc-kpi sdd-kpi"><i class="bi bi-bell"></i>
+      <span>Notifications read</span><b>{% if d.notifications.rate is not None %}{{ d.notifications.rate }}%{% else %}—{% endif %}</b><em>{{ d.notifications.read|default:0 }} of {{ d.notifications.total|default:0 }} received</em></div>
+  </div>
+
+  <div class="sdd-grid--even sdd-grid">
+    <div class="sdd-col">
+      {# --- Enrolments ------------------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-mortarboard"></i><h5>Grades &amp; subjects</h5>
+          <a class="tc-link" href="{{ d.actions.enrol }}">Manage enrolment</a></div>
+        <div class="tc-card__body pt-1">
+          {% for e in d.enrolments.programmes %}
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+              <span class="tc-chip {% if e.is_active %}tc-chip--primary{% endif %}">{{ e.programme.label }}</span>
+              <span class="small text-muted">{{ e.programme.name }}{% if e.cohort %} · {{ e.cohort }}{% endif %} · since {{ e.created_at|date:"M Y" }}{% if not e.is_active %} · inactive{% endif %}</span>
+            </div>
+          {% endfor %}
+          {% if d.enrolments.modules %}
+          <div class="tc-table-wrap"><table class="tc-table">
+            <thead><tr><th>Subject</th><th>Status</th><th>Access until</th></tr></thead>
+            <tbody>
+            {% for m in d.enrolments.modules %}
+              <tr>
+                <td><b class="d-block">{{ m.programme_module.code }}</b><small class="text-muted">{{ m.programme_module.display_name }}</small></td>
+                <td>{% if m.status == 'active' %}<span class="tc-chip tc-chip--success">Active</span>{% elif m.status == 'trial' %}<span class="tc-chip tc-chip--cyan">Trial{% if m.trial_days_left is not None %} · {{ m.trial_days_left }}d left{% endif %}</span>{% elif m.status == 'locked' %}<span class="tc-chip tc-chip--warning"><i class="bi bi-lock"></i>Locked</span>{% else %}<span class="tc-chip tc-chip--danger">Expired</span>{% endif %}</td>
+                <td class="small text-nowrap">{% if m.status == 'trial' %}{{ m.trial_ends_at|date:"j M Y"|default:"—" }}{% else %}{{ m.paid_until|date:"j M Y"|default:"—" }}{% endif %}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table></div>
+          {% elif not d.enrolments.programmes %}<div class="sdd-empty"><i class="bi bi-mortarboard"></i>Not enrolled on anything yet.</div>{% endif %}
+        </div>
+      </section>
+
+      {# --- Grades & assessments --------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-clipboard-data"></i><h5>Grades &amp; assessments</h5></div>
+        <div class="tc-card__body pt-1">
+          {% if d.grades %}
+          <div class="tc-bars mb-3">
+            {% for g in d.grades %}
+            <div class="tc-bar"><span class="text-truncate" title="{{ g.module.display_name }}">{{ g.module.code|default:"Overall" }}</span>
+              <span class="tc-bar__track"><span class="tc-bar__fill {% if not g.passed %}is-out{% endif %}" style="width:{{ g.final_pct|floatformat:0 }}%"></span></span>
+              <span class="tc-bar__v">{{ g.final_pct|floatformat:0 }}%{% if g.letter %} <small class="text-muted">{{ g.letter }}</small>{% endif %}{% if g.class_position %} <small class="text-muted">#{{ g.class_position }}/{{ g.cohort_size }}</small>{% endif %}</span></div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% if d.attempts.rows %}
+          <ul class="sdd-list">
+            {% for a in d.attempts.rows %}
+            <li>
+              <span class="sdd-ico {% if a.status == 'marked' %}{% if a.passed %}is-success{% else %}is-danger{% endif %}{% else %}is-warning{% endif %}"><i class="bi {% if a.status == 'marked' %}bi-check2{% else %}bi-hourglass-split{% endif %}"></i></span>
+              <div class="sdd-main"><a class="sdd-title" href="{% url 'assessments:result' a.public_id %}">{{ a.assessment.title }}</a>
+                <small>{% if a.assessment.module %}{{ a.assessment.module.code }} · {% endif %}attempt {{ a.attempt_no }} · {{ a.submitted_at|default:a.created_at|date:"j M Y" }}{% if a.integrity_flagged %} · <span class="text-danger">integrity flag</span>{% endif %}</small></div>
+              <div class="sdd-end">{% if a.status == 'marked' %}<b class="tc-num text-body">{% if a.pct is not None %}{{ a.pct|floatformat:0 }}%{% else %}{{ a.score }}{% endif %}</b>{% else %}<span class="tc-chip tc-chip--warning">Awaiting mark</span>{% endif %}</div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% elif not d.grades %}<div class="sdd-empty"><i class="bi bi-clipboard"></i>No grades or attempts yet.</div>{% endif %}
+        </div>
+      </section>
+
+      {# --- Attendance ------------------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-person-check"></i><h5>Attendance</h5>
+          {% if d.attendance.late %}<span class="sdd-count ms-auto">{{ d.attendance.late }} late</span>{% endif %}</div>
+        <div class="tc-card__body pt-1">
+          {% if d.attendance.recent %}
+          <ul class="sdd-list">
+            {% for r in d.attendance.recent %}
+            <li>
+              <span class="sdd-ico {% if r.status == 'absent' %}is-danger{% elif r.status == 'late' %}is-warning{% elif r.status == 'present' %}is-success{% endif %}"><i class="bi {% if r.status == 'absent' %}bi-x-lg{% elif r.status == 'excused' %}bi-dash{% else %}bi-check2{% endif %}"></i></span>
+              <div class="sdd-main"><b>{{ r.session.title|default:r.session.module }}</b><small>{{ r.session.session_date|date:"D j M" }}{% if r.session.module %} · {{ r.session.module.code }}{% endif %} · {{ r.get_source_display }}</small></div>
+              <div class="sdd-end">{{ r.get_status_display }}</div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}<div class="sdd-empty"><i class="bi bi-calendar2"></i>No attendance recorded yet.</div>{% endif %}
+        </div>
+      </section>
+
+      {# --- Tasks ------------------------------------------------------ #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-check2-square"></i><h5>Open tasks</h5>
+          <a class="tc-link" href="{% url 'orgtasks:add-task' %}">Create task</a></div>
+        <div class="tc-card__body pt-1">
+          {% if d.tasks.rows %}
+          <ul class="sdd-list">
+            {% for t in d.tasks.rows %}
+            <li>
+              <span class="sdd-ico {% if t.task.due_date and t.task.due_date < d.tasks.now %}is-danger{% endif %}"><i class="bi bi-list-check"></i></span>
+              <div class="sdd-main"><a class="sdd-title" href="{% url 'orgtasks:task-detail' t.task.pk %}">{{ t.task.title }}</a><small>{{ t.get_status_display }} · {{ t.progress }}%</small></div>
+              <div class="sdd-end">{% if t.task.due_date %}{% if t.task.due_date < d.tasks.now %}<span class="tc-chip tc-chip--danger">{{ t.task.due_date|timesince }} late</span>{% else %}due {{ t.task.due_date|date:"j M" }}{% endif %}{% else %}no due date{% endif %}</div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}<div class="sdd-empty"><i class="bi bi-check-circle-fill"></i>Nothing open.</div>{% endif %}
+        </div>
+      </section>
+
+      {# --- Activity --------------------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-activity"></i><h5>Recent activity</h5></div>
+        <div class="tc-card__body pt-1">
+          {% if d.activity %}
+          <ul class="sdd-list">
+            {% for e in d.activity %}
+            <li>
+              <span class="sdd-ico"><i class="bi {% if e.action == 'login' %}bi-box-arrow-in-right{% elif e.action == 'logout' %}bi-box-arrow-right{% elif e.action == 'delete' %}bi-trash{% else %}bi-pencil{% endif %}"></i></span>
+              <div class="sdd-main"><b>{{ e.get_action_display }}{% if e.actor and e.actor.pk != person.pk %} <span class="fw-normal text-muted">by {{ e.actor }}</span>{% endif %}</b>
+                <small>{{ e.description|default:e.request_path|default:"—"|truncatechars:90 }}</small></div>
+              <div class="sdd-end">{{ e.timestamp|timesince }} ago</div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}<div class="sdd-empty"><i class="bi bi-activity"></i>No activity recorded.</div>{% endif %}
+        </div>
+      </section>
+    </div>
+
+    <div class="sdd-col">
+      {# --- Money ------------------------------------------------------ #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-receipt"></i><h5>Invoices &amp; payments</h5>
+          <a class="tc-link" href="{{ d.actions.statement }}">Statement</a></div>
+        <div class="tc-card__body pt-1">
+          <div class="sdd-mini">
+            <div><span>Billed</span><b>{{ d.money.billed|default:0|rand }}</b></div>
+            <div><span>Paid</span><b class="text-success">{{ d.money.paid|default:0|rand }}</b></div>
+            <div><span>Balance</span><b {% if d.money.balance > 0 %}class="text-danger"{% endif %}>{{ d.money.balance|default:0|rand }}</b></div>
+          </div>
+          {% if d.money.invoices %}
+          <div class="tc-table-wrap"><table class="tc-table">
+            <thead><tr><th>Invoice</th><th>Status</th><th class="r">Total</th><th class="r">Balance</th></tr></thead>
+            <tbody>
+            {% for inv in d.money.invoices %}
+              <tr>
+                <td><a href="{% url 'finance:invoice-detail' inv.pk %}">{{ inv.number }}</a><small class="d-block text-muted">{{ inv.issue_date|date:"j M Y" }}{% if inv.due_date %} · due {{ inv.due_date|date:"j M" }}{% endif %}</small></td>
+                <td>{% include 'finance/_status.html' with doc=inv %}</td>
+                <td class="r">{{ inv.total|rand }}</td>
+                <td class="r fw-semibold">{{ inv.balance|rand }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table></div>
+          {% else %}<div class="sdd-empty"><i class="bi bi-receipt"></i>No invoices issued.</div>{% endif %}
+          {% if d.money.payments %}
+          <div class="sdd-day mt-3">Recent payments</div>
+          <ul class="sdd-list">
+            {% for pay in d.money.payments %}
+            <li>
+              <span class="sdd-ico {% if pay.status == 'completed' %}is-success{% elif pay.status == 'failed' %}is-danger{% else %}is-warning{% endif %}"><i class="bi bi-cash"></i></span>
+              <div class="sdd-main"><b>{{ pay.amount|rand }}</b><small>{{ pay.get_method_display }} · {{ pay.invoice.number }}{% if pay.status != 'completed' %} · {{ pay.get_status_display|lower }}{% endif %}</small></div>
+              <div class="sdd-end">{{ pay.paid_at|date:"j M Y" }}</div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <a class="btn btn-sm tc-btn-soft mb-0" href="{{ d.actions.invoice }}"><i class="bi bi-plus-lg me-1"></i>New invoice</a>
+            <a class="btn btn-sm btn-light mb-0" href="{{ d.actions.payments }}"><i class="bi bi-unlock me-1"></i>Payments &amp; access</a>
+          </div>
+        </div>
+      </section>
+
+      {# --- Shop ------------------------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-bag"></i><h5>Orders &amp; bookings</h5></div>
+        <div class="tc-card__body pt-1">
+          {% if d.shop.orders or d.shop.bookings %}
+          <ul class="sdd-list">
+            {% for o in d.shop.orders %}
+            <li>
+              <span class="sdd-ico"><i class="bi bi-bag-check"></i></span>
+              <div class="sdd-main"><a class="sdd-title" href="{% url 'shop:order-detail' o.pk %}">Order {{ o.order_no|default:o.pk }}</a><small>{{ o.n_items }} item{{ o.n_items|pluralize }} · {{ o.created_at|date:"j M Y" }}</small></div>
+              <div class="sdd-end"><b class="tc-num text-body">{{ o.total|rand }}</b><br><span class="tc-chip {% if o.status == 'paid' %}tc-chip--success{% elif o.status == 'pending' %}tc-chip--warning{% endif %}">{{ o.get_status_display }}</span></div>
+            </li>
+            {% endfor %}
+            {% for b in d.shop.bookings %}
+            <li>
+              <span class="sdd-ico {% if b.status == 'cancelled' %}is-danger{% elif b.status == 'completed' %}is-success{% endif %}"><i class="bi bi-person-video3"></i></span>
+              <div class="sdd-main"><b>{{ b.product.name|default:"1-on-1 session" }}</b><small>{{ b.label }} · with {{ b.educator }}</small></div>
+              <div class="sdd-end"><span class="tc-chip {% if b.status == 'confirmed' %}tc-chip--primary{% elif b.status == 'completed' %}tc-chip--success{% elif b.status == 'held' %}tc-chip--warning{% endif %}">{{ b.get_status_display|truncatechars:18 }}</span></div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}<div class="sdd-empty"><i class="bi bi-bag"></i>No orders or bookings.</div>{% endif %}
+        </div>
+      </section>
+
+      {# --- Notifications ---------------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-bell"></i><h5>Notifications</h5>
+          <span class="sdd-count ms-auto">{{ d.notifications.month|default:0 }} in 30 days</span></div>
+        <div class="tc-card__body pt-1">
+          {% if d.notifications.recent %}
+          <ul class="sdd-list">
+            {% for n in d.notifications.recent %}
+            <li>
+              <span class="sdd-ico {% if n.is_read %}is-success{% endif %}"><i class="bi {% if n.is_read %}bi-envelope-open{% else %}bi-envelope{% endif %}"></i></span>
+              <div class="sdd-main"><b>{{ n.title|default:n.verb|default:"Notification" }}</b><small>{% if n.is_read %}Read{% else %}Unread{% endif %}{% if n.emailed %} · e-mailed{% endif %}</small></div>
+              <div class="sdd-end">{{ n.created_at|timesince }} ago</div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}<div class="sdd-empty"><i class="bi bi-bell"></i>Nothing sent to them yet.</div>{% endif %}
+          <a class="btn btn-sm tc-btn-soft mt-2 mb-0" href="{{ d.actions.notify }}"><i class="bi bi-send me-1"></i>Send them a notification</a>
+        </div>
+      </section>
+
+      {# --- Parents & details ------------------------------------------ #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-people"></i><h5>Parents &amp; details</h5>
+          {% if d.parent_links_url and d.parent_links_url != '#' %}<a class="tc-link" href="{{ d.parent_links_url }}">Parent links</a>{% endif %}</div>
+        <div class="tc-card__body pt-1">
+          {% if d.parents %}
+          <ul class="sdd-list mb-2">
+            {% for link in d.parents %}
+            <li>
+              <span class="tc-avatar">{{ link.parent|person_name|slice:":1" }}</span>
+              <div class="sdd-main">{% if link.parent.profile %}<a class="sdd-title" href="{% url 'staffdesk:student' link.parent.profile.pk %}">{{ link.parent|person_name }}</a>{% else %}<b>{{ link.parent.email }}</b>{% endif %}
+                <small>{{ link.relationship|default:"Parent / guardian" }} · {{ link.parent.email }}</small></div>
+              <div class="sdd-end"><a href="{% url 'communication:chat-direct' link.parent.pk %}" title="Message"><i class="bi bi-chat-dots"></i></a></div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}<div class="sdd-empty pt-0"><i class="bi bi-person"></i>No parent or sponsor linked.</div>{% endif %}
+          <dl class="sdd-facts mt-2">
+            {% if person.funding_source %}<dt>Fees paid by</dt><dd>{{ person.get_funding_source_display }}</dd>{% endif %}
+            {% if person.primary_device %}<dt>Device</dt><dd>{{ person.get_primary_device_display }}</dd>{% endif %}
+            {% if person.date_of_birth %}<dt>Born</dt><dd>{{ person.date_of_birth|date:"j M Y" }}</dd>{% endif %}
+            {% if person.guardian_emails %}<dt>Guardian e-mails</dt><dd>{{ person.guardian_emails|join:", " }}</dd>{% endif %}
+            <dt>Terms accepted</dt><dd>{{ person.terms_accepted_at|date:"j M Y"|default:"—" }}</dd>
+          </dl>
+        </div>
+      </section>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

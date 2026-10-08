@@ -1,0 +1,288 @@
+/* ==========================================================================
+   landing-ucs.css — the public landing page of United Church School.
+   Loaded from templates/pages/landing.html (block additional_css) so it comes
+   after the Soft UI shell and wins on equal specificity. Everything is scoped
+   to .ucs-landing so nothing leaks onto the platform's other pages.
+   Brand: UCS navy #00498B, light navy #004589, crest blue-grey #A3AECF /
+   #C5CCE3, accent green #79C753 (used sparingly, as on ucs.org.za).
+   ========================================================================== */
+
+.ucs-landing {
+  --ucs-navy: #00498B;
+  --ucs-navy-2: #004589;
+  --ucs-navy-deep: #002B55;
+  --ucs-crest: #A3AECF;
+  --ucs-crest-soft: #C5CCE3;
+  --ucs-green: #79C753;
+  --ucs-green-ink: #3E7A1F;          /* green text that passes AA on white */
+  --ucs-tint: #F2F5FB;               /* section wash */
+  --ucs-ink: #1B2537;
+  --ucs-muted: #5A6478;
+  --ucs-card: #FFFFFF;
+  --ucs-line: rgba(0, 73, 139, .12);
+  --ucs-accent-text: var(--ucs-navy);
+  color: var(--ucs-ink);
+}
+[data-bs-theme="dark"] .ucs-landing {
+  --ucs-tint: #141A2B;
+  --ucs-ink: #E9ECF4;
+  --ucs-muted: #A9B2C6;
+  --ucs-card: #1C2338;
+  --ucs-line: rgba(197, 204, 227, .14);
+  --ucs-accent-text: #8FB6E8;
+  --ucs-green-ink: #9BDB78;
+}
+
+/* The navbar floats over the page (position:fixed, see soft-ui-shell.css), so
+   an #anchor jump would otherwise land with the section heading hidden under
+   it. Reserve its height plus its top margin. */
+.ucs-landing section[id] { scroll-margin-top: 6.5rem; }
+html { scroll-behavior: smooth; }
+/* Respect users who ask for reduced motion — smooth scrolling and hover lifts
+   can trigger vestibular symptoms. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .ucs-landing *, .ucs-landing *::before, .ucs-landing *::after {
+    transition: none !important; animation: none !important;
+  }
+}
+
+.ucs-landing .ucs-section { padding: 4rem 0; }
+@media (min-width: 992px) { .ucs-landing .ucs-section { padding: 6rem 0; } }
+.ucs-landing .ucs-tint { background: var(--ucs-tint); }
+
+.ucs-landing h2, .ucs-landing h3, .ucs-landing h4, .ucs-landing h5 { color: var(--ucs-ink); }
+.ucs-landing .text-muted, .ucs-landing .ucs-muted { color: var(--ucs-muted) !important; }
+.ucs-landing .ucs-accent { color: var(--ucs-accent-text); }
+
+/* Small uppercase label above each section heading. */
+.ucs-landing .ucs-eyebrow {
+  display: inline-flex; align-items: center; gap: .5rem;
+  font-size: .75rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ucs-accent-text); margin-bottom: .85rem;
+}
+.ucs-landing .ucs-eyebrow::before {
+  content: ""; width: 1.5rem; height: 3px; border-radius: 3px; background: var(--ucs-green);
+}
+.ucs-landing .ucs-h2 {
+  font-size: clamp(1.75rem, 1.2rem + 1.8vw, 2.6rem); font-weight: 800;
+  letter-spacing: -.02em; line-height: 1.15; text-wrap: balance;
+}
+
+/* --- Buttons -------------------------------------------------------------- */
+.ucs-landing .btn-ucs {
+  background: var(--ucs-navy); color: #fff; border: 0; font-weight: 600;
+  box-shadow: 0 .5rem 1.25rem rgba(0, 73, 139, .25);
+}
+.ucs-landing .btn-ucs:hover, .ucs-landing .btn-ucs:focus-visible { background: var(--ucs-navy-deep); color: #fff; }
+.ucs-landing .btn-ucs-green { background: var(--ucs-green); color: #102a05; border: 0; font-weight: 700; }
+.ucs-landing .btn-ucs-green:hover, .ucs-landing .btn-ucs-green:focus-visible { background: #8bd667; color: #102a05; }
+.ucs-landing .btn-ucs-ghost {
+  background: rgba(255, 255, 255, .1); color: #fff; border: 1px solid rgba(255, 255, 255, .45); font-weight: 600;
+}
+.ucs-landing .btn-ucs-ghost:hover, .ucs-landing .btn-ucs-ghost:focus-visible { background: rgba(255, 255, 255, .2); color: #fff; }
+.ucs-landing .btn-ucs-outline {
+  background: transparent; color: var(--ucs-accent-text); border: 1px solid currentColor; font-weight: 600;
+}
+.ucs-landing .btn-ucs-outline:hover, .ucs-landing .btn-ucs-outline:focus-visible { background: var(--ucs-navy); border-color: var(--ucs-navy); color: #fff; }
+.ucs-landing .btn { margin-bottom: 0; }
+.ucs-landing a:focus-visible, .ucs-landing .btn:focus-visible { outline: 3px solid var(--ucs-green); outline-offset: 2px; }
+
+/* --- Hero ----------------------------------------------------------------- */
+.ucs-landing .ucs-hero {
+  position: relative; overflow: hidden; color: #fff;
+  margin: 0 .75rem; border-radius: 1.5rem;
+  background:
+    radial-gradient(60rem 30rem at 110% -10%, rgba(163, 174, 207, .35), transparent 60%),
+    radial-gradient(40rem 26rem at -10% 120%, rgba(121, 199, 83, .16), transparent 60%),
+    linear-gradient(135deg, var(--ucs-navy-deep) 0%, var(--ucs-navy) 55%, var(--ucs-navy-2) 100%);
+  padding: 3.5rem 0 3rem;
+}
+@media (min-width: 992px) { .ucs-landing .ucs-hero { padding: 5.5rem 0 5rem; margin: 0 1.25rem; } }
+.ucs-landing .ucs-hero .ucs-eyebrow { color: var(--ucs-crest-soft); }
+.ucs-landing .ucs-hero-crest {
+  position: absolute; right: -3rem; bottom: -4rem; width: 22rem; max-width: 60%;
+  opacity: .07; pointer-events: none; filter: grayscale(1) brightness(3);
+}
+
+/* Hero headline — a quiet setup and a heavy turn (same device as the platform's
+   previous hero), sized with clamp() from a 360px phone to desktop. */
+.ucs-landing .hero-head { margin-bottom: 1.25rem; color: #fff; }
+.ucs-landing .hero-head .setup,
+.ucs-landing .hero-head .turn { display: block; line-height: 1.1; letter-spacing: -.022em; text-wrap: balance; }
+.ucs-landing .hero-head .setup {
+  font-size: clamp(1.2rem, .95rem + 1.1vw, 1.7rem); font-weight: 500;
+  color: var(--ucs-crest-soft); margin-bottom: .4rem;
+}
+.ucs-landing .hero-head .turn { font-size: clamp(2rem, 1.25rem + 3vw, 3.4rem); font-weight: 800; }
+.ucs-landing .hero-head .turn em { font-style: normal; color: var(--ucs-green); }
+.ucs-landing .ucs-hero .lead { color: rgba(255, 255, 255, .88); max-width: 38rem; }
+.ucs-landing .ucs-motto {
+  display: inline-flex; align-items: center; gap: .6rem; padding: .35rem .9rem .35rem .4rem;
+  border-radius: 2rem; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .2);
+  font-size: .85rem; font-weight: 600; margin-bottom: 1.5rem;
+}
+.ucs-landing .ucs-motto img { width: 1.9rem; height: 1.9rem; border-radius: 50%; background: #fff; padding: 2px; }
+
+.ucs-landing .ucs-hero-media { position: relative; }
+.ucs-landing .ucs-hero-media .main {
+  width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover;
+  border-radius: 1.25rem; box-shadow: 0 1.5rem 3rem rgba(0, 0, 0, .35);
+}
+.ucs-landing .ucs-hero-media .inset {
+  position: absolute; left: -1.5rem; bottom: -1.75rem; width: 46%; height: auto; aspect-ratio: 1024 / 485;
+  object-fit: cover; border-radius: 1rem; border: 4px solid #fff; box-shadow: 0 1rem 2rem rgba(0, 0, 0, .3);
+}
+.ucs-landing .ucs-hero-badge {
+  position: absolute; right: -.75rem; top: 1.25rem; background: #fff; color: var(--ucs-navy);
+  border-radius: 1rem; padding: .75rem 1rem; box-shadow: 0 1rem 2rem rgba(0, 0, 0, .25); line-height: 1.1;
+}
+.ucs-landing .ucs-hero-badge strong { display: block; font-size: 1.6rem; font-weight: 800; }
+.ucs-landing .ucs-hero-badge span { font-size: .75rem; font-weight: 600; color: #4a5568; }
+@media (max-width: 575.98px) {
+  .ucs-landing .ucs-hero-media .inset { left: .5rem; bottom: -1.25rem; }
+  .ucs-landing .ucs-hero-badge { right: .5rem; }
+}
+
+/* --- Stats strip ---------------------------------------------------------- */
+.ucs-landing .ucs-stats { margin-top: -2.25rem; position: relative; z-index: 2; }
+.ucs-landing .ucs-stat {
+  background: var(--ucs-card); border-radius: 1.25rem; padding: 1.5rem 1.25rem; height: 100%;
+  box-shadow: 0 .75rem 2rem rgba(0, 43, 85, .1); border: 1px solid var(--ucs-line); text-align: center;
+}
+.ucs-landing .ucs-stat .num {
+  display: block; font-size: clamp(2rem, 1.5rem + 1.5vw, 2.75rem); font-weight: 800;
+  letter-spacing: -.03em; color: var(--ucs-accent-text); line-height: 1;
+}
+.ucs-landing .ucs-stat .label { display: block; margin-top: .5rem; font-weight: 600; color: var(--ucs-ink); }
+.ucs-landing .ucs-stat .note { display: block; font-size: .8rem; color: var(--ucs-muted); margin-top: .15rem; }
+
+/* --- Cards ---------------------------------------------------------------- */
+.ucs-landing .ucs-card {
+  background: var(--ucs-card); border: 1px solid var(--ucs-line); border-radius: 1.25rem;
+  padding: 1.75rem; height: 100%; box-shadow: 0 .5rem 1.5rem rgba(0, 43, 85, .06);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.ucs-landing .ucs-card.lift:hover { transform: translateY(-4px); box-shadow: 0 1rem 2rem rgba(0, 43, 85, .12); }
+.ucs-landing .ucs-card-top { border-top: 4px solid var(--ucs-navy); }
+.ucs-landing .ucs-icon {
+  width: 3rem; height: 3rem; border-radius: .9rem; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 1.35rem; color: #fff; margin-bottom: 1rem;
+  background: linear-gradient(135deg, var(--ucs-navy) 0%, var(--ucs-navy-2) 100%);
+  box-shadow: 0 .5rem 1rem rgba(0, 73, 139, .25);
+}
+.ucs-landing .ucs-photo {
+  width: 100%; height: auto; object-fit: cover; border-radius: 1.25rem;
+  box-shadow: 0 1rem 2.5rem rgba(0, 43, 85, .18);
+}
+
+/* Lists */
+.ucs-landing .ucs-check { list-style: none; padding: 0; margin: 0; }
+.ucs-landing .ucs-check li { position: relative; padding-left: 1.85rem; margin-bottom: .65rem; }
+.ucs-landing .ucs-check li::before {
+  content: "\F26E"; font-family: "bootstrap-icons"; position: absolute; left: 0; top: .05rem;
+  color: var(--ucs-green-ink); font-size: 1.1rem; line-height: 1.3;
+}
+.ucs-landing .ucs-check.cols-2 { columns: 2 16rem; column-gap: 2rem; }
+.ucs-landing .ucs-check.cols-2 li { break-inside: avoid; }
+.ucs-landing .ucs-chip {
+  display: inline-block; padding: .35rem .85rem; border-radius: 2rem; font-size: .85rem; font-weight: 600;
+  background: rgba(0, 73, 139, .08); color: var(--ucs-accent-text); margin: 0 .35rem .5rem 0;
+}
+[data-bs-theme="dark"] .ucs-landing .ucs-chip { background: rgba(143, 182, 232, .14); }
+.ucs-landing .ucs-chip.green { background: rgba(121, 199, 83, .16); color: var(--ucs-green-ink); }
+
+.ucs-landing .ucs-quote {
+  border-left: 4px solid var(--ucs-green); padding: .25rem 0 .25rem 1.25rem; font-size: 1.1rem; color: var(--ucs-ink);
+}
+
+/* People */
+.ucs-landing .ucs-person { display: flex; gap: .85rem; align-items: center; }
+.ucs-landing .ucs-person .ini {
+  flex: 0 0 auto; width: 2.75rem; height: 2.75rem; border-radius: 50%; display: inline-flex; align-items: center;
+  justify-content: center; font-weight: 700; color: var(--ucs-navy); background: var(--ucs-crest-soft);
+}
+
+/* --- Platform band (navy) -------------------------------------------------- */
+.ucs-landing .ucs-navy-band {
+  color: #fff; border-radius: 1.5rem; margin: 0 .75rem; overflow: hidden; position: relative;
+  background:
+    radial-gradient(50rem 24rem at 100% 0%, rgba(163, 174, 207, .28), transparent 60%),
+    linear-gradient(160deg, var(--ucs-navy) 0%, var(--ucs-navy-deep) 100%);
+}
+@media (min-width: 992px) { .ucs-landing .ucs-navy-band { margin: 0 1.25rem; } }
+.ucs-landing .ucs-navy-band h2, .ucs-landing .ucs-navy-band h3 { color: #fff; }
+.ucs-landing .ucs-navy-band .ucs-eyebrow { color: var(--ucs-crest-soft); }
+.ucs-landing .ucs-navy-band .lead, .ucs-landing .ucs-navy-band p { color: rgba(255, 255, 255, .85); }
+.ucs-landing .ucs-feature {
+  background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .14); border-radius: 1.1rem;
+  padding: 1.35rem; height: 100%;
+}
+.ucs-landing .ucs-feature i { font-size: 1.5rem; color: var(--ucs-green); }
+.ucs-landing .ucs-feature h3 { font-size: 1.05rem; font-weight: 700; margin: .75rem 0 .35rem; }
+.ucs-landing .ucs-feature p { font-size: .92rem; margin: 0; color: rgba(255, 255, 255, .78); }
+
+/* --- Stories --------------------------------------------------------------- */
+.ucs-landing .ucs-story { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.ucs-landing .ucs-story img { width: 100%; height: 13rem; object-fit: cover; }
+.ucs-landing .ucs-story .body { padding: 1.35rem; display: flex; flex-direction: column; flex: 1; }
+.ucs-landing .ucs-story h3 { font-size: 1.1rem; font-weight: 700; }
+.ucs-landing .ucs-story .more { margin-top: auto; font-weight: 600; color: var(--ucs-accent-text); text-decoration: none; }
+.ucs-landing .ucs-story .more:hover { text-decoration: underline; }
+
+/* --- Fees table ------------------------------------------------------------ */
+.ucs-landing .ucs-table-wrap {
+  background: var(--ucs-card); border: 1px solid var(--ucs-line); border-radius: 1.25rem; overflow: hidden;
+  box-shadow: 0 .75rem 2rem rgba(0, 43, 85, .08);
+}
+.ucs-landing .ucs-fees { margin: 0; color: var(--ucs-ink); --bs-table-bg: transparent; --bs-table-color: var(--ucs-ink); }
+.ucs-landing .ucs-fees thead th {
+  background: var(--ucs-navy); color: #fff; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em;
+  font-weight: 700; padding: 1rem; border: 0; white-space: nowrap; vertical-align: bottom;
+}
+.ucs-landing .ucs-fees tbody th, .ucs-landing .ucs-fees tbody td {
+  padding: .95rem 1rem; border-bottom: 1px solid var(--ucs-line); white-space: nowrap; color: var(--ucs-ink);
+}
+.ucs-landing .ucs-fees tbody tr:last-child > * { border-bottom: 0; }
+.ucs-landing .ucs-fees tbody tr:nth-child(even) > * { background: rgba(0, 73, 139, .035); }
+.ucs-landing .ucs-fees .num { text-align: right; font-variant-numeric: tabular-nums; }
+.ucs-landing .ucs-fees .total { font-weight: 800; color: var(--ucs-accent-text); }
+
+.ucs-landing .ucs-bank dt { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ucs-muted); font-weight: 600; }
+.ucs-landing .ucs-bank dd { font-weight: 700; margin-bottom: .75rem; font-variant-numeric: tabular-nums; }
+
+/* --- Enrolment steps ------------------------------------------------------- */
+.ucs-landing .ucs-steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+.ucs-landing .ucs-steps li { counter-increment: step; position: relative; padding-left: 3.25rem; margin-bottom: 1.35rem; }
+.ucs-landing .ucs-steps li::before {
+  content: counter(step); position: absolute; left: 0; top: -.15rem; width: 2.25rem; height: 2.25rem;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800;
+  background: var(--ucs-navy); color: #fff;
+}
+.ucs-landing .ucs-cta-card {
+  border-radius: 1.5rem; padding: 2rem; color: #fff; height: 100%;
+  background: linear-gradient(150deg, var(--ucs-navy) 0%, var(--ucs-navy-deep) 100%);
+  box-shadow: 0 1.25rem 2.5rem rgba(0, 43, 85, .3);
+}
+.ucs-landing .ucs-cta-card h3 { color: #fff; }
+.ucs-landing .ucs-cta-card p { color: rgba(255, 255, 255, .85); }
+
+/* --- Terms & times --------------------------------------------------------- */
+.ucs-landing .ucs-term {
+  display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; border-radius: 1rem;
+  background: var(--ucs-card); border: 1px solid var(--ucs-line); margin-bottom: .75rem;
+}
+.ucs-landing .ucs-term .tag {
+  flex: 0 0 auto; font-weight: 800; color: var(--ucs-navy); background: var(--ucs-crest-soft);
+  border-radius: .75rem; padding: .45rem .7rem; font-size: .85rem;
+}
+.ucs-landing .ucs-times dt { font-weight: 700; color: var(--ucs-ink); }
+.ucs-landing .ucs-times dd { color: var(--ucs-muted); margin-bottom: .85rem; font-size: .92rem; }
+
+/* --- Footer ---------------------------------------------------------------- */
+.ucs-footer { border-top: 4px solid #00498B; }
+.ucs-footer .ucs-footer-logo { height: 3.5rem; width: auto; }
+.ucs-footer .small-print { font-size: .8rem; color: var(--bs-secondary-color, #6c757d); }
+.ucs-footer .logo-dark { display: none; }
+[data-bs-theme="dark"] .ucs-footer .logo-light { display: none; }
+[data-bs-theme="dark"] .ucs-footer .logo-dark { display: inline-block; }

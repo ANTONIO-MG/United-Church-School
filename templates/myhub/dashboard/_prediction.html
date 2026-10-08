@@ -1,0 +1,66 @@
+{% comment %}Readiness prediction — built from marked results and nothing else.
+
+Every result the candidate has is weighted by the kind of assessment it came
+from (a mock exam counts far more than a quiz) and decayed by age, then averaged.
+The breakdown is shown alongside the number so the score can be argued with:
+a prediction you cannot interrogate is a horoscope.
+
+The weights live in one place — apps.myhub.dashboard.READINESS_WEIGHTS — and are
+a starting position, to be retuned against real marks and past papers.
+
+Reads `prediction` from apps.myhub.dashboard.exam_readiness.{% endcomment %}
+
+<div class="dash-card">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--{% if prediction %}{{ prediction.tone }}{% else %}secondary{% endif %}">
+      <i class="bi bi-speedometer2"></i>
+    </span>
+    <h6>Readiness prediction</h6>
+    <a class="dash-link" href="{% url 'reports:my-reports' %}">My results</a>
+  </div>
+
+  <div class="dash-card__body">
+    {% if prediction %}
+      <div class="dash-predict">
+        <div class="dash-predict__score dash-ready__score--{{ prediction.tone }}">
+          <b>{{ prediction.score }}</b><span>/100</span>
+        </div>
+        <div class="min-w-0 flex-grow-1">
+          <span class="dash-chip dash-chip--{{ prediction.tone }}">{{ prediction.band }}</span>
+          {% if prediction.is_provisional %}
+            <span class="dash-chip dash-chip--secondary">Provisional — few results</span>
+          {% endif %}
+          <p class="dash-predict__advice">{{ prediction.advice }}</p>
+          <p class="dash-predict__basis">
+            From {{ prediction.results_counted }} marked result{{ prediction.results_counted|pluralize }}.
+            {% if prediction.has_mock %}
+              Best mock: <strong>{{ prediction.best_mock|floatformat:0 }}%</strong>.
+            {% else %}
+              No mock exam sat yet — that is the single best thing you can do for this number.
+            {% endif %}
+          </p>
+        </div>
+      </div>
+
+      <div class="dash-predict__rows">
+        {% for row in prediction.breakdown %}
+        <div class="dash-predict__row">
+          <span class="dash-predict__kind">{{ row.label }}
+            <small>×{{ row.weight|floatformat:0 }}</small>
+          </span>
+          <div class="dash-bar dash-bar--{% if row.average >= 70 %}success{% elif row.average >= 50 %}warning{% else %}danger{% endif %}">
+            <span style="width: {{ row.average }}%"></span>
+          </div>
+          <span class="dash-predict__avg">{{ row.average }}%<small> · {{ row.count }}</small></span>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="dash-empty">
+        <i class="bi bi-speedometer2"></i>
+        Nothing marked yet. Your readiness appears here once you have results —
+        sit a quiz or a mock paper to start it off.
+      </div>
+    {% endif %}
+  </div>
+</div>

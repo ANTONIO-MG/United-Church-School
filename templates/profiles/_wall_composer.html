@@ -1,0 +1,58 @@
+{% load static %}
+{% comment %}
+The "Share your thoughts…" composer — the Social theme's my-profile.html composer,
+wired to a real endpoint (communication:wall-post → a Discussion).
+
+`wall_scope` (set by core.profiles) decides where the post lands:
+  person  → no scope (a personal post)
+  course  → course=<id>
+  module → module=<id>
+{% endcomment %}
+
+<div class="card card-body">
+  <div class="d-flex mb-3">
+    <div class="avatar avatar-xs me-2">
+      <a href="{% url 'accounts:my-profile' %}">
+        {% if user.profile %}
+          <img class="avatar-img rounded-circle" src="{{ user.profile.avatar_url }}" alt="">
+        {% else %}
+          <div class="avatar-img rounded-circle bg-primary d-flex align-items-center justify-content-center">
+            <span class="text-white small fw-bold">{{ user.profile.first_name|default:user.username|slice:":1"|upper }}</span>
+          </div>
+        {% endif %}
+      </a>
+    </div>
+    <form class="w-100">
+      <input class="form-control pe-4 border-0" placeholder="Share your thoughts..."
+             data-bs-toggle="modal" data-bs-target="#modalCreateFeed">
+    </form>
+  </div>
+
+  <ul class="nav nav-pills nav-stack small fw-normal">
+    <li class="nav-item">
+      <a class="nav-link bg-light py-1 px-2 mb-0" href="#!" data-bs-toggle="modal" data-bs-target="#feedActionPhoto">
+        <i class="bi bi-image-fill text-success pe-2"></i>Photo</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link bg-light py-1 px-2 mb-0" href="#!" data-bs-toggle="modal" data-bs-target="#feedActionVideo">
+        <i class="bi bi-camera-reels-fill text-info pe-2"></i>Video</a>
+    </li>
+    {% comment %}Event and Feeling/Activity replaced by Document: an event was a
+    link out to the calendar and a "feeling" posted nothing, while sharing a PDF
+    or a set of notes is what this wall is actually used for.{% endcomment %}
+    <li class="nav-item">
+      <a class="nav-link bg-light py-1 px-2 mb-0" href="#!" data-bs-toggle="modal" data-bs-target="#feedActionDocument">
+        <i class="bi bi-file-earmark-text-fill text-danger pe-2"></i>Document</a>
+    </li>
+    <li class="nav-item dropdown ms-sm-auto">
+      <a class="nav-link bg-light py-1 px-2 mb-0" href="#" id="feedActionShare" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-three-dots"></i>
+      </a>
+      <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="feedActionShare">
+        <li><a class="dropdown-item" href="{% url 'communication:discussion-create' %}"><i class="bi bi-envelope fa-fw pe-2"></i>Start a discussion</a></li>
+        <li><a class="dropdown-item" href="{% url 'communication:discussions' %}"><i class="bi bi-bookmark-check fa-fw pe-2"></i>Ask a question</a></li>
+        <li><hr class="dropdown-divider"></li>
+      </ul>
+    </li>
+  </ul>
+</div>

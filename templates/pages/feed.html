@@ -1,0 +1,294 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% comment %}Programme feed — the unified activity feed inside the shared app
+chrome (navbar + sidebar + footer).
+
+There is no scope filter above the feed any more: the platform has no per-subject feed, so
+"General vs. a module" was a choice with one option. The right rail carries what
+a candidate needs beside the feed instead — the dates that are coming, the week
+they are in, their programme notifications, and who to contact.{% endcomment %}
+
+{% block additional_css %}
+<style>
+  /* Multi-attachment gallery on feed posts. */
+  .feed-gallery{ display:grid; gap:4px; }
+  .feed-gallery--2, .feed-gallery--3, .feed-gallery--4, .feed-gallery--more{ grid-template-columns:1fr 1fr; }
+  .feed-gallery--3 .feed-tile:nth-child(3){ grid-column:1 / -1; aspect-ratio:2 / 1; }
+  .feed-tile{ position:relative; display:block; overflow:hidden; background:#f1f3f5;
+    aspect-ratio:1 / 1; border-radius:.4rem; text-decoration:none; color:inherit; }
+  .feed-tile img, .feed-tile video{ width:100%; height:100%; object-fit:cover; display:block; }
+  .feed-tile--doc{ display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:.4rem; padding:.6rem; border:1px solid #e6e8ee; }
+  .feed-tile--doc .bi{ font-size:2.2rem; color:#d6293e; }
+  .feed-tile--doc .fname{ font-size:.72rem; max-width:100%; }
+  .feed-tile--video .feed-play{ position:absolute; inset:0; display:flex; align-items:center;
+    justify-content:center; color:#fff; font-size:2.4rem; text-shadow:0 1px 6px rgba(0,0,0,.5); pointer-events:none; }
+  .feed-more{ position:absolute; inset:0; background:rgba(0,0,0,.55); color:#fff; display:flex;
+    align-items:center; justify-content:center; font-size:1.6rem; font-weight:700; }
+  [data-bs-theme="dark"] .feed-tile{ background:#232741; }
+  [data-bs-theme="dark"] .feed-tile--doc{ border-color:#343a5a; }
+
+  /* Feed lightbox — real-size media / scrollable document over a blurred backdrop. */
+  .flb{ position:fixed; inset:0; z-index:20000; display:flex; align-items:center; justify-content:center; }
+  .flb[hidden]{ display:none; }
+  .flb__backdrop{ position:absolute; inset:0; background:rgba(8,10,18,.72);
+    backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); }
+  .flb__stage{ position:relative; z-index:1; display:flex; align-items:center; justify-content:center;
+    max-width:94vw; max-height:90vh; }
+  .flb__stage img, .flb__stage video{ max-width:94vw; max-height:90vh; border-radius:.5rem;
+    box-shadow:0 24px 70px rgba(0,0,0,.55); background:#000; display:block; }
+  .flb__doc{ width:min(92vw,920px); height:90vh; border:0; border-radius:.5rem; background:#fff; }
+  .flb__fallback{ background:#fff; color:#1a2035; border-radius:.6rem; padding:2.2rem 2rem; text-align:center;
+    max-width:88vw; box-shadow:0 24px 70px rgba(0,0,0,.5); }
+  .flb__fallback .bi{ font-size:3rem; color:#d6293e; }
+  .flb__btn{ position:absolute; z-index:3; display:inline-flex; align-items:center; justify-content:center;
+    gap:.35rem; background:rgba(20,22,34,.62); color:#fff; border:0; border-radius:2rem; cursor:pointer;
+    text-decoration:none; -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
+  .flb__btn:hover{ background:rgba(20,22,34,.9); color:#fff; }
+  .flb__close{ top:16px; right:16px; width:44px; height:44px; border-radius:50%; font-size:1.4rem; line-height:1; }
+  .flb__download{ top:16px; right:72px; height:44px; padding:0 1rem; font-size:.85rem; font-weight:600; }
+  .flb__nav{ top:50%; transform:translateY(-50%); width:50px; height:50px; border-radius:50%; font-size:1.7rem; line-height:1; }
+  .flb__prev{ left:16px; } .flb__next{ right:16px; }
+  .flb__nav[hidden], .flb__count[hidden]{ display:none; }
+  .flb__count{ position:absolute; z-index:3; bottom:16px; left:50%; transform:translateX(-50%); color:#fff;
+    background:rgba(20,22,34,.62); padding:.25rem .7rem; border-radius:2rem; font-size:.8rem; }
+  .flb__name{ position:absolute; z-index:3; top:20px; left:18px; color:#fff; max-width:46vw; font-size:.85rem;
+    text-shadow:0 1px 4px rgba(0,0,0,.6); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <div class="col-lg-8 vstack gap-4">
+    {% include 'partials/_composer.html' %}
+    {% include 'partials/_feed.html' %}
+  </div>
+
+  <div class="col-lg-4">
+    <div class="vstack gap-4">
+
+      {# ---------- Where you are right now ---------- #}
+      {% if rail_week or rail_readiness.pct is not None %}
+      <div class="card">
+        <div class="card-header border-0 pb-0">
+          <h6 class="card-title mb-0"><i class="bi bi-compass text-primary me-2"></i>This week</h6>
+        </div>
+        <div class="card-body pt-2">
+          {% if rail_week %}
+            <a class="text-reset text-decoration-none d-block" href="/learning/modules/{{ rail_week.module_id }}/feed/">
+              <span class="d-block fw-semibold">{{ rail_week.title }}</span>
+              <small class="text-muted d-block">{{ rail_week.module }} · {{ rail_week.phase }}</small>
+              {% if rail_week.days_left is not None %}
+              <small class="text-muted"><i class="bi bi-hourglass-split me-1"></i>
+                {% if rail_week.days_left > 0 %}{{ rail_week.days_left }} day{{ rail_week.days_left|pluralize }} left in this week
+                {% else %}Last day of this week{% endif %}</small>
+              {% endif %}
+            </a>
+          {% else %}
+            <p class="small text-muted mb-0">No study week is running right now.</p>
+          {% endif %}
+
+          {% if rail_readiness.pct is not None %}
+          <hr class="my-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <small class="text-muted">Readiness · {{ rail_readiness.phase }}</small>
+            <span class="badge bg-{{ rail_readiness.tone }} bg-opacity-10 text-{{ rail_readiness.tone }}">{{ rail_readiness.label }}</span>
+          </div>
+          <div class="progress" style="height:6px">
+            <div class="progress-bar bg-{{ rail_readiness.tone }}" style="width:{{ rail_readiness.pct }}%"></div>
+          </div>
+          <small class="text-muted d-block mt-1">{{ rail_readiness.basis }}</small>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {# ---------- Key dates ---------- #}
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center border-0 pb-0">
+          <h6 class="card-title mb-0"><i class="bi bi-calendar2-event text-danger me-2"></i>Key dates</h6>
+          <a class="small" href="{% url 'myhub:events' %}">Calendar</a>
+        </div>
+        <div class="card-body pt-2 vstack gap-2">
+          {% for d in rail_dates %}
+          <a class="d-flex align-items-center text-reset text-decoration-none" href="{{ d.url|default:'#' }}">
+            <span class="badge bg-{{ d.tone }} bg-opacity-10 text-{{ d.tone }} me-2 text-center" style="min-width:52px">
+              {{ d.date|date:"j M" }}</span>
+            <span class="flex-grow-1 min-w-0">
+              <span class="d-block small fw-semibold text-truncate">{{ d.label }}</span>
+              <small class="text-muted">{{ d.kind }}{% if d.source %} · {{ d.source }}{% endif %}</small>
+            </span>
+            <small class="text-muted flex-shrink-0 ms-2">
+              {% if d.days_away == 0 %}Today{% else %}in {{ d.days_away }}d{% endif %}</small>
+          </a>
+          {% empty %}
+          <p class="small text-muted mb-0">No dates in the next six months.
+            <a href="/community/settings/">Add your own</a>.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# ---------- Programme notifications ---------- #}
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center border-0 pb-0">
+          <h6 class="card-title mb-0"><i class="bi bi-bell text-warning me-2"></i>Grade notifications</h6>
+          <a class="small" href="/communication/notifications/">See all</a>
+        </div>
+        <div class="card-body pt-2 vstack gap-2">
+          {% for n in rail_notifications %}
+          <a class="d-flex align-items-start text-reset text-decoration-none" href="{{ n.url|default:'/communication/notifications/' }}">
+            <i class="bi bi-dot fs-4 lh-1 {% if not n.is_read %}text-primary{% else %}text-muted{% endif %}"></i>
+            <span class="flex-grow-1 min-w-0">
+              <span class="d-block small {% if not n.is_read %}fw-semibold{% endif %} text-truncate">{{ n.title|default:n.verb }}</span>
+              <small class="text-muted">{{ n.created_at|timesince }} ago</small>
+            </span>
+          </a>
+          {% empty %}
+          <p class="small text-muted mb-0">Nothing from your grade yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# ---------- Who to contact ---------- #}
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center border-0 pb-0">
+          <h6 class="card-title mb-0"><i class="bi bi-person-vcard text-success me-2"></i>Educators &amp; staff</h6>
+          <a class="small" href="/community/members/">Directory</a>
+        </div>
+        <div class="card-body pt-2 vstack gap-3">
+          {% for p in rail_people %}
+          <div class="d-flex align-items-center">
+            <a class="avatar me-2" href="{% url 'accounts:member-profile' p.pk %}">
+              {% if p %}
+                <img class="avatar-img rounded-circle" src="{{ p.avatar_url }}" alt="{{ p }}">
+              {% else %}
+                <span class="avatar-img rounded-circle bg-primary text-white d-flex align-items-center justify-content-center">
+                  {{ p.first_name|first|default:p.user.email|first|upper }}</span>
+              {% endif %}
+            </a>
+            <div class="flex-grow-1 min-w-0">
+              <a class="d-block small fw-semibold text-truncate text-reset" href="{% url 'accounts:member-profile' p.pk %}">{{ p }}</a>
+              <span class="small text-muted text-capitalize">{{ p.get_user_type_display }}</span>
+            </div>
+            {% if p.user_id != request.user.pk %}
+            <a class="btn btn-sm btn-primary-soft flex-shrink-0" title="Message {{ p.first_name }}"
+               href="{% url 'communication:chat-direct' p.user_id %}"><i class="bi bi-chat-left-text"></i></a>
+            {% endif %}
+          </div>
+          {% empty %}
+          <p class="small text-muted mb-0">No educators or staff listed yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <p class="small text-center text-muted">{{ brand.copyright|default:"© United Church School" }}</p>
+    </div>
+  </div>
+
+</div>
+
+{% comment %}HTMX (Phase 5): the feed lightbox lives in the content block so it is
+present after a boosted swap-in. It works by DELEGATION on the document, so it must
+initialise exactly once — the window.__flbInit guard makes a re-run (on boost, or
+if two feed views were ever swapped) a no-op while the single delegated handler
+keeps serving whatever content is swapped in.{% endcomment %}
+<script>
+(function () {
+  if (window.__flbInit) return;   // delegated + document-level → init once only
+  window.__flbInit = 1;
+  // Custom lightbox for feed media: images/videos at real size, documents in a
+  // scrollable viewer, all over a blurred backdrop, with close, prev/next and a
+  // Save (download) button. Media are grouped per post via data-flb-group.
+  var overlay = null, items = [], idx = 0;
+
+  function esc(s){ return (s || '').replace(/[&<>"]/g, function (c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function ext(name, src){ var s = (name || src || '').split('?')[0]; return (s.split('.').pop() || '').toLowerCase(); }
+
+  function build(){
+    overlay = document.createElement('div');
+    overlay.className = 'flb'; overlay.hidden = true;
+    overlay.innerHTML =
+      '<div class="flb__backdrop"></div>' +
+      '<span class="flb__name"></span>' +
+      '<a class="flb__btn flb__download" download><i class="bi bi-download"></i><span>Save</span></a>' +
+      '<button type="button" class="flb__btn flb__close" title="Close" aria-label="Close">&times;</button>' +
+      '<button type="button" class="flb__btn flb__nav flb__prev" aria-label="Previous">&#8249;</button>' +
+      '<button type="button" class="flb__btn flb__nav flb__next" aria-label="Next">&#8250;</button>' +
+      '<div class="flb__stage"></div>' +
+      '<span class="flb__count"></span>';
+    document.body.appendChild(overlay);
+    overlay.querySelector('.flb__backdrop').addEventListener('click', close);
+    overlay.querySelector('.flb__close').addEventListener('click', close);
+    overlay.querySelector('.flb__prev').addEventListener('click', function () { go(-1); });
+    overlay.querySelector('.flb__next').addEventListener('click', function () { go(1); });
+  }
+
+  function render(){
+    var it = items[idx], stage = overlay.querySelector('.flb__stage');
+    stage.innerHTML = '';
+    if (it.type === 'image') {
+      var img = document.createElement('img'); img.src = it.src; img.alt = it.name || ''; stage.appendChild(img);
+    } else if (it.type === 'video') {
+      var v = document.createElement('video'); v.src = it.src; v.controls = true; v.autoplay = true; stage.appendChild(v);
+    } else {
+      var e = ext(it.name, it.src);
+      if (e === 'pdf' || e === 'txt') {
+        var f = document.createElement('iframe'); f.className = 'flb__doc'; f.src = it.src; stage.appendChild(f);
+      } else {
+        var box = document.createElement('div'); box.className = 'flb__fallback';
+        box.innerHTML = '<i class="bi bi-file-earmark-text-fill"></i>' +
+          '<p class="mt-2 mb-1 fw-semibold">' + esc(it.name || 'Document') + '</p>' +
+          '<p class="text-muted small mb-3">This file type can’t preview here — download it to open.</p>' +
+          '<a class="btn btn-primary" href="' + esc(it.src) + '" download><i class="bi bi-download me-1"></i>Download</a>';
+        stage.appendChild(box);
+      }
+    }
+    var dl = overlay.querySelector('.flb__download');
+    dl.href = it.src; dl.setAttribute('download', it.name || '');
+    overlay.querySelector('.flb__name').textContent = it.name || '';
+    var multi = items.length > 1;
+    overlay.querySelector('.flb__prev').hidden = !multi;
+    overlay.querySelector('.flb__next').hidden = !multi;
+    var count = overlay.querySelector('.flb__count');
+    count.hidden = !multi; count.textContent = (idx + 1) + ' / ' + items.length;
+  }
+
+  function go(step){ idx = (idx + step + items.length) % items.length; render(); }
+
+  function open(group, startSrc){
+    if (!overlay) build();
+    var nodes = document.querySelectorAll('.flb-item[data-flb-group="' + group + '"]');
+    items = Array.prototype.map.call(nodes, function (n) {
+      return { type: n.dataset.flbType, src: n.dataset.flbSrc, name: n.dataset.flbName }; });
+    if (!items.length) return;
+    idx = 0;
+    for (var i = 0; i < items.length; i++) { if (items[i].src === startSrc) { idx = i; break; } }
+    render();
+    overlay.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function close(){
+    if (!overlay) return;
+    overlay.hidden = true;
+    overlay.querySelector('.flb__stage').innerHTML = '';   // stop any playing video
+    document.body.style.overflow = '';
+  }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('.flb-item');
+    if (!t) return;
+    e.preventDefault();
+    open(t.dataset.flbGroup, t.dataset.flbSrc);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (!overlay || overlay.hidden) return;
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowLeft') go(-1);
+    else if (e.key === 'ArrowRight') go(1);
+  });
+})();
+</script>
+{% endblock %}

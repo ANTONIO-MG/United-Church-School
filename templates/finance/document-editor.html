@@ -1,0 +1,132 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static commerce %}
+{% comment %}Invoice / estimate editor, Wave style: customer and dates up top, a
+line table (pick a shop item to fill name + price, or type a free line), live
+totals, notes. Context: kind, form, lines (formset), products_json.{% endcomment %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><a class="small" href="{% if kind == 'estimate' %}{% url 'finance:estimates' %}{% else %}{% url 'finance:invoices' %}{% endif %}"><i class="bi bi-arrow-left me-1"></i>{% if kind == 'estimate' %}Estimates{% else %}Invoices{% endif %}</a>
+      <h3 class="mt-1">{{ page_title }}</h3>
+      <p>{% if kind == 'estimate' %}A quote the customer can accept online; it converts to an invoice in one click.{% else %}Saved as a draft until you send or approve it.{% endif %}</p></div>
+  </div>
+  <form method="post" novalidate id="docForm">{% csrf_token %}
+    {% if form.non_field_errors %}<div class="tc-alert tc-alert--danger mb-3"><i class="bi bi-exclamation-circle"></i><div>{{ form.non_field_errors }}</div></div>{% endif %}
+    <div class="tc-card">
+      <div class="tc-section">
+        <div class="row g-3">
+          <div class="col-lg-5">{% include 'shop/_field.html' with field=form.customer %}</div>
+          <div class="col-sm-4 col-lg-2">{% include 'shop/_field.html' with field=form.issue_date %}</div>
+          <div class="col-sm-4 col-lg-2">{% if kind == 'estimate' %}{% include 'shop/_field.html' with field=form.valid_until %}{% else %}{% include 'shop/_field.html' with field=form.due_date %}{% endif %}</div>
+          <div class="col-sm-4 col-lg-3">{% include 'shop/_field.html' with field=form.po_number %}</div>
+          <div class="col-12">{% include 'shop/_field.html' with field=form.summary %}</div>
+        </div>
+      </div>
+
+      <div class="tc-section">
+        <div class="tc-section__title"><i class="bi bi-list-ul"></i><h6>Items</h6>{% if vat_registered %}<small>Prices include {{ vat_rate }}% VAT</small>{% endif %}</div>
+        {{ lines.management_form }}
+        {% if lines.non_form_errors %}<div class="tc-field-error">{{ lines.non_form_errors }}</div>{% endif %}
+        <div class="tc-table-wrap">
+          <table class="tc-table tc-doclines" id="lineTable">
+            <thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Price (R)</th><th class="r">Disc. %</th><th class="r">Amount</th><th></th></tr></thead>
+            <tbody>
+              {% for lf in lines %}
+              <tr data-line>
+                {% for h in lf.hidden_fields %}{{ h }}{% endfor %}
+                <td class="col-desc">{{ lf.product }}<div class="mt-1">{{ lf.description }}</div><div class="mt-1">{{ lf.detail }}</div>
+                  {% if lf.description.errors %}<div class="tc-field-error">{{ lf.description.errors|join:" " }}</div>{% endif %}</td>
+                <td class="col-num">{{ lf.quantity }}</td><td class="col-num">{{ lf.unit_price }}</td><td class="col-num">{{ lf.discount_percent }}</td>
+                <td class="col-amt" data-amount>—</td>
+                <td>{% if lf.instance.pk %}<label class="small text-danger">{{ lf.DELETE }} <span class="visually-hidden">Remove</span><i class="bi bi-trash"></i></label>{% else %}<button type="button" class="btn btn-sm btn-link text-danger" data-remove aria-label="Remove line"><i class="bi bi-trash"></i></button>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <template id="lineTemplate">
+          <tr data-line>{% for h in lines.empty_form.hidden_fields %}{{ h }}{% endfor %}
+            <td class="col-desc">{{ lines.empty_form.product }}<div class="mt-1">{{ lines.empty_form.description }}</div><div class="mt-1">{{ lines.empty_form.detail }}</div></td>
+            <td class="col-num">{{ lines.empty_form.quantity }}</td><td class="col-num">{{ lines.empty_form.unit_price }}</td><td class="col-num">{{ lines.empty_form.discount_percent }}</td>
+            <td class="col-amt" data-amount>—</td>
+            <td><button type="button" class="btn btn-sm btn-link text-danger" data-remove aria-label="Remove line"><i class="bi bi-trash"></i></button></td></tr>
+        </template>
+        <button type="button" class="btn btn-sm tc-btn-soft mt-2" data-add-line><i class="bi bi-plus-lg me-1"></i>Add an item</button>
+
+        <div class="d-flex justify-content-end mt-3">
+          <div class="tc-totals" style="min-width:16rem">
+            <div><span>Subtotal</span><span data-t="gross">R0.00</span></div>
+            <div class="is-saving"><span>Discount</span><span data-t="discount">−R0.00</span></div>
+            <div class="is-total"><span>Total</span><span data-t="total">R0.00</span></div>
+            {% if vat_registered %}<div class="is-muted"><span>Includes VAT</span><span data-t="vat">R0.00</span></div>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="tc-section">
+        <div class="row g-3">
+          <div class="col-md-8">{% include 'shop/_field.html' with field=form.notes %}</div>
+          <div class="col-md-4">{% include 'shop/_field.html' with field=form.footer %}</div>
+        </div>
+      </div>
+      <div class="tc-savebar">
+        <a class="btn btn-link" href="{% if object.pk %}{{ object.get_absolute_url }}{% elif kind == 'estimate' %}{% url 'finance:estimates' %}{% else %}{% url 'finance:invoices' %}{% endif %}">Cancel</a>
+        <button class="btn btn-outline-secondary" name="then" value="save">Save{% if creating %} as draft{% endif %}</button>
+        <button class="btn btn-primary" name="then" value="send"><i class="bi bi-send me-1"></i>Save &amp; send</button>
+      </div>
+    </div>
+  </form>
+</div></div>
+{{ products_json|json_script:"docProducts" }}
+<script>
+(function () {
+  var form = document.getElementById('docForm'); if (!form) { return; }
+  var products = JSON.parse(document.getElementById('docProducts').textContent);
+  var vatRate = {{ vat_rate|default:0 }}, vatOn = {{ vat_registered|yesno:"true,false" }};
+  var total = form.querySelector('[name="lines-TOTAL_FORMS"]'), body = form.querySelector('#lineTable tbody');
+  function money(n) { return 'R' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+  function num(row, sel) { var el = row.querySelector(sel); return el ? parseFloat(el.value || 0) || 0 : 0; }
+  function recalc() {
+    var gross = 0, disc = 0;
+    body.querySelectorAll('[data-line]').forEach(function (row) {
+      var del = row.querySelector('[name$="-DELETE"]');
+      var dead = del && del.checked; row.classList.toggle('is-deleted', !!dead);
+      var q = num(row, '[name$="-quantity"]'), p = num(row, '[name$="-unit_price"]'), d = Math.min(Math.max(num(row, '[name$="-discount_percent"]'), 0), 100);
+      var g = q * p, off = Math.round(g * d) / 100;
+      row.querySelector('[data-amount]').textContent = money(g - off);
+      if (!dead) { gross += g; disc += off; }
+    });
+    var t = gross - disc;
+    form.querySelector('[data-t="gross"]').textContent = money(gross);
+    form.querySelector('[data-t="discount"]').textContent = '−' + money(disc);
+    form.querySelector('[data-t="total"]').textContent = money(t);
+    var v = form.querySelector('[data-t="vat"]'); if (v && vatOn) { v.textContent = money(Math.round(t * vatRate / (100 + vatRate) * 100) / 100); }
+  }
+  function wire(row) {
+    var sel = row.querySelector('[name$="-product"]');
+    if (sel) { sel.addEventListener('change', function () {
+      var p = products[sel.value]; if (!p) { return; }
+      var d = row.querySelector('[name$="-description"]'), pr = row.querySelector('[name$="-unit_price"]'), dt = row.querySelector('[name$="-detail"]');
+      if (d) { d.value = p.name; } if (pr) { pr.value = p.price; } if (dt && !dt.value) { dt.value = p.summary || ''; }
+      recalc();
+    }); }
+    var rm = row.querySelector('[data-remove]');
+    if (rm) { rm.addEventListener('click', function () { row.remove(); recalc(); }); }
+  }
+  function addLine() {
+    var i = parseInt(total.value, 10);
+    body.insertAdjacentHTML('beforeend', document.getElementById('lineTemplate').innerHTML.replace(/__prefix__/g, i));
+    total.value = i + 1;
+    var row = body.lastElementChild; var q = row.querySelector('[name$="-quantity"]'); if (q && !q.value) { q.value = 1; }
+    var dp = row.querySelector('[name$="-discount_percent"]'); if (dp && !dp.value) { dp.value = 0; }
+    wire(row); recalc();
+  }
+  body.querySelectorAll('[data-line]').forEach(wire);
+  form.addEventListener('input', recalc); form.addEventListener('change', recalc);
+  form.querySelector('[data-add-line]').addEventListener('click', addLine);
+  if (!body.querySelector('[data-line]')) { addLine(); }
+  recalc();
+})();
+</script>
+{% endblock %}

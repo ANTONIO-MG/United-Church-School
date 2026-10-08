@@ -1,0 +1,240 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/exam-guard.css' %}">{% endblock %}
+{% block content %}
+<div class="card mb-3">
+  <div class="card-body d-sm-flex justify-content-between align-items-center">
+    <div>
+      <h1 class="h5 mb-1"><i class="bi bi-tools text-primary me-2"></i>{{ assessment.title }}</h1>
+      <p class="mb-0 small text-muted">{{ assessment.module }} · {{ assessment.get_kind_display }} · total <strong id="total-marks">{{ assessment.total_marks }}</strong> marks (auto) · pass {{ assessment.pass_mark_pct }}%</p>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      {% comment %}Lifecycle. Only the moves the model actually allows from the
+      current state are offered (Assessment.available_transitions), so the
+      builder can't invite an action the server is going to refuse.{% endcomment %}
+      <span class="badge bg-{% if assessment.status == 'open' %}success{% elif assessment.status == 'review' %}warning{% else %}secondary{% endif %} bg-opacity-10 text-{% if assessment.status == 'open' %}success{% elif assessment.status == 'review' %}warning{% else %}secondary{% endif %}">
+        {{ assessment.get_status_display }}</span>
+      {% with moves=assessment.available_transitions %}
+      {% if moves %}
+      <div class="dropdown">
+        <button class="btn btn-sm btn-primary" data-bs-toggle="dropdown"><i class="bi bi-arrow-right-circle me-1"></i>Move to…</button>
+        <ul class="dropdown-menu">
+          {% for value, label in moves %}
+          <li>
+            <form method="post" action="{% url 'assessments:status-change' assessment.id %}" class="m-0">
+              {% csrf_token %}
+              <input type="hidden" name="status" value="{{ value }}">
+              <button class="dropdown-item" type="submit">{{ label }}</button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% endwith %}
+      <a href="/admin/assessments/assessment/{{ assessment.id }}/change/" class="btn btn-sm btn-outline-secondary">Settings</a>
+      {% if assessment.status == 'open' %}<a href="{% url 'assessments:take' assessment.id %}" class="btn btn-sm btn-outline-secondary">Preview</a>{% endif %}
+      <a href="{% url 'assessments:manage' %}" class="btn btn-sm btn-outline-secondary">Done</a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header"><h6 class="mb-0">Questions ({{ questions|length }})</h6></div>
+      <ul class="list-group list-group-flush">
+        {% for q in questions %}
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between">
+            <div>
+              <span class="badge bg-light text-dark me-1">{{ q.get_type_display }}</span>
+              <span class="badge bg-{% if q.marking_mode == 'manual' %}warning{% else %}success{% endif %}-soft me-1">
+                {% if q.marking_mode == 'manual' %}<i class="bi bi-person-check me-1"></i>Manual{% else %}<i class="bi bi-robot me-1"></i>Auto{% endif %}</span>
+              <span class="text-muted small">{{ q.marks }} mark{{ q.marks|pluralize }}</span>
+              <div class="mt-1">{{ forloop.counter }}. {{ q.text|truncatewords:24 }}</div>
+              {% if q.marking_mode == 'manual' and q.guidance %}<div class="small text-muted mt-1"><i class="bi bi-card-text me-1"></i>Rubric: {{ q.guidance|truncatewords:16 }}</div>{% endif %}
+            </div>
+            <div class="text-nowrap ms-2">
+              <a href="?edit={{ q.id }}" class="btn btn-sm btn-outline-secondary border-0"><i class="bi bi-pencil"></i></a>
+              <form method="post" action="{% url 'assessments:question-delete' q.id %}" class="d-inline" onsubmit="return confirm('Delete this question?')">
+                {% csrf_token %}<button class="btn btn-sm btn-outline-danger border-0"><i class="bi bi-trash"></i></button>
+              </form>
+            </div>
+          </div>
+        </li>
+        {% empty %}
+        <li class="list-group-item text-muted text-center py-4">No questions yet — add one on the right.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header d-flex align-items-center">
+        <h6 class="mb-0"><i class="bi bi-shield-check text-warning me-2"></i>Exam integrity</h6>
+        <span class="badge bg-{% if assessment.proctoring_enabled %}success{% else %}secondary{% endif %}-soft ms-auto">
+          {% if assessment.proctoring_enabled %}On{% else %}Off{% endif %}</span>
+      </div>
+      <form method="post" action="{% url 'assessments:proctoring-save' assessment.id %}">
+        {% csrf_token %}
+        <div class="card-body">
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" name="proctoring_enabled" id="pg-on"
+                   {% if assessment.proctoring_enabled %}checked{% endif %}>
+            <label class="form-check-label fw-semibold" for="pg-on">Watch for students leaving the window</label>
+            <div class="form-text small">Records switching tab, moving to another program, the pointer
+              leaving the page, and leaving fullscreen.</div>
+          </div>
+
+          <div id="pg-body" class="{% if not assessment.proctoring_enabled %}d-none{% endif %}">
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <label class="form-label small">Warnings allowed</label>
+                <input type="number" min="0" max="50" name="proctor_warn_limit" class="form-control form-control-sm"
+                       value="{{ assessment.proctor_warn_limit }}">
+                <div class="form-text small">0 = warn forever, never escalate.</div>
+              </div>
+              <div class="col-6">
+                <label class="form-label small">Pointer grace (seconds)</label>
+                <input type="number" min="1" max="60" name="proctor_grace_seconds" class="form-control form-control-sm"
+                       value="{{ assessment.proctor_grace_seconds }}">
+                <div class="form-text small">How long the pointer may sit outside before it counts.</div>
+              </div>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label small">When the limit is reached</label>
+              <select name="proctor_action" class="form-select form-select-sm">
+                {% for val, label in proctor_actions %}
+                <option value="{{ val }}" {% if assessment.proctor_action == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="proctor_block_copy" id="pg-copy"
+                     {% if assessment.proctor_block_copy %}checked{% endif %}>
+              <label class="form-check-label small" for="pg-copy">Block copy, paste, right-click and printing</label>
+            </div>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="proctor_blur_content" id="pg-blur"
+                     {% if assessment.proctor_blur_content %}checked{% endif %}>
+              <label class="form-check-label small" for="pg-blur">Hide the questions while the window is not focused</label>
+            </div>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="proctor_require_fullscreen" id="pg-fs"
+                     {% if assessment.proctor_require_fullscreen %}checked{% endif %}>
+              <label class="form-check-label small" for="pg-fs">Require fullscreen</label>
+            </div>
+
+            <div class="alert alert-light border small mt-2 mb-0">
+              <i class="bi bi-info-circle me-1"></i>This detects the student leaving <em>this browser
+              window</em>. It cannot see a second device or a phone, and honest interruptions raise
+              warnings too — so the report is evidence for a conversation, not proof on its own.
+              That is why <strong>flag for review</strong> is the safer default.
+            </div>
+          </div>
+        </div>
+        <div class="card-footer py-2">
+          <button class="btn btn-sm btn-primary"><i class="bi bi-save me-1"></i>Save integrity settings</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h6 class="mb-0">{% if editing %}Edit question{% else %}Add a question{% endif %}</h6></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'assessments:question-save' assessment.id %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          {% if editing %}<input type="hidden" name="question_id" value="{{ editing.id }}">{% endif %}
+
+          <div class="mb-2">
+            <label class="form-label small">Type</label>
+            <select name="type" class="form-select" id="q-type">
+              {% for value, label in question_types %}<option value="{{ value }}" {% if editing.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Question text</label>
+            <textarea name="text" rows="2" class="form-control" required>{{ editing.text }}</textarea>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Marks</label>
+            <input type="number" step="0.5" min="0" name="marks" class="form-control" value="{{ editing.marks|default:1 }}">
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label small d-block">Marking</label>
+            <div class="btn-group w-100" role="group">
+              <input type="radio" class="btn-check" name="marking_mode" id="mm-auto" value="auto" {% if not editing or editing.marking_mode == 'auto' %}checked{% endif %}>
+              <label class="btn btn-outline-success btn-sm" for="mm-auto"><i class="bi bi-robot me-1"></i>Auto (build a key)</label>
+              <input type="radio" class="btn-check" name="marking_mode" id="mm-manual" value="manual" {% if editing.marking_mode == 'manual' %}checked{% endif %}>
+              <label class="btn btn-outline-warning btn-sm" for="mm-manual"><i class="bi bi-person-check me-1"></i>Manual (I grade it)</label>
+            </div>
+            <div class="form-text">Not flagged manual → the per-question builder auto-marks it.</div>
+          </div>
+
+          <div class="mb-2 q-field d-none" id="f-choices">
+            <label class="form-label small">Options — one per line, prefix the correct one(s) with <code>*</code></label>
+            <textarea name="choices" rows="4" class="form-control" placeholder="*Correct option&#10;Wrong option&#10;Another wrong option">{{ editing_ctx.choices_text }}</textarea>
+          </div>
+
+          <div class="mb-2 q-field d-none" id="f-tf">
+            <label class="form-label small">Correct answer</label>
+            <select name="tf_answer" class="form-select">
+              <option value="true" {% if editing_ctx.tf_answer == 'true' %}selected{% endif %}>True</option>
+              <option value="false" {% if editing_ctx.tf_answer == 'false' %}selected{% endif %}>False</option>
+            </select>
+          </div>
+
+          <div class="mb-2 q-field d-none" id="f-accepted">
+            <label class="form-label small">Accepted answers — one per line</label>
+            <textarea name="accepted" rows="3" class="form-control" placeholder="Paris&#10;paris, france">{{ editing_ctx.accepted }}</textarea>
+          </div>
+
+          <div class="mb-2 q-field d-none" id="f-guidance">
+            <label class="form-label small">Marking rubric / model answer <span class="text-muted">(shown to you while grading)</span></label>
+            <textarea name="guidance" rows="3" class="form-control" placeholder="What earns full marks; key points to look for…">{{ editing.guidance }}</textarea>
+          </div>
+
+          <div class="mb-3 q-field d-none" id="f-media">
+            <label class="form-label small">Media <span class="text-muted">(optional)</span></label>
+            <input type="file" name="media" class="form-control form-control-sm">
+          </div>
+
+          <button class="btn btn-primary w-100"><i class="bi bi-check2 me-1"></i>{% if editing %}Update{% else %}Add{% endif %} question</button>
+          {% if editing %}<a href="{% url 'assessments:builder' assessment.id %}" class="btn btn-link w-100 btn-sm mt-1">Cancel edit</a>{% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var typeSel = document.getElementById('q-type');
+  function isManual() { return document.getElementById('mm-manual').checked; }
+  function show(id, on) { document.getElementById(id).classList.toggle('d-none', !on); }
+  function sync() {
+    var t = typeSel.value, manual = isManual();
+    show('f-choices', t === 'mcq' || t === 'multi');
+    show('f-tf', t === 'tf');
+    show('f-accepted', (t === 'fill' || t === 'short') && !manual);
+    show('f-guidance', manual);
+    show('f-media', true);
+  }
+  typeSel.addEventListener('change', sync);
+  document.getElementById('mm-auto').addEventListener('change', sync);
+  document.getElementById('mm-manual').addEventListener('change', sync);
+  sync();
+
+  // Reveal the integrity options only when monitoring is switched on.
+  var pgOn = document.getElementById('pg-on'), pgBody = document.getElementById('pg-body');
+  if (pgOn && pgBody) pgOn.addEventListener('change', function () {
+    pgBody.classList.toggle('d-none', !pgOn.checked);
+  });
+})();
+</script>
+{% endblock %}

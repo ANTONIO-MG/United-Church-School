@@ -1,0 +1,12 @@
+{% extends 'communication/email/base_email.html' %}
+{% comment %}Educator invite. Context: invite, accept_url, student, course.{% endcomment %}
+{% block heading %}You've been invited to teach{% endblock %}
+{% block content %}
+  <p style="margin:0 0 14px">Hello,</p>
+  <p style="margin:0 0 14px">
+    You've been invited to teach {% if course %}<strong>{{ course.title }}</strong>{% else %}a course{% endif %}
+    on {{ brand.name|default:"our platform" }}.
+  </p>
+  <p style="margin:0 0 14px">Click the button below to create your educator account and confirm the course.</p>
+{% endblock %}
+{% block cta %}{% include 'communication/email/_button.html' with url=accept_url label="ACCEPT INVITE" %}{% endblock %}

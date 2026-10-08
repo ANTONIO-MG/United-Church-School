@@ -1,0 +1,32 @@
+{% comment %}
+Reusable Bootstrap form renderer for the MyHub CRUD pages.
+Usage:  {% include 'myhub/elements/_form.html' with form=form cancel_url='myhub:all-students' submit_label='Save' %}
+{% endcomment %}
+<form method="post" action="" enctype="multipart/form-data" novalidate class="app-form">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <div class="row">
+        {% for field in form %}
+        <div class="{% if field.field.widget.input_type == 'hidden' %}d-none{% elif field.name == 'description' or field.name == 'address' or field.name == 'body' or field.name == 'note' %}col-12{% else %}col-md-6{% endif %}">
+            {% if field.field.widget.input_type == 'hidden' %}
+                {{ field }}
+            {% else %}
+            <div class="form-group mb-3">
+                <label class="form-label" for="{{ field.id_for_label }}">
+                    {{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}
+                </label>
+                {{ field }}
+                {% if field.help_text %}<small class="form-text text-muted d-block">{{ field.help_text }}</small>{% endif %}
+                {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <div class="mt-2">
+        <button type="submit" class="btn btn-primary">{{ submit_label|default:"Submit" }}</button>
+        {% if cancel_url %}<a href="{% url cancel_url %}" class="btn btn-danger light">Cancel</a>{% endif %}
+    </div>
+</form>

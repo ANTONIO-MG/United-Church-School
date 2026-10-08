@@ -1,0 +1,48 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Module weightings: how each offering's 100% is split, and its pass mark.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk · Academic</span><h3>Subject weightings</h3>
+      <p>How each subject's final mark is split across assignments, quizzes, tests, exams and study tasks.</p></div>
+  </div>
+
+  {% include 'staffdesk/academic/_grades_nav.html' with here='weightings' %}
+
+  <form method="get" class="tc-toolbar">
+    <label class="visually-hidden" for="wProgramme">Grade</label>
+    <select id="wProgramme" name="programme" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">All grades</option>
+      {% for p in programmes %}<option value="{{ p.pk }}" {% if p.pk == programme_id %}selected{% endif %}>{{ p.full_code }}</option>{% endfor %}
+    </select>
+    <noscript><button class="btn btn-sm btn-primary">Filter</button></noscript>
+  </form>
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>Subject</th><th class="r">Assign.</th><th class="r">Quizzes</th><th class="r">Tests</th><th class="r">Exams</th><th class="r">Tasks</th><th class="r">Pass</th><th class="r d-none d-md-table-cell">Grades</th><th></th></tr></thead>
+      <tbody>
+      {% for m in page %}
+        {% with w=m.weighting %}
+        <tr>
+          <td><span class="fw-semibold">{{ m.reference }}</span><div class="small text-muted">{{ m.name|default:m.module }}</div></td>
+          {% if w %}
+            <td class="r">{{ w.assignments_pct }}%</td><td class="r">{{ w.quizzes_pct }}%</td><td class="r">{{ w.tests_pct }}%</td>
+            <td class="r">{{ w.exams_pct }}%</td><td class="r">{{ w.tasks_pct }}%</td><td class="r fw-semibold">{{ w.pass_mark_pct }}%</td>
+          {% else %}
+            <td colspan="6" class="small text-muted">Default — 20 / 10 / 20 / 40 / 10, pass 50%</td>
+          {% endif %}
+          <td class="r d-none d-md-table-cell"><a href="{% url 'staffdesk:grades' %}?module={{ m.pk }}">{{ m.n_grades }}</a></td>
+          <td class="r"><a class="btn btn-sm tc-btn-soft" href="{% url 'staffdesk:weighting-edit' m.pk %}">{% if w %}Edit{% else %}Set{% endif %}</a></td>
+        </tr>
+        {% endwith %}
+      {% empty %}
+        <tr><td colspan="9"><div class="tc-empty"><i class="bi bi-sliders"></i><h5>No active subjects</h5></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% include 'staffdesk/academic/_pager.html' %}
+</div></div>
+{% endblock %}

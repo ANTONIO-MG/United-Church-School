@@ -1,0 +1,110 @@
+{% load people static org_branding %}{% org_string "school.registration" "" as school_registration %}{% org_string "school.memberships" "" as school_memberships %}{% comment %}Proof of payment, rendered to PDF and attached to the registration
+summary e-mail when the student paid by card (PayFast). Same layout language as
+invoice_pdf.html so the two read as one set of documents.
+
+Context: invoice, items, payments, brand.{% endcomment %}
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 1.6cm; }
+  body { font-family: Helvetica, Arial, sans-serif; color: #333; font-size: 11px; }
+  h1 { font-size: 20px; margin: 0; color: #17c1e8; }
+  .muted { color: #8392ab; }
+  .right { text-align: right; }
+  table { width: 100%; border-collapse: collapse; }
+  .items th { background: #f4f6fb; border-bottom: 2px solid #d9dee9; padding: 7px 8px; text-align: left; font-size: 10px; text-transform: uppercase; color: #67748e; }
+  .items td { padding: 7px 8px; border-bottom: 1px solid #eef1f6; }
+  .totals td { padding: 5px 8px; }
+  .totals .grand { font-size: 13px; font-weight: bold; border-top: 2px solid #d9dee9; }
+  .badge { padding: 3px 9px; border-radius: 8px; font-size: 10px; font-weight: bold; }
+  .stamp { margin-top: 16px; padding: 10px 12px; border: 1px solid #b7ebd3; background: #e6f9f0;
+           border-radius: 8px; color: #1aae6f; font-weight: bold; font-size: 12px; }
+</style>
+</head>
+<body>
+  <table>
+    <tr>
+      <td><img src="{% static brand.logo_wide|default:'images/brand/ucs-logo.png' %}" style="width:200px; height:60px;" alt=""><h1>{{ brand.invoice_name|default:brand.name|default:"United Church Schools" }}</h1>
+        <div class="muted">{{ brand.website|default:"" }}</div></td>
+      <td class="right">
+        <div style="font-size:16px; font-weight:bold;">PROOF OF PAYMENT</div>
+        <div class="muted">Invoice {{ invoice.number }}</div>
+        <div class="muted">{{ invoice.issue_date|date:"d M Y" }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <table style="margin-top:14px;">
+    <tr>
+      <td><strong>Received from</strong><br>
+        {{ invoice.customer|person_name }}</td>
+      <td class="right"><strong>Status</strong><br>
+        <span class="badge" style="background:#e6f9f0; color:#1aae6f;">{{ invoice.get_status_display|upper }}</span></td>
+    </tr>
+  </table>
+
+  <div class="stamp">
+    PAID IN FULL — R {{ invoice.amount_paid|floatformat:2 }} received. Nothing further is owed on this invoice.
+  </div>
+
+  <table class="items" style="margin-top:18px;">
+    <thead>
+      <tr><th>What was paid for</th><th class="right">Qty</th><th class="right">Unit</th><th class="right">Amount</th></tr>
+    </thead>
+    <tbody>
+      {% for it in items %}
+      <tr>
+        <td>{{ it.description }}{% if it.detail %}<br><span class="muted">{{ it.detail }}</span>{% endif %}</td>
+        <td class="right">{{ it.quantity }}</td>
+        <td class="right">R {{ it.unit_price|floatformat:2 }}</td>
+        <td class="right">R {{ it.amount|floatformat:2 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="muted">No items.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if payments %}
+  <table class="items" style="margin-top:18px;">
+    <thead>
+      <tr><th>Payment</th><th>Method</th><th>Reference</th><th class="right">Amount</th></tr>
+    </thead>
+    <tbody>
+      {% for p in payments %}
+      <tr>
+        <td>{{ p.created_at|date:"d M Y H:i" }}</td>
+        <td>{{ p.get_gateway_display|default:p.method }}</td>
+        <td class="muted">{{ p.gateway_ref|default:p.reference|default:"—" }}</td>
+        <td class="right">R {{ p.amount|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <table class="totals" style="margin-top:10px;">
+    {% if invoice.discount_total %}
+    <tr><td class="right" style="width:80%;">Subtotal</td><td class="right">R {{ gross_subtotal|floatformat:2 }}</td></tr>
+    <tr><td class="right">Discount</td><td class="right">−R {{ invoice.discount_total|floatformat:2 }}</td></tr>
+    {% endif %}
+    <tr><td class="right" style="width:80%;">Total</td><td class="right">R {{ invoice.total|floatformat:2 }}</td></tr>
+    {% if invoice.is_tax_invoice %}
+    <tr><td class="right muted">{% if invoice.tax_inclusive %}Includes VAT{% else %}VAT{% endif %} {{ invoice.tax_rate|floatformat:"-2" }}%{% if vat_number %} · VAT No. {{ vat_number }}{% endif %}</td><td class="right muted">R {{ invoice.tax_amount|floatformat:2 }}</td></tr>
+    {% elif invoice.tax_amount %}<tr><td class="right">Tax</td><td class="right">R {{ invoice.tax_amount|floatformat:2 }}</td></tr>{% endif %}
+    <tr class="grand"><td class="right">Total paid</td><td class="right">R {{ invoice.amount_paid|floatformat:2 }}</td></tr>
+  </table>
+
+  <p class="muted" style="margin-top:28px; font-size:10px;">
+    Keep this document as your proof of payment. Generated automatically by
+    {{ brand.invoice_name|default:brand.name|default:"us" }}; no signature is required.
+  </p>
+  <p class="muted" style="margin-top:14px; font-size:9px; text-align:center;">
+    {{ brand.legal_name|default:brand.invoice_name|default:brand.name }}
+    {% if school_registration %}<br>{{ school_registration }}{% endif %}
+    {% if school_memberships %}<br>{{ school_memberships }}{% endif %}
+  </p>
+</body>
+</html>

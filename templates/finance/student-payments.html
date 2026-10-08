@@ -1,0 +1,101 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}One student's money: where their access stands, every proof of payment on
+record (uploaded by staff or captured automatically from the gateway), and their
+invoices. Staff reach it from the grant-access page; a student reaches their own from
+their profile.{% endcomment %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h4 class="mb-0">{{ person }}</h4>
+      <p class="text-sm text-muted mb-0">{{ person.user.email }}</p>
+    </div>
+    {% if can_manage %}
+    <a href="{% url 'finance:grant-access' %}" class="btn bg-gradient-info mb-0">
+      <i class="bi bi-unlock me-1"></i>Record payment &amp; grant access</a>
+    {% endif %}
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-body py-3">
+      {% if state.status == 'active' %}
+        <span class="badge bg-gradient-success">Paid up</span>
+        <span class="text-sm ms-2">{{ state.modules }} subject{{ state.modules|pluralize }} open{% if state.until %},
+          paid to {{ state.until|date:"j F Y" }} ({{ state.days_left }} day{{ state.days_left|pluralize }} left){% endif %}.</span>
+      {% elif state.status == 'trial' %}
+        <span class="badge bg-gradient-warning">Free week</span>
+        <span class="text-sm ms-2">Trial{% if state.until %} ends {{ state.until|date:"j F Y" }} —
+          {{ state.days_left }} day{{ state.days_left|pluralize }} left{% endif %}. Everything is open until then.</span>
+      {% elif state.status == 'locked' %}
+        <span class="badge bg-gradient-danger">Locked</span>
+        <span class="text-sm ms-2">{{ state.locked_modules }} subject{{ state.locked_modules|pluralize }} closed.
+          They can sign in, but lessons, assessments and chats are shut until a payment is recorded.</span>
+      {% else %}
+        <span class="badge bg-gradient-secondary">No subjects</span>
+        <span class="text-sm ms-2">This student has not registered for any subjects yet.</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-header pb-0"><h6 class="mb-0">Payment history</h6>
+          <p class="text-xs text-muted mb-0">Everything on record — paid online, by EFT, or in the room.</p></div>
+        <div class="card-body pt-3">
+          {% for proof in proofs %}
+          <div class="d-flex justify-content-between align-items-start border-bottom pb-3 mb-3">
+            <div>
+              <p class="text-sm fw-bold mb-0">R{{ proof.amount|floatformat:2 }}
+                <span class="badge bg-gradient-{% if proof.source == 'gateway' %}success{% elif proof.source == 'upload' %}info{% else %}secondary{% endif %} ms-1">{{ proof.get_source_display }}</span>
+              </p>
+              <p class="text-xs text-muted mb-1">
+                {% if proof.paid_on %}{{ proof.paid_on|date:"j F Y" }}{% endif %}
+                {% if proof.reference %} · ref {{ proof.reference }}{% endif %}
+                {% if proof.granted_months %} · {{ proof.granted_months }} month{{ proof.granted_months|pluralize }} of access{% endif %}
+              </p>
+              {% if proof.note %}<p class="text-xs mb-1">{{ proof.note }}</p>{% endif %}
+              {% if proof.recorded_by %}<p class="text-xs text-muted mb-0">Recorded by {{ proof.recorded_by|person_name }}</p>{% endif %}
+            </div>
+            <div class="text-end">
+              {% if proof.document %}
+              <a href="{% url 'finance:proof-document' proof.pk %}" target="_blank"
+                 class="btn btn-sm btn-outline-secondary mb-0">
+                <i class="bi bi-{% if proof.is_pdf %}file-earmark-pdf{% else %}image{% endif %} me-1"></i>Proof</a>
+              {% endif %}
+              {% if proof.invoice %}
+              <a href="{% url 'finance:invoice-detail' proof.invoice.pk %}"
+                 class="btn btn-sm btn-link mb-0 px-1">{{ proof.invoice.number }}</a>
+              {% endif %}
+            </div>
+          </div>
+          {% empty %}
+          <p class="text-sm text-muted mb-0">Nothing recorded yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card h-100">
+        <div class="card-header pb-0"><h6 class="mb-0">Invoices</h6></div>
+        <div class="card-body pt-3">
+          {% for invoice in invoices %}
+          <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+            <div>
+              <a href="{% url 'finance:invoice-detail' invoice.pk %}" class="text-sm fw-bold text-dark">{{ invoice.number }}</a>
+              <p class="text-xs text-muted mb-0">{{ invoice.created_at|date:"j M Y" }} · R{{ invoice.total|floatformat:2 }}</p>
+            </div>
+            <span class="badge bg-gradient-{% if invoice.status == 'paid' %}success{% elif invoice.status == 'overdue' %}danger{% else %}warning{% endif %}">{{ invoice.get_status_display }}</span>
+          </div>
+          {% empty %}
+          <p class="text-sm text-muted mb-0">No invoices yet.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

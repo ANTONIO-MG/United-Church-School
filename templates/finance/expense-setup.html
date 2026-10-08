@@ -1,0 +1,33 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static commerce %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head"><div><a class="small" href="{% url 'finance:expenses' %}"><i class="bi bi-arrow-left me-1"></i>Expenses</a><h3 class="mt-1">Vendors &amp; categories</h3></div></div>
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="tc-card"><div class="tc-card__head"><h5>Expense categories</h5></div>
+        <div class="tc-table-wrap"><table class="tc-table"><thead><tr><th>Category</th><th>Group</th><th class="r">Spent</th></tr></thead><tbody>
+          {% for c in categories %}<tr class="{% if not c.is_active %}text-muted{% endif %}"><td>{{ c.name }}{% if c.code %} <span class="small text-muted">{{ c.code }}</span>{% endif %}</td><td class="small">{{ c.get_group_display }}</td><td class="r">{{ c.spent|default:0|rand }}</td></tr>{% endfor %}
+        </tbody></table></div>
+        <form method="post" class="tc-card__body border-top">{% csrf_token %}<input type="hidden" name="which" value="category">
+          <div class="row g-2 align-items-end"><div class="col-6">{% include 'shop/_field.html' with field=category_form.name %}</div><div class="col-3">{% include 'shop/_field.html' with field=category_form.code %}</div>
+            <div class="col-3">{% include 'shop/_field.html' with field=category_form.group %}</div></div>
+          <input type="hidden" name="c-is_active" value="on"><button class="btn btn-sm btn-primary mt-2">Add category</button></form>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="tc-card"><div class="tc-card__head"><h5>Vendors</h5></div>
+        <div class="tc-table-wrap"><table class="tc-table"><thead><tr><th>Vendor</th><th>Contact</th><th class="r">Spent</th></tr></thead><tbody>
+          {% for v in vendors %}<tr><td>{{ v.name }}{% if v.vat_number %}<div class="small text-muted">VAT {{ v.vat_number }}</div>{% endif %}</td><td class="small">{{ v.email }}{% if v.phone %}<br>{{ v.phone }}{% endif %}</td><td class="r">{{ v.spent|default:0|rand }}</td></tr>
+          {% empty %}<tr><td colspan="3" class="text-muted">No vendors yet — add one here or while recording an expense.</td></tr>{% endfor %}
+        </tbody></table></div>
+        <form method="post" class="tc-card__body border-top">{% csrf_token %}<input type="hidden" name="which" value="vendor">
+          <div class="row g-2"><div class="col-md-6">{% include 'shop/_field.html' with field=vendor_form.name %}</div><div class="col-md-6">{% include 'shop/_field.html' with field=vendor_form.email %}</div>
+            <div class="col-md-6">{% include 'shop/_field.html' with field=vendor_form.phone %}</div><div class="col-md-6">{% include 'shop/_field.html' with field=vendor_form.vat_number %}</div></div>
+          <input type="hidden" name="v-is_active" value="on"><button class="btn btn-sm btn-primary mt-2">Add vendor</button></form>
+      </div>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

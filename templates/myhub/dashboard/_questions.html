@@ -1,0 +1,42 @@
+{% comment %}Open questions — discussion threads in your modules with no accepted
+answer yet, plus your own accepted-answer count (the "answer streak").{% endcomment %}
+
+<div class="dash-card h-100">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--info"><i class="bi bi-question-circle"></i></span>
+    <h6>Open questions</h6>
+    {% if questions.answers_given %}
+      <span class="dash-chip dash-chip--success" title="Replies of yours accepted as the answer">
+        <i class="bi bi-check2-circle"></i> {{ questions.answers_given }} answered
+      </span>
+    {% endif %}
+    <a class="dash-link" href="{% url 'communication:discussions' %}">All</a>
+  </div>
+
+  <div class="dash-card__body dash-card__body--flush pt-1">
+    {% for thread in questions.threads %}
+    <a class="dash-row" href="{{ thread.url }}">
+      <span class="dash-row__initials dash-glyph--{% if thread.is_mine %}primary{% else %}secondary{% endif %}">
+        <i class="bi bi-{% if thread.is_mine %}person-raised-hand{% else %}chat-quote{% endif %}"></i>
+      </span>
+      <div class="dash-row__main">
+        <p class="dash-row__name">{{ thread.discussion.title }}</p>
+        <p class="dash-row__text">
+          {% if thread.is_mine %}Yours · {% endif %}{{ thread.scope }} ·
+          {{ thread.replies }} repl{{ thread.replies|pluralize:"y,ies" }} ·
+          {% if thread.age_days == 0 %}today{% else %}{{ thread.age_days }}d old{% endif %}
+        </p>
+      </div>
+      <span class="dash-chip dash-chip--{% if thread.is_mine %}warning{% else %}info{% endif %}">
+        {% if thread.is_mine %}Unanswered{% else %}Help{% endif %}
+      </span>
+    </a>
+    {% empty %}
+    <div class="dash-empty">
+      <i class="bi bi-patch-question"></i>
+      No open questions in your subjects.
+      <div class="mt-2"><a class="dash-link" href="{% url 'communication:discussion-create' %}">Ask one</a></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

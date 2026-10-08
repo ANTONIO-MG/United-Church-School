@@ -1,0 +1,125 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static %}
+{% comment %}
+One notification, read in full. Laid out as a reading page — a single measured
+column, a standfirst, a byline and a reading-progress bar — because the system
+sends long-form notifications (welcome guides, digests) that deserve to be read
+rather than skimmed in a toast.
+
+A body saved with ``body_format='html'`` is system-authored and rendered as
+markup; anything a user typed stays ``text`` and is escaped.
+{% endcomment %}
+
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/notification-read.css' %}?v=2">
+{% if notification.announcement %}<link rel="stylesheet" href="{% static 'css/broadcast.css' %}?v=1">{% endif %}{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+
+  <div class="nr-wrap">
+    <div class="nr-progress"><i id="nrBar"></i></div>
+
+    <article id="nrArticle">
+      <div class="nr-kicker">
+        <a href="{% url 'communication:notifications' %}" class="text-reset text-decoration-none">
+          <i class="bi bi-arrow-left me-1"></i>Notifications</a>
+        <span class="nr-dot">·</span>
+        <span class="nr-chip"><i class="bi bi-{{ notification.icon }}"></i>{{ notification.category_label }}</span>
+        {% if not notification.is_read %}<span class="nr-chip nr-chip--unread">New</span>{% endif %}
+      </div>
+
+      <h1 class="nr-title">{{ notification.title|default:notification.verb|default:"Notification" }}</h1>
+
+      {% if notification.summary %}
+        <p class="nr-standfirst">{{ notification.summary }}</p>
+      {% elif notification.verb and notification.title %}
+        <p class="nr-standfirst">{{ notification.actor_name }} {{ notification.verb }}.</p>
+      {% endif %}
+
+      <div class="nr-byline">
+        {% if notification.actor_avatar %}
+          <img class="nr-ava" src="{{ notification.actor_avatar }}" alt="">
+        {% else %}
+          <span class="nr-ava">{{ notification.actor_initial }}</span>
+        {% endif %}
+        <span>
+          {% if notification.actor.profile %}
+            <a href="{% url 'accounts:profile' notification.actor.profile.pk %}" class="nr-who text-reset">{{ notification.actor_name }}</a>
+          {% else %}
+            <span class="nr-who">{{ notification.actor_name }}</span>
+          {% endif %}
+          <span class="nr-dot">·</span>{{ notification.created_at|date:"j M Y" }}
+        </span>
+        <span class="nr-right">
+          <span><i class="bi bi-clock me-1"></i>{{ notification.reading_minutes }} min read</span>
+        </span>
+      </div>
+
+      <div class="nr-body">
+        {% if notification.body %}
+          {% if notification.is_html %}{{ notification.body|safe }}{% elif notification.announcement %}{{ notification.body|urlize|linebreaks }}{% else %}{{ notification.body|linebreaks }}{% endif %}
+        {% else %}
+          <p class="text-muted"><em>No additional details were included with this notification.</em></p>
+        {% endif %}
+
+        {% if notification.announcement %}
+          {% include 'communication/_broadcast_media.html' with a=notification.announcement %}
+        {% elif notification.meeting %}
+        <div class="nr-context">
+          <div class="nr-context__head"><i class="bi bi-camera-video"></i>Live session</div>
+          <p class="nr-context__title">{{ notification.meeting.title }}</p>
+          {% if notification.meeting.scheduled_start %}
+          <p class="small text-muted mb-0"><i class="bi bi-calendar-event me-1"></i>{{ notification.meeting.scheduled_start|date:"D, j M Y · H:i" }}</p>
+          {% endif %}
+          {% if notification.meeting.description %}<p class="mt-2">{{ notification.meeting.description|truncatewords:40 }}</p>{% endif %}
+        </div>
+        {% elif notification.message %}
+        <div class="nr-context">
+          <div class="nr-context__head"><i class="bi bi-chat-left-text"></i>Message</div>
+          <p class="nr-context__title">{% if notification.message.sender %}{{ notification.message.sender|person_name }}{% else %}Someone{% endif %}{% if notification.message.group %} in {{ notification.message.group.display_name }}{% endif %}</p>
+          {% if notification.message.body %}<p>“{{ notification.message.body|truncatewords:40 }}”</p>{% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      {% comment %}Facts + actions in one white card. Only Priority and Received
+      are kept (Type/Status were redundant with the kicker chip and the New badge).
+      Opening the page already marks it read, so the useful actions are putting it
+      back in the unread pile or starring it — and there is no "open" button because
+      you are already reading the notification in full.{% endcomment %}
+      <div class="nr-meta d-flex align-items-center flex-nowrap gap-3">
+        <div class="nr-meta__facts d-flex align-items-center gap-4 flex-shrink-0">
+          <div><span>Priority</span><strong class="text-{{ notification.color }}">{{ notification.get_level_display }}</strong></div>
+          <div><span>Received</span><strong>{{ notification.created_at|date:"j M Y · H:i" }}</strong></div>
+        </div>
+        <form method="post" class="nr-meta__actions d-flex align-items-center gap-2 ms-auto flex-shrink-0 mb-0">
+          {% csrf_token %}
+          <a href="{% url 'communication:notifications' %}" class="btn btn-sm btn-light mb-0">
+            <i class="bi bi-arrow-left me-1"></i>All notifications</a>
+          <button name="action" value="toggle_favourite"
+                  class="btn btn-sm mb-0 {% if notification.is_favourite %}btn-warning{% else %}btn-outline-warning{% endif %}">
+            <i class="bi bi-star{% if notification.is_favourite %}-fill{% endif %} me-1"></i>
+            {% if notification.is_favourite %}In favourites{% else %}Favourite{% endif %}</button>
+          <button name="action" value="mark_unread" class="btn btn-sm btn-outline-secondary mb-0">
+            <i class="bi bi-envelope me-1"></i>Mark as unread</button>
+        </form>
+      </div>
+    </article>
+  </div>
+</div></div>
+
+<script>
+(function () {
+  var bar = document.getElementById('nrBar'), article = document.getElementById('nrArticle');
+  if (!bar || !article) return;
+  function onScroll() {
+    var rect = article.getBoundingClientRect();
+    var total = article.scrollHeight - window.innerHeight;
+    var seen = Math.min(1, Math.max(0, (-rect.top) / (total || 1)));
+    bar.style.width = (seen * 100) + '%';
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Staff screen: scan the YouTube channel and map each playlist to a
+module + cohort and the places its videos appear. Mappings are never touched by a
+scan — only the raw playlist/video metadata is refreshed.{% endcomment %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+      <h4 class="mb-0">YouTube recordings</h4>
+      <p class="text-sm text-muted mb-0">Link existing playlists to a subject &amp; class — their videos
+        then appear as past sessions, on My Grade, the Schedule, or in a lesson.</p>
+    </div>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="scan">
+      <button class="btn bg-gradient-info mb-0"{% if not can_scan %} disabled title="Set the YouTube credentials in .env first"{% endif %}>
+        <i class="bi bi-arrow-repeat me-1"></i>Scan channel now</button>
+    </form>
+  </div>
+
+  {% if not can_scan %}
+  <div class="alert alert-warning">
+    <strong>YouTube reading isn't configured.</strong> Set <code>YOUTUBE_CLIENT_ID/SECRET/REFRESH_TOKEN</code>
+    (with the <code>youtube.readonly</code> scope, for unlisted videos) or <code>YOUTUBE_API_KEY</code>, plus
+    <code>YOUTUBE_CHANNEL_ID</code>, in <code>.env</code>, then reload.
+  </div>
+  {% endif %}
+
+  {% if playlists %}
+  <p class="text-sm text-muted">{{ playlists|length }} playlist(s){% if unmapped %} · <span class="text-danger">{{ unmapped }} still unmapped</span>{% endif %}</p>
+  {% endif %}
+
+  <div class="vstack gap-3">
+    {% for pl in playlists %}
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex gap-3 flex-wrap">
+          {% if pl.thumbnail_url %}<img src="{{ pl.thumbnail_url }}" alt="" style="width:120px;height:68px;object-fit:cover;border-radius:.5rem">{% endif %}
+          <div class="flex-grow-1 min-w-0">
+            <h6 class="mb-0">{{ pl.title|default:pl.youtube_id }}
+              {% if pl.is_mapped %}<span class="badge bg-gradient-success ms-1">Mapped</span>
+              {% else %}<span class="badge bg-gradient-secondary ms-1">Unmapped</span>{% endif %}</h6>
+            <div class="text-xs text-muted">{{ pl.videos.count }} video(s) · <a href="{{ pl.url }}" target="_blank" rel="noopener">open on YouTube</a></div>
+
+            <form method="post" class="row g-2 mt-1 align-items-end">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="map">
+              <input type="hidden" name="playlist" value="{{ pl.pk }}">
+              <div class="col-md-5">
+                <label class="form-label text-xs mb-1">Subject (offering)</label>
+                <select name="programme_module" class="form-select form-select-sm">
+                  <option value="">— not mapped —</option>
+                  {% for m in modules %}
+                  <option value="{{ m.pk }}" {% if pl.programme_module_id == m.pk %}selected{% endif %}>
+                    {{ m.programme.institution.code }} · {{ m.programme.display_name }} · {{ m.code }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label text-xs mb-1">Class / year group</label>
+                <select name="cohort" class="form-select form-select-sm">
+                  <option value="">— any / none —</option>
+                  {% for c in cohorts %}
+                  <option value="{{ c.pk }}" {% if pl.cohort_id == c.pk %}selected{% endif %}>
+                    {{ c.programme.display_name }} · {{ c.code }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label text-xs mb-1">Show as</label>
+                <div class="d-flex flex-wrap gap-2">
+                  <div class="form-check m-0"><input class="form-check-input" type="checkbox" name="show_past_sessions" id="ps{{ pl.pk }}" {% if pl.show_past_sessions %}checked{% endif %}><label class="form-check-label text-xs" for="ps{{ pl.pk }}">Past sessions</label></div>
+                  <div class="form-check m-0"><input class="form-check-input" type="checkbox" name="show_my_programme" id="mp{{ pl.pk }}" {% if pl.show_my_programme %}checked{% endif %}><label class="form-check-label text-xs" for="mp{{ pl.pk }}">My Grade</label></div>
+                  <div class="form-check m-0"><input class="form-check-input" type="checkbox" name="show_schedule" id="sc{{ pl.pk }}" {% if pl.show_schedule %}checked{% endif %}><label class="form-check-label text-xs" for="sc{{ pl.pk }}">Schedule</label></div>
+                  <div class="form-check m-0"><input class="form-check-input" type="checkbox" name="is_active" id="ac{{ pl.pk }}" {% if pl.is_active %}checked{% endif %}><label class="form-check-label text-xs" for="ac{{ pl.pk }}">Active</label></div>
+                </div>
+              </div>
+              <div class="col-12">
+                <button class="btn btn-sm btn-outline-info mb-0"><i class="bi bi-check2 me-1"></i>Save mapping</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="card"><div class="card-body text-center text-muted py-5">
+      <i class="bi bi-youtube" style="font-size:2rem"></i>
+      <p class="mb-0 mt-2">No playlists imported yet. Click <strong>Scan channel now</strong> once your YouTube credentials are set.</p>
+    </div></div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

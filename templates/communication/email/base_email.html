@@ -1,0 +1,97 @@
+{% load org_branding %}{% org_brand as brand %}<!DOCTYPE html>
+{% comment %}
+Branded HTML e-mail layout — the ONE design every outbound e-mail uses
+(notifications, reminders, announcements, and the allauth password-reset /
+verification e-mails). Adapted from the card-style template the client supplied;
+all the text is dynamic so each e-mail type just fills in the blocks.
+
+Brand text (name, logo, phone, support address, links) comes from the central
+string catalog via the org_brand tag, so it renders correctly even when allauth
+sends an e-mail with no request in context. No {% templatetag openblock %} url {% templatetag closeblock %} tags here on purpose —
+this template must never fail to render, whoever calls it.
+
+Children provide:
+  • email_heading  — big title            (context var, or override block "heading")
+  • block "content" — the body paragraphs
+  • cta_url / cta_label  — the button      (or override block "cta")
+  • block "disclaimer"  — small print under the body (e.g. "didn't request this?")
+  • block "expiry_note" — grey small-print note (e.g. link-expiry line)
+  • preheader      — hidden inbox-preview text (context var, or override block "preheader")
+
+Layout: the card carries everything the reader acts on — heading, body, button,
+then the help line + contact details with the logo alongside them. Below the
+card there is only the social row; there is deliberately no bottom strip image
+(it rendered as a bare white bar) and no phone/link repeated down there.
+{% endcomment %}
+<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en"><head><title>{{ subject|default:brand.name }}</title><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch><o:AllowPNG/></o:OfficeDocumentSettings></xml><![endif]--><style>
+*{box-sizing:border-box}body{margin:0;padding:0}a[x-apple-data-detectors]{color:inherit!important;text-decoration:inherit!important}#MessageViewBody a{color:inherit;text-decoration:none}p{line-height:inherit}.desktop_hide,.desktop_hide table{mso-hide:all;display:none;max-height:0;overflow:hidden}.image_block img+div{display:none}
+/* Content should use the full width of the card rather than wrapping early:
+   the shell is fluid up to 700px and only the outer gutter is fixed. */
+.row-content{width:700px;max-width:100%}
+@media (max-width:720px){.social_block.desktop_hide .social-table{display:inline-block!important}.image_block img.big,.row-content{width:100%!important}.mobile_hide{display:none}.stack .column{width:100%!important;display:block;text-align:center!important}.stack .column .alignment{text-align:center!important}.mobile_hide{min-height:0;max-height:0;max-width:0;overflow:hidden;font-size:0}.desktop_hide,.desktop_hide table{display:table!important;max-height:none!important}.card-pad{padding-left:24px!important;padding-right:24px!important}}
+</style></head><body style="background-color:#d9dffa;margin:0;padding:0;-webkit-text-size-adjust:none;text-size-adjust:none">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#d9dffa">{% block preheader %}{{ preheader|default:subject }}{% endblock %}</div>
+<table class="nl-container" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;background-color:#d9dffa"><tbody><tr><td>
+
+<!-- Header image -->
+<table class="row row-1" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;background-color:#221F20"><tbody><tr><td><table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;color:#000;width:700px;max-width:100%" width="700"><tbody><tr><td class="column column-1" width="100%" style="mso-table-lspace:0;mso-table-rspace:0;font-weight:400;text-align:left;padding-top:0;vertical-align:top"><table class="image_block block-1" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0"><tr><td class="pad" style="width:100%;padding-right:0;padding-left:0"><div class="alignment" align="center" style="line-height:10px"><img class="big" src="{{ inline.header }}" style="display:block;height:auto;border:0;width:700px;max-width:100%" width="700" alt="{{ brand.name }}"></div></td></tr></table></td></tr></tbody></table></td></tr></tbody></table>
+
+<!-- Body card -->
+<table class="row row-2" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;background-color:#d9dffa;background-image:url({% email_asset 'email/body_background.png' %});background-position:top center;background-repeat:repeat"><tbody><tr><td><table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;color:#000;width:700px;max-width:100%" width="700"><tbody><tr><td class="column column-1 card-pad" width="100%" style="mso-table-lspace:0;mso-table-rspace:0;font-weight:400;text-align:left;padding-bottom:15px;padding-left:40px;padding-right:40px;padding-top:15px;vertical-align:top">
+
+  <!-- Heading -->
+  <table class="paragraph_block" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;word-break:break-word"><tr><td class="pad"><div style="color:#506bec;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:32px;line-height:120%;text-align:left;mso-line-height-alt:38.4px"><p style="margin:0;word-break:break-word"><strong><span>{% block heading %}{{ email_heading|default:subject }}{% endblock %}</span></strong></p></div></td></tr></table>
+
+  <!-- Body -->
+  <table class="paragraph_block" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;word-break:break-word"><tr><td class="pad"><div style="color:#40507a;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:16px;line-height:150%;text-align:left;mso-line-height-alt:24px">{% block content %}{% endblock %}</div></td></tr></table>
+
+  <!-- CTA button (children usually override with their own url/label) -->
+  {% block cta %}{% include 'communication/email/_button.html' with url=cta_url label=cta_label %}{% endblock %}
+
+  <!-- Sign-off -->
+  {% block signoff %}<table class="paragraph_block" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;word-break:break-word"><tr><td class="pad"><div style="color:#40507a;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:16px;line-height:150%;text-align:left;mso-line-height-alt:24px"><p style="margin:0">Kind regards,<br><strong>The {{ brand.name|default:"United Church School" }} team</strong></p></div></td></tr></table>{% endblock %}
+
+  <!-- Help + contact details, with the brand mark alongside them.
+       Two columns on desktop; the media query stacks and centres them on
+       narrow screens. -->
+  {% block help_line %}
+  <table class="stack" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0"><tbody><tr>
+    <td class="column" width="62%" style="mso-table-lspace:0;mso-table-rspace:0;vertical-align:middle;padding:10px 10px 10px 10px;text-align:left">
+      {% if brand.support_email %}<div style="color:#40507a;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:120%;mso-line-height-alt:16.8px"><p style="margin:0 0 12px"><span>Having trouble? <a href="mailto:{{ brand.support_email }}" target="_blank" style="text-decoration:none; color:#506bec;" rel="noopener"><strong>{{ brand.support_email }}</strong></a></span></p></div>{% endif %}
+      {% if brand.contact.phone %}<div style="color:#40507a;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:130%;mso-line-height-alt:18.2px"><p style="margin:0;color:#97a2da"><strong>Contact details</strong></p><p style="margin:0"><a href="tel:{{ brand.contact.phone|cut:' ' }}" style="text-decoration:none;color:#506bec" rel="noopener"><strong>{{ brand.contact.phone }}</strong></a></p></div>{% endif %}
+    </td>
+    <td class="column" width="38%" style="mso-table-lspace:0;mso-table-rspace:0;vertical-align:middle;padding:10px">
+      <div class="alignment" align="right" style="line-height:10px;text-align:right"><a href="{{ brand.website }}" target="_blank" style="outline:none" tabindex="-1"><img src="{{ inline.logo }}" style="display:inline-block;height:auto;border:0;width:145px;max-width:100%" width="145" alt="{{ brand.name }}"></a></div>
+    </td>
+  </tr></tbody></table>
+  {% endblock %}
+
+  <!-- Disclaimer / small print -->
+  {% block disclaimer %}{% endblock %}
+
+  <!-- Expiry / small print. Lives in the card now (the footer below is only the
+       social icons), so children keep overriding "expiry_note" as before. -->
+  <table class="paragraph_block" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0"><tr><td class="pad" style="padding-top:0"><div style="color:#97a2da;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:13px;line-height:130%;text-align:left;mso-line-height-alt:16.9px"><p style="margin:0">{% block expiry_note %}{% endblock %}</p></div></td></tr></table>
+
+</td></tr></tbody></table></td></tr></tbody></table>
+
+<!-- Footer -->
+<table class="row row-4" align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0"><tbody><tr><td><table class="row-content stack" align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;color:#000;width:700px;max-width:100%" width="700"><tbody><tr><td class="column column-1" width="100%" style="mso-table-lspace:0;mso-table-rspace:0;font-weight:400;text-align:left;padding-bottom:20px;padding-left:10px;padding-right:10px;padding-top:10px;vertical-align:top">
+
+  <!-- Social (the only thing left down here — the logo, phone number and
+       help line all sit in the card above now) -->
+  {% if brand.social.instagram or brand.social.twitter %}
+  <table class="social_block block-2" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0"><tr><td class="pad"><div class="alignment" align="center"><table class="social-table" width="72px" border="0" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;display:inline-block">
+    <tr>
+    {% if brand.social.instagram %}<td style="padding:0 2px"><a href="{{ brand.social.instagram }}" target="_blank"><img src="{{ inline.ig }}" width="32" height="32" alt="Instagram" style="display:block;height:auto;border:0"></a></td>{% endif %}
+    {% if brand.social.twitter %}<td style="padding:0 2px"><a href="{{ brand.social.twitter }}" target="_blank"><img src="{{ inline.tw }}" width="32" height="32" alt="Twitter" style="display:block;height:auto;border:0"></a></td>{% endif %}
+    </tr>
+  </table></div></td></tr></table>
+  {% endif %}
+
+  <!-- Copyright -->
+  <table class="paragraph_block" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;word-break:break-word"><tr><td class="pad"><div style="color:#97a2da;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:12px;line-height:120%;text-align:center;mso-line-height-alt:14.4px"><p style="margin:0;word-break:break-word"><span>{{ brand.copyright|default:brand.name }}</span></p>{% if brand.website %}<p style="margin:0;word-break:break-word"><a href="{{ brand.website }}" target="_blank" style="text-decoration:underline; color:#97a2da;" rel="noopener">{{ brand.website }}</a></p>{% endif %}</div></td></tr></table>
+
+</td></tr></tbody></table></td></tr></tbody></table>
+
+</td></tr></tbody></table></body></html>

@@ -1,0 +1,114 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Schedule / edit a live session. The audience field decides which scope
+picker matters; the JS below only hides the irrelevant ones — SessionForm.clean()
+is what actually enforces the pairing.{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">{{ page_title }}</h3>
+    <a class="btn btn-light" href="{% url 'livesessions:calendar' %}">Cancel</a>
+  </div>
+
+  {% if not teams_ready %}
+  <div class="alert alert-warning">
+    <strong>Microsoft Teams is not configured.</strong> The session will still be created, with the
+    in-app fallback room instead of a Teams meeting — which means no automatic recording,
+    transcript or Graph attendance report. Set the <code>MS_GRAPH_*</code> values to switch Teams on.
+  </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <div class="row g-3">
+      <div class="col-lg-8">
+        <div class="card mb-3"><div class="card-body">
+          <h6 class="mb-3">The session</h6>
+          {% for field in form %}{% if field.name in "title,description,session_kind,scheduled_start,scheduled_end" %}
+            <div class="mb-3">
+              <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          {% endif %}{% endfor %}
+        </div></div>
+
+        <div class="card mb-3"><div class="card-body">
+          <h6 class="mb-1">Who it is for</h6>
+          <p class="text-muted small">This decides both who is notified and who can see the session on
+             their calendar — they are always the same set.</p>
+          {% for field in form %}{% if field.name in "audience,institution,programme,cohort,module,week,calendar_event,invitees" %}
+            <div class="mb-3 scope-field" data-field="{{ field.name }}">
+              <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          {% endif %}{% endfor %}
+        </div></div>
+      </div>
+
+      <div class="col-lg-4">
+        <div class="card mb-3"><div class="card-body">
+          <h6 class="mb-3">Recording</h6>
+          {% for field in form %}{% if field.name in "record_automatically,publish_recording" %}
+            <div class="form-check mb-2">
+              {{ field }}
+              <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            </div>
+          {% endif %}{% endfor %}
+          <p class="text-muted small mb-0">The recording, transcript and summary are filed together in
+             OneDrive under the school, grade and subject, then published as a past session.</p>
+        </div></div>
+
+        <div class="card mb-3"><div class="card-body">
+          <h6 class="mb-3">Repeat</h6>
+          {% for field in form %}{% if field.name in "is_recurring,recurrence" %}
+            <div class="mb-2">
+              {% if field.name == "is_recurring" %}
+                <div class="form-check">{{ field }}<label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+              {% else %}
+                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+              {% endif %}
+            </div>
+          {% endif %}{% endfor %}
+        </div></div>
+
+        <button class="btn btn-primary w-100" type="submit">
+          <i class="bi bi-calendar-check me-1"></i>{% if meeting %}Save changes{% else %}Schedule the session{% endif %}
+        </button>
+      </div>
+    </div>
+  </form>
+</div></div>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+(function () {
+  // Show only the scope picker the chosen audience needs. Purely cosmetic —
+  // SessionForm.clean() re-checks the pairing on the server.
+  var NEEDED = {
+    everyone: [], institution: ['institution'], programme: ['programme'],
+    cohort: ['cohort'], module: ['module', 'week', 'calendar_event'], private: ['invitees']
+  };
+  var audience = document.querySelector('#id_audience');
+  if (!audience) return;
+  function sync() {
+    var keep = NEEDED[audience.value] || [];
+    document.querySelectorAll('.scope-field').forEach(function (row) {
+      var name = row.dataset.field;
+      if (name === 'audience') return;
+      // Named invitees are additive on every audience, so the picker always stays.
+      row.hidden = (name !== 'invitees') && keep.indexOf(name) === -1;
+    });
+  }
+  audience.addEventListener('change', sync);
+  sync();
+})();
+</script>
+{% endblock %}

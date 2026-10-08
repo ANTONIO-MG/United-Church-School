@@ -1,0 +1,100 @@
+/* notification-read.css — the notification detail page, styled as a reading page.
+   A single measured column, generous typography and a progress bar, so a long
+   welcome guide reads like an article rather than a toast that grew.
+   Loaded by templates/communication/notification-detail.html. */
+
+:root{
+  --nr-ink:#26334d;    --nr-soft:#66738c;   --nr-line:#e6e9f0;
+  --nr-accent:#17c1e8; --nr-bg:#fbfcfe;
+}
+
+/* Reading progress, pinned under the header. */
+.nr-progress{ position:sticky; top:70px; z-index:6; height:3px; background:#eef1f6;
+  border-radius:3px; overflow:hidden; margin-bottom:1.5rem; }
+.nr-progress > i{ display:block; height:100%; width:0;
+  background:linear-gradient(90deg,var(--nr-accent),#2dce89); transition:width .2s; }
+
+.nr-wrap{ max-width:46rem; margin:0 auto; }
+
+/* --- Masthead --- */
+.nr-kicker{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+  font-size:.72rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--nr-soft); margin-bottom:.75rem; }
+.nr-kicker .nr-chip{ display:inline-flex; align-items:center; gap:.3rem; padding:.22rem .6rem;
+  border-radius:2rem; background:rgba(23,193,232,.12); color:#0b7f97; letter-spacing:.04em; }
+.nr-kicker .nr-chip--unread{ background:rgba(245,54,92,.1); color:#c31d43; }
+
+.nr-title{ font-size:clamp(1.4rem,2.7vw,1.95rem); font-weight:800; line-height:1.2;
+  letter-spacing:-.022em; color:var(--nr-ink); margin:0 0 .6rem; }
+.nr-standfirst{ font-size:1.08rem; line-height:1.55; color:var(--nr-soft); margin:0 0 1.25rem; }
+
+.nr-byline{ display:flex; align-items:center; gap:.7rem; flex-wrap:wrap;
+  padding:.9rem 0; border-top:1px solid var(--nr-line); border-bottom:1px solid var(--nr-line);
+  margin-bottom:2rem; font-size:.82rem; color:var(--nr-soft); }
+.nr-byline .nr-ava{ width:38px; height:38px; flex:0 0 38px; border-radius:50%; object-fit:cover;
+  display:flex; align-items:center; justify-content:center; background:var(--nr-accent);
+  color:#fff; font-weight:700; font-size:.85rem; }
+.nr-byline .nr-who{ font-weight:600; color:var(--nr-ink); }
+.nr-byline .nr-dot{ opacity:.4; }
+.nr-byline .nr-right{ margin-left:auto; display:flex; align-items:center; gap:.75rem; }
+
+/* Hero band — the notification's own icon, not a stock photo. */
+.nr-hero{ display:flex; align-items:center; justify-content:center; height:150px;
+  border-radius:1rem; margin-bottom:2rem; }
+.nr-hero i{ font-size:3.4rem; }
+
+/* --- The prose itself --- */
+.nr-body{ font-size:1.04rem; line-height:1.78; color:#3a4560; }
+.nr-body > *:first-child{ margin-top:0; }
+.nr-body p{ margin:0 0 1.15rem; }
+.nr-body h2{ font-size:1.4rem; font-weight:750; color:var(--nr-ink); letter-spacing:-.012em;
+  margin:2.4rem 0 .8rem; }
+.nr-body h3{ font-size:1.13rem; font-weight:700; color:var(--nr-ink); margin:1.9rem 0 .6rem; }
+.nr-body h4{ font-size:1rem; font-weight:700; color:var(--nr-ink); margin:1.5rem 0 .5rem; }
+.nr-body ul, .nr-body ol{ margin:0 0 1.2rem; padding-left:1.4rem; }
+.nr-body li{ margin-bottom:.5rem; }
+.nr-body li > strong:first-child{ color:var(--nr-ink); }
+.nr-body a{ color:#0b7f97; text-underline-offset:2px; }
+.nr-body strong{ color:var(--nr-ink); }
+.nr-body hr{ border:0; border-top:1px solid var(--nr-line); margin:2.2rem 0; }
+.nr-body img{ max-width:100%; border-radius:.9rem; margin:1.2rem 0; }
+.nr-body blockquote{ margin:1.5rem 0; padding:.2rem 0 .2rem 1.1rem;
+  border-left:3px solid var(--nr-accent); color:var(--nr-soft); font-style:italic; }
+.nr-body code{ background:#f2f4f9; padding:.1rem .35rem; border-radius:.3rem;
+  font-size:.9em; color:#c31d43; }
+.nr-body table{ width:100%; border-collapse:collapse; margin:1.3rem 0; font-size:.93rem; }
+.nr-body th, .nr-body td{ border:1px solid var(--nr-line); padding:.55rem .7rem; text-align:left;
+  vertical-align:top; }
+.nr-body thead th{ background:var(--nr-bg); font-weight:650; color:var(--nr-ink); }
+
+/* Callout boxes the system can drop into a body. */
+.nr-body .note{ border-radius:.85rem; padding:1rem 1.15rem; margin:1.5rem 0;
+  border-left:4px solid var(--nr-accent); background:#eefaff; }
+.nr-body .note--tip{ border-color:#2dce89; background:#effaf4; }
+.nr-body .note--warn{ border-color:#fb8c00; background:#fff8ef; }
+.nr-body .note > *:last-child{ margin-bottom:0; }
+.nr-body .note strong:first-child{ display:block; margin-bottom:.25rem; }
+
+/* Context card for a linked announcement / meeting / message. */
+.nr-context{ border:1px solid var(--nr-line); border-radius:1rem; background:var(--nr-bg);
+  padding:1.1rem 1.25rem; margin:2rem 0; }
+.nr-context__head{ display:flex; align-items:center; gap:.5rem; font-size:.72rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:.05em; color:var(--nr-soft); margin-bottom:.5rem; }
+.nr-context p{ margin:0; }
+.nr-context .nr-context__title{ font-weight:650; color:var(--nr-ink); margin-bottom:.3rem; }
+
+/* Facts + actions, in one white card — everything on a single row. */
+.nr-meta{ display:flex; align-items:center; flex-wrap:wrap; gap:.6rem 1.5rem;
+  margin-top:2rem; padding:.9rem 1.25rem; border-radius:1rem; background:var(--nr-bg);
+  border:1px solid var(--nr-line); }
+.nr-meta__facts{ display:flex; align-items:center; gap:1.5rem; }
+.nr-meta__facts div span{ display:block; font-size:.7rem; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--nr-soft); margin-bottom:.15rem; }
+.nr-meta__facts div strong{ font-size:.88rem; color:var(--nr-ink); font-weight:650; white-space:nowrap; }
+.nr-meta__actions{ display:flex; align-items:center; gap:.5rem; margin-left:auto; }
+
+@media (max-width:575px){
+  .nr-body{ font-size:1rem; }
+  .nr-hero{ height:110px; }
+  .nr-hero i{ font-size:2.6rem; }
+}

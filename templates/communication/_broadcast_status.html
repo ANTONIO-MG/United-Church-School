@@ -1,0 +1,7 @@
+{% comment %}Status chip for a broadcast. Context: a (Announcement).{% endcomment %}
+{% if a.status == 'sent' %}<span class="tc-chip tc-chip--success" title="{{ a.sent_at }}"><i class="bi bi-check2"></i>Sent {{ a.sent_at|date:"j M, H:i" }}</span>
+{% elif a.status == 'scheduled' %}<span class="tc-chip tc-chip--cyan"><i class="bi bi-calendar-event"></i>{{ a.scheduled_for|date:"j M, H:i" }}</span>
+{% elif a.status == 'sending' %}<span class="tc-chip tc-chip--primary"><span class="spinner-border spinner-border-sm" style="width:.7rem;height:.7rem"></span>Sending</span>
+{% elif a.status == 'failed' %}<span class="tc-chip tc-chip--danger" title="{{ a.failure }}"><i class="bi bi-x-octagon"></i>Failed</span>
+{% elif a.status == 'cancelled' %}<span class="tc-chip"><i class="bi bi-slash-circle"></i>Cancelled</span>
+{% else %}<span class="tc-chip tc-chip--warning"><i class="bi bi-pencil"></i>Draft</span>{% endif %}

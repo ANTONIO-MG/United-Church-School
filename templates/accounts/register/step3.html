@@ -1,0 +1,153 @@
+{% extends 'soft_ui/auth_base.html' %}
+{% load static humanize %}
+{% comment %}Step 5 of the UCS application — the declarations a parent signs on
+the paper form (terms & conditions, indemnity, both codes of conduct, the
+prospectus, fees, POPIA, media consent, receipt of documents), the electronic
+signature, and the fees due on enrolment: registration (new learners), the
+annual levy and the first month's school fees.{% endcomment %}
+{% block title %}Agreements &amp; fees · {{ brand.name|default:"United Church School" }}{% endblock %}
+{% block card_col %}col-xl-9 col-lg-11{% endblock %}
+{% block oblique %}{% endblock %}
+
+{% block auth_card %}
+<div class="card mt-7 mb-4 shadow-lg">
+  <div class="card-body p-4">
+    {% include 'accounts/register/_steps.html' with step=5 %}
+
+    <div class="text-center mb-4">
+      <h4 class="font-weight-bolder text-info text-gradient mb-1">Agreements &amp; fees</h4>
+      <p class="text-sm text-muted mb-0">{{ programme.display_name }} · {{ application.year }}
+        · {% if application.is_new_learner %}new applicant{% else %}current UCS learner{% endif %}</p>
+    </div>
+
+    <div class="d-flex align-items-center gap-3 p-3 mb-3 bg-gray-100 rounded-3">
+      <div class="icon-shape bg-gradient-info text-white rounded-circle d-flex align-items-center justify-content-center" style="width:44px;height:44px">
+        <i class="bi bi-mortarboard-fill"></i>
+      </div>
+      <div class="min-w-0">
+        <h6 class="mb-0">{{ person.first_name }} {{ person.last_name }}</h6>
+        <span class="text-xs text-muted">{{ modules|length }} subject{{ modules|length|pluralize }}:
+          {% for m in modules %}{{ m.display_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+      </div>
+    </div>
+
+    {% if missing_documents %}
+    <div class="alert alert-warning text-sm">
+      <i class="bi bi-paperclip me-1"></i><strong>Documents still outstanding:</strong>
+      {% for kind, label in missing_documents %}{{ label }}{% if not forloop.last %}; {% endif %}{% endfor %}.
+      You can submit now and upload them under <em>My application</em> — the application is processed once they are in.
+    </div>
+    {% endif %}
+
+    <form method="post" id="regForm" novalidate>
+      {% csrf_token %}
+
+      <div class="accordion wz-accordion mb-3" id="docAcc">
+        <div class="accordion-item rf-sec border rounded-3 mb-2 overflow-hidden">
+          <h2 class="accordion-header"><button class="accordion-button collapsed py-3" type="button" data-bs-toggle="collapse" data-bs-target="#sec-read" aria-expanded="false">
+            <span class="sec-chev" aria-hidden="true"></span><span class="sec-title">Read before you sign — the key points</span></button></h2>
+          <div id="sec-read" class="accordion-collapse collapse"><div class="accordion-body rf-body text-sm">
+            <p class="fw-bold mb-1">Terms &amp; conditions</p>
+            <ul class="mb-3">
+              <li>The application, once accepted by the registrar, forms the contract between you and UCS for the duration of your child's schooling.</li>
+              <li>Fees are paid in advance on or before the 1st of each month; arrears of one calendar month are taken as forfeiture of your child's place, and outstanding accounts are handed to the school's attorneys / debt collectors at your cost.</li>
+              <li>One full month's notice is given of any fee increase. One full term's notice is required when a learner leaves; no transfer card is issued before it is completed.</li>
+              <li>UCS takes all reasonable precautions for your child's safety; you indemnify the school against claims arising from injury, accident or loss, at school, on excursions or in transit, and authorise emergency medical treatment at your expense.</li>
+              <li>UCS will not tolerate verbal, physical, sexual, emotional or mental abuse of staff by any parent, learner or representative.</li>
+            </ul>
+            <p class="fw-bold mb-1">Codes of conduct &amp; prospectus</p>
+            <ul class="mb-3">
+              <li>No cell phones, earphones or speakers at school — they are confiscated until the end of the term. Random drug tests may be conducted (R90, parent's account).</li>
+              <li>Blazers and ties are worn at all times; correct school uniform, hair and nails as set out in the prospectus. Learners not in proper uniform are sent home.</li>
+              <li>Absence of ten days or more removes a learner from the enrolment register (Department of Education regulations); a doctor's note is required after two consecutive days.</li>
+              <li>Extra-murals run on Thursdays 13h30 – 15h00, on or off the premises; a learner not participating is dismissed at 13h30.</li>
+            </ul>
+            <p class="fw-bold mb-1">Fees {{ application.year }}</p>
+            <ul class="mb-2">
+              {% for line in strings.school.fees_policy %}<li>{{ line }}</li>{% endfor %}
+            </ul>
+            <p class="mb-0">
+              {% if brand.links.application_form %}<a href="{% static brand.links.application_form %}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf me-1"></i>The full application pack (terms, codes of conduct, prospectus)</a>{% endif %}
+              {% if brand.links.fees_pdf %} · <a href="{% static brand.links.fees_pdf %}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf me-1"></i>Fees {{ application.year }}</a>{% endif %}
+            </p>
+          </div></div>
+        </div>
+
+        <div class="accordion-item rf-sec border rounded-3 mb-2 overflow-hidden">
+          <h2 class="accordion-header"><button class="accordion-button py-3" type="button" data-bs-toggle="collapse" data-bs-target="#sec-decl" aria-expanded="true">
+            <span class="sec-chev" aria-hidden="true"></span><span class="sec-title">Declarations &amp; signature</span></button></h2>
+          <div id="sec-decl" class="accordion-collapse collapse show"><div class="accordion-body rf-body">
+            {% include 'accounts/register/_formgrid.html' with form=form %}
+          </div></div>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table align-middle mb-2">
+          <thead><tr class="text-xs text-uppercase text-muted"><th>Due on enrolment</th><th class="text-end">Amount</th></tr></thead>
+          <tbody>
+            {% for line in fees.lines %}
+            <tr>
+              <td class="text-sm"><i class="bi bi-receipt text-info me-2"></i>{{ line.label }}</td>
+              <td class="text-end text-sm">R {{ line.net|floatformat:2|intcomma }}{% if line.discount_pct %}<div class="text-xs text-muted"><s>R {{ line.amount|floatformat:2|intcomma }}</s></div>{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="2" class="text-center text-muted">No fees are set up for this grade.</td></tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="fw-bold border-top">
+              <td>Total due now</td>
+              <td class="text-end">R {{ fees.due_now|floatformat:2|intcomma }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p class="text-xs text-muted mb-4"><i class="bi bi-info-circle me-1"></i>Thereafter R {{ fees.monthly|floatformat:2|intcomma }}
+        per month, payable in advance on the 1st, January to December. Total for the year including the levy:
+        R {{ fees.annual|floatformat:0|intcomma }}{% if application.is_new_learner and fees.registration %} (R {{ fees.annual_new|floatformat:0|intcomma }} for a new learner including registration){% endif %}.
+        Pay the full year by 31 January for a 5% discount on school fees.{% if application.siblings_at_ucs %} The 5% sibling discount is applied, subject to confirmation by the office.{% endif %}</p>
+
+      {% if fees.lines %}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="border border-2 rounded-3 p-3 h-100 d-flex flex-column">
+            <h6 class="mb-1">Pay now online</h6>
+            <p class="text-xs text-muted flex-grow-1 mb-3">Card or instant EFT through PayFast. The subjects open the moment
+              the payment clears and the application goes to the school office for review.</p>
+            <button type="submit" name="action" value="pay" class="btn bg-gradient-info btn-lg w-100 mb-0">
+              <i class="bi bi-credit-card-2-front me-1"></i> Submit &amp; pay R {{ fees.due_now|floatformat:2|intcomma }}
+            </button>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="border border-2 rounded-3 p-3 h-100 d-flex flex-column">
+            <h6 class="mb-1">Pay by EFT or at the school office</h6>
+            <p class="text-xs text-muted flex-grow-1 mb-3">We e-mail your invoice. Pay at any Standard Bank
+              {% if brand.banking.account_number %}(account {{ brand.banking.account_number }}){% endif %} using the learner's
+              name and grade as the reference, and e-mail the slip to {{ brand.support_email }} — or pay by card at the office
+              (no cash). The application is pending until payment is received.</p>
+            <button type="submit" name="action" value="eft" class="btn bg-gradient-success btn-lg w-100 mb-0">
+              <i class="bi bi-bank me-1"></i> Submit application
+            </button>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="d-grid">
+        <button type="submit" name="action" value="eft" class="btn bg-gradient-info btn-lg">Submit application <i class="bi bi-check2-circle ms-1"></i></button>
+      </div>
+      {% endif %}
+
+      <div class="mt-4">
+        <button type="submit" name="action" value="back" class="btn btn-link text-secondary p-0" formnovalidate>
+          <i class="bi bi-arrow-left-circle me-1"></i>Back to medical &amp; documents
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}{% include 'accounts/register/_reg_styles.html' %}{% endblock %}
+{% block extra_js %}{% include 'accounts/register/_reg_scripts.html' %}{% endblock %}

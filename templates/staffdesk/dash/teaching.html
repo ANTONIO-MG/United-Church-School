@@ -1,0 +1,180 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Educator desk (/staff/teaching/): your modules, your marking, who is falling behind, your sessions and turnout. Admin/staff can open any educator's with ?educator=<user_id>. Data from apps.staffdesk.dashboards.teaching.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/dash/_head.html' %}{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">{% if viewing_other %}Viewing as admin{% else %}Your teaching{% endif %}</span>
+      <h3>{% if viewing_other %}{{ educator_name }}'s desk{% else %}Teaching{% endif %}</h3>
+      <p>Your subjects, what's waiting to be marked, and who needs a word.</p></div>
+    <div class="tc-head__actions">
+      {% if is_admin_staff %}
+      <form method="get" class="sdd-picker">
+        <label class="visually-hidden" for="sddEducator">Educator</label>
+        <select id="sddEducator" name="educator" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">— Choose an educator —</option>
+          {% for e in educators %}<option value="{{ e.user_id }}" {% if educator and e.pk == educator.pk %}selected{% endif %}>{{ e }}</option>{% endfor %}
+        </select>
+        <noscript><button class="btn btn-sm btn-primary mb-0">Show</button></noscript>
+      </form>
+      {% endif %}
+      <a class="btn btn-sm btn-outline-secondary mb-0" href="{{ t.calendar_url|default:'#' }}"><i class="bi bi-calendar3 me-1"></i>Calendar</a>
+      <a class="btn btn-sm btn-primary mb-0" href="{{ t.create_session_url|default:'#' }}"><i class="bi bi-camera-video me-1"></i>Schedule session</a>
+    </div>
+  </div>
+
+  {% if not t.modules %}
+    <div class="tc-card"><div class="tc-empty">
+      <i class="bi bi-easel"></i>
+      <h5>{% if viewing_other %}{{ educator_name }} isn't{% else %}You aren't{% endif %} teaching any subjects yet</h5>
+      <p class="mb-0">{% if is_admin_staff %}Pick an educator above, or assign teachers to a subject.{% else %}Once an administrator adds you as a teacher on a subject, it appears here.{% endif %}</p>
+    </div></div>
+  {% else %}
+
+  <div class="tc-kpis">
+    <div class="tc-kpi sdd-kpi"><i class="bi bi-journal-bookmark"></i><span>Subjects</span><b>{{ t.modules|length }}</b><em>{{ t.student_total }} student{{ t.student_total|pluralize }} with access</em></div>
+    <a class="tc-kpi sdd-kpi {% if t.marking.oldest_days and t.marking.oldest_days >= 7 %}is-danger{% elif t.marking.total %}is-warning{% endif %}" href="{{ t.marking_url }}"><i class="bi bi-pencil-square"></i>
+      <span>To mark</span><b>{{ t.marking.total|default:0 }}</b><em>{% if t.marking.oldest %}oldest {{ t.marking.oldest|timesince }}{% else %}all caught up{% endif %}</em></a>
+    <div class="tc-kpi sdd-kpi {% if t.behind.count %}is-warning{% endif %}"><i class="bi bi-exclamation-diamond"></i>
+      <span>Falling behind</span><b>{{ t.behind.count|default:0 }}</b><em>{{ t.behind.inactive|default:0 }} inactive · {{ t.behind.low|default:0 }} low marks · {{ t.behind.late|default:0 }} late</em></div>
+    <div class="tc-kpi sdd-kpi"><i class="bi bi-camera-video"></i><span>Upcoming sessions</span><b>{{ t.sessions|length }}</b><em>{% if t.sessions %}next {{ t.sessions.0.scheduled_start|date:"D j M, H:i" }}{% else %}none scheduled{% endif %}</em></div>
+  </div>
+
+  {# --- Modules, each with its nudge button ---------------------------- #}
+  <div class="sdd-modules">
+    {% for m in t.modules %}
+    <article class="sdd-module" style="--sdd-accent: {{ m.accent|default:'var(--tc-primary)' }}">
+      <div>
+        <span class="sdd-code">{{ m.label }}</span>
+        <h6><a href="{{ m.feed_url }}">{{ m.display_name }}</a></h6>
+      </div>
+      <div class="sdd-stats">
+        <span><b>{{ m.n_students }}</b>students</span>
+        <span><b {% if m.inactive_count %}class="text-warning"{% endif %}>{{ m.inactive_count }}</b>inactive {{ inactive_days }}d+</span>
+      </div>
+      <form method="post" action="{% url 'staffdesk:teaching-nudge' m.pk %}">{% csrf_token %}
+        {% if viewing_other %}<input type="hidden" name="educator" value="{{ educator.user_id }}">{% endif %}
+        <button class="btn btn-sm {% if m.can_nudge and m.inactive_count %}tc-btn-soft{% else %}btn-light{% endif %} mb-0" type="submit"
+                {% if not m.can_nudge or not m.inactive_count %}disabled{% endif %}
+                title="Sends an in-app notification and an e-mail to each student with no activity for {{ inactive_days }} days">
+          <i class="bi bi-bell me-1"></i>Nudge inactive students{% if m.inactive_count and m.can_nudge %} ({{ m.inactive_count }}){% endif %}</button>
+        <div class="sdd-note">{% if not m.can_nudge %}Nudged {{ m.last_nudge.sent_at|timesince }} ago — again after {{ m.next_nudge_at|date:"D H:i" }}{% elif m.last_nudge %}Last nudge {{ m.last_nudge.sent_at|timesince }} ago · {{ m.last_nudge.recipients }} reached{% elif not m.inactive_count %}Everyone has been active{% else %}Once per subject per day{% endif %}</div>
+      </form>
+    </article>
+    {% endfor %}
+  </div>
+
+  <div class="sdd-grid">
+    <div class="sdd-col">
+      {# --- Falling behind --------------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-exclamation-diamond"></i><h5>Students falling behind</h5>
+          {% if t.behind.count > t.behind.rows|length %}<span class="sdd-count ms-auto">top {{ t.behind.rows|length }} of {{ t.behind.count }}</span>{% endif %}</div>
+        <div class="tc-card__body pt-1">
+          {% if t.behind.rows %}
+          <ul class="sdd-list">
+            {% for s in t.behind.rows %}
+            <li>
+              <span class="tc-avatar">{{ s.name|slice:":1" }}</span>
+              <div class="sdd-main">
+                {% if is_admin_staff and s.person_id %}<a class="sdd-title" href="{% url 'staffdesk:student' s.person_id %}">{{ s.name }}</a>{% else %}<b>{{ s.name }}</b>{% endif %}
+                <small>{% for m in s.modules %}{{ m.code }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if s.seen %} · last seen {{ s.seen|timesince }} ago{% endif %}</small>
+              </div>
+              <div class="sdd-end sdd-reasons">
+                {% for r in s.reasons %}<span class="tc-chip {% if forloop.first and s.quiet %}tc-chip--warning{% elif 'Avg' in r %}tc-chip--danger{% else %}tc-chip--warning{% endif %}">{{ r }}</span>{% endfor %}
+                <a class="btn btn-sm btn-light mb-0 py-1" href="{% url 'communication:chat-direct' s.user_id %}" title="Message {{ s.name }}"><i class="bi bi-chat-dots"></i><span class="visually-hidden">Message</span></a>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+          <p class="small text-muted mb-0 mt-2">Flagged for no sign-in or study for {{ inactive_days }}+ days, an average below {{ low_score }}% over the last 30 days, or overdue tasks.</p>
+          {% else %}<div class="sdd-empty"><i class="bi bi-check-circle-fill"></i>Everyone is active and keeping up.</div>{% endif %}
+        </div>
+      </section>
+
+      {# --- Marking queue ---------------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-pencil-square"></i><h5>Marking queue</h5>
+          <a class="tc-link" href="{{ t.marking_url }}">Open queue</a></div>
+        <div class="tc-card__body pt-1">
+          {% if t.marking.rows %}
+          <ul class="sdd-list">
+            {% for r in t.marking.rows %}
+            <li>
+              <span class="sdd-ico {% if r.flagged %}is-danger{% else %}is-warning{% endif %}"><i class="bi {% if r.flagged %}bi-shield-exclamation{% else %}bi-hourglass-split{% endif %}"></i></span>
+              <div class="sdd-main"><a class="sdd-title" href="{{ r.url }}">{{ r.title }}</a><small>{{ r.student }}{% if r.module %} · {{ r.module.code }}{% endif %}</small></div>
+              <div class="sdd-end">{% if r.at %}waiting {{ r.at|timesince }}{% endif %}</div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}<div class="sdd-empty"><i class="bi bi-check-circle-fill"></i>Nothing waiting to be marked.</div>{% endif %}
+        </div>
+      </section>
+
+      {# --- Recent submissions ----------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-inbox"></i><h5>Recent submissions</h5></div>
+        {% if t.submissions %}
+        <div class="tc-table-wrap"><table class="tc-table">
+          <thead><tr><th>Student</th><th>Assessment</th><th>Submitted</th><th class="r">Mark</th></tr></thead>
+          <tbody>
+          {% for s in t.submissions %}
+            <tr>
+              <td>{{ s.student }}</td>
+              <td>{{ s.title|truncatechars:48 }}{% if s.module %}<small class="d-block text-muted">{{ s.module.code }}</small>{% endif %}</td>
+              <td class="small text-nowrap">{{ s.at|timesince }} ago</td>
+              <td class="r">{% if s.pct is not None %}<b>{{ s.pct|floatformat:0 }}%</b>{% elif s.status == 'submitted' %}<span class="tc-chip tc-chip--warning">To mark</span>{% else %}<span class="tc-chip">{{ s.status|capfirst }}</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+        {% else %}<div class="tc-card__body"><div class="sdd-empty"><i class="bi bi-inbox"></i>No submissions yet.</div></div>{% endif %}
+      </section>
+    </div>
+
+    <div class="sdd-col">
+      {# --- Upcoming sessions ------------------------------------------ #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-camera-video"></i><h5>Upcoming sessions</h5>
+          <a class="tc-link" href="{{ t.calendar_url }}">Calendar</a></div>
+        <div class="tc-card__body pt-1">
+          {% if t.sessions %}
+          <ul class="sdd-list">
+            {% for s in t.sessions %}
+            <li>
+              <div class="sdd-time"><b>{{ s.scheduled_start|date:"j" }}</b><small>{{ s.scheduled_start|date:"M" }}</small></div>
+              <div class="sdd-main"><a class="sdd-title" href="{{ s.get_absolute_url }}">{{ s.title }}</a>
+                <small>{{ s.scheduled_start|date:"D H:i" }} · {{ s.duration_minutes }} min{% if s.module %} · {{ s.module.code }}{% endif %}</small></div>
+              <div class="sdd-end">{% if s.is_live_now %}<a class="tc-chip tc-chip--danger" href="{{ s.get_join_url }}"><i class="bi bi-broadcast"></i>Join</a>{% else %}{{ s.scheduled_start|timeuntil }}{% endif %}</div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}<div class="sdd-empty"><i class="bi bi-calendar2"></i>Nothing scheduled.</div>{% endif %}
+        </div>
+      </section>
+
+      {# --- Attendance trend ------------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-bar-chart"></i><h5>Attendance, last sessions</h5>
+          <a class="tc-link" href="{{ t.attendance_url }}">Registers</a></div>
+        <div class="tc-card__body pt-1">
+          {% if t.attendance %}
+          <div class="sdd-trend" role="list" aria-label="Turnout per session, oldest first">
+            {% for r in t.attendance %}
+            <a role="listitem" href="{{ r.url }}" title="{{ r.session.title|default:r.session.module }} · {{ r.session.session_date|date:'j M' }} — {{ r.present }} of {{ r.expected }} attended">
+              <span class="sdd-col-v">{% if r.pct is not None %}{{ r.pct }}%{% else %}—{% endif %}</span>
+              <span class="sdd-col-track"><span class="sdd-col-bar {% if r.pct is None %}is-none{% elif r.pct < 60 %}is-low{% endif %}" style="height:{% if r.pct %}{{ r.pct }}{% else %}2{% endif %}%"></span></span>
+              <small>{{ r.session.session_date|date:"j M" }}</small>
+            </a>
+            {% endfor %}
+          </div>
+          <div class="tc-legend mt-2"><span><i style="background:var(--tc-in)"></i>60% or more</span><span><i style="background:var(--tc-out)"></i>Under 60%</span></div>
+          {% else %}<div class="sdd-empty"><i class="bi bi-bar-chart"></i>No class sessions recorded yet.</div>{% endif %}
+        </div>
+      </section>
+    </div>
+  </div>
+  {% endif %}
+</div></div>
+{% endblock %}

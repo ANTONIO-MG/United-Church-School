@@ -1,0 +1,16 @@
+{% extends 'communication/email/base_email.html' %}{% load org_branding %}
+{% comment %}
+allauth e-mail-verification message sent right after sign-up (HTML alternative).
+Context: `user`, `activate_url`.
+{% endcomment %}
+{% block preheader %}Welcome to {{ brand.name|default:"United Church School" }} — confirm your e-mail to finish.{% endblock %}
+{% block heading %}Welcome to {{ brand.name|default:"United Church School" }}!{% endblock %}
+{% block content %}
+  <p style="margin:0 0 14px">Hi,</p>
+  <p style="margin:0 0 14px">Thanks for signing up. One last step — confirm your e-mail address to finish setting up your account.</p>
+{% endblock %}
+{% block cta %}{% include 'communication/email/_button.html' with url=activate_url label="CONFIRM MY EMAIL" %}{% endblock %}
+{% block disclaimer %}
+  <table class="paragraph_block" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;word-break:break-word"><tr><td class="pad"><div style="color:#40507a;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:120%"><p style="margin:0">If you didn't deliberately sign up for {{ brand.name|default:"United Church School" }}, please ignore this e-mail — no account will be activated and nothing else will happen.</p></div></td></tr></table>
+{% endblock %}
+{% block expiry_note %}This confirmation link will expire soon.{% if brand.support_email %} Questions? {{ brand.support_email }}.{% endif %}{% endblock %}

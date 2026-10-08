@@ -1,0 +1,58 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}A single collaboration workspace — files + collaborative notes.{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h3 class="mb-0">{{ workspace.name }}</h3>
+      <small class="text-muted">{{ workspace.description }}</small>
+    </div>
+    <a href="{% url 'communication:workspaces' %}" class="btn btn-outline-secondary btn-sm">← All workspaces</a>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div class="card"><div class="card-body">
+        <h6 class="mb-3"><i class="bi bi-paperclip"></i> Shared files</h6>
+        <form method="post" enctype="multipart/form-data" class="mb-3">
+          {% csrf_token %}<input type="hidden" name="action" value="file">
+          <div class="input-group">
+            {{ file_form.title }} {{ file_form.file }}
+            <button class="btn btn-primary">Upload</button>
+          </div>
+        </form>
+        <ul class="list-group list-group-flush">
+          {% for f in files %}
+            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+              <span><a href="{{ f.file.url }}" target="_blank">{{ f.title|default:f.original_name }}</a>
+                {% if f.version > 1 %}<span class="badge bg-light text-dark">v{{ f.version }}</span>{% endif %}</span>
+              <small class="text-muted">{{ f.uploaded_by|person_name }} · {{ f.created_at|timesince }} ago</small>
+            </li>
+          {% empty %}<li class="list-group-item px-0 text-muted">No files yet.</li>{% endfor %}
+        </ul>
+      </div></div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card"><div class="card-body">
+        <h6 class="mb-3"><i class="bi bi-journal-text"></i> Project notes</h6>
+        <form method="post" class="mb-3">
+          {% csrf_token %}<input type="hidden" name="action" value="note">
+          <div class="mb-2">{{ note_form.title }}</div>
+          <div class="mb-2">{{ note_form.body }}</div>
+          <div class="form-check mb-2">{{ note_form.pinned }} <label class="form-check-label" for="{{ note_form.pinned.id_for_label }}">Pin</label></div>
+          <button class="btn btn-primary btn-sm">Add note</button>
+        </form>
+        {% for n in notes %}
+          <div class="border-start ps-2 mb-3 {% if n.pinned %}border-primary border-2{% endif %}">
+            <strong>{{ n.title }}</strong>{% if n.pinned %} <i class="bi bi-pin-angle-fill text-primary"></i>{% endif %}
+            <p class="mb-1 small" style="white-space:pre-wrap">{{ n.body }}</p>
+            <small class="text-muted">{{ n.author|person_name }} · {{ n.updated_at|timesince }} ago</small>
+          </div>
+        {% empty %}<p class="text-muted small">No notes yet.</p>{% endfor %}
+      </div></div>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

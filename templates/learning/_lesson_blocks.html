@@ -1,0 +1,158 @@
+{% comment %}
+Renders an ordered list of LessonBlocks for the learner — used for the lesson's
+main body and, recursively, for the contents of each open dropdown section.
+
+Context: ``blocks`` (iterable of LessonBlock). Every block is wrapped in an
+element carrying ``data-block-id`` / ``data-block-type`` so lesson-player.js can
+anchor bookmarks to it and seek media to a saved timestamp, plus the author's own
+formatting via ``block.css`` (whitelisted in apps/learning/styles.py — never raw
+author CSS).
+{% endcomment %}
+
+{% for block in blocks %}
+<div class="lv-block lv-b-{{ block.block_type }}" data-block-id="{{ block.id }}" data-block-type="{{ block.block_type }}"
+     {% if block.css %}style="{{ block.css }}"{% endif %}>
+  {% if block.block_type == 'heading' %}
+    {% if block.data.level == 4 %}<h4 class="lv-h">{{ block.data.text }}</h4>
+    {% elif block.data.level == 3 %}<h3 class="lv-h">{{ block.data.text }}</h3>
+    {% else %}<h2 class="lv-h">{{ block.data.text }}</h2>{% endif %}
+
+  {% elif block.block_type == 'text' %}
+    <div class="lv-prose" data-bookmarkable>{{ block.data.html|safe }}</div>
+
+  {% elif block.block_type == 'callout' %}
+    <div class="lv-callout {{ block.data.variant|default:'info' }}" data-bookmarkable>{{ block.data.html|safe }}</div>
+
+  {% elif block.block_type == 'image' %}
+    <figure class="lv-fig">
+      <a href="{{ block.media_url }}" data-glightbox><img src="{{ block.media_url }}" alt="{{ block.data.alt }}"></a>
+      {% if block.data.caption %}<figcaption>{{ block.data.caption }}</figcaption>{% endif %}
+    </figure>
+
+  {% elif block.block_type == 'video' %}
+    <div class="lv-player" data-media-block="{{ block.id }}">
+      {% if block.player_provider and block.player_embed_id %}
+        {# YouTube / Vimeo through Plyr — one player everywhere, with a real currentTime we can bookmark. #}
+        <div class="lv-stage">
+          <div class="lv-media"
+               data-plyr-provider="{{ block.player_provider }}"
+               data-plyr-embed-id="{{ block.player_embed_id }}"></div>
+        </div>
+      {% elif block.media_url %}
+        <div class="lv-stage">
+          <video class="lv-media" controls crossorigin playsinline
+                 {% if block.data.poster %}poster="{{ block.data.poster }}"{% endif %}>
+            <source src="{{ block.media_url }}">
+          </video>
+        </div>
+      {% else %}
+        <div class="lv-missing"><i class="bi bi-camera-video-off"></i>No video source set.</div>
+      {% endif %}
+      <div class="lv-mediabar">
+        {% if block.data.caption %}<span class="lv-cap">{{ block.data.caption }}</span>{% endif %}
+        <button type="button" class="lv-mark" data-bookmark-media="{{ block.id }}">
+          <i class="bi bi-bookmark-plus"></i>Bookmark this moment</button>
+      </div>
+    </div>
+
+  {% elif block.block_type == 'audio' %}
+    <div class="lv-player" data-media-block="{{ block.id }}">
+      <audio class="lv-media" controls crossorigin><source src="{{ block.media_url }}"></audio>
+      <div class="lv-mediabar">
+        {% if block.data.caption %}<span class="lv-cap">{{ block.data.caption }}</span>{% endif %}
+        <button type="button" class="lv-mark" data-bookmark-media="{{ block.id }}">
+          <i class="bi bi-bookmark-plus"></i>Bookmark this moment</button>
+      </div>
+    </div>
+
+  {% elif block.block_type == 'embed' %}
+    <div class="lv-embed" {% if block.track %}data-track-block="{{ block.id }}"{% endif %}>
+      <div class="lv-embed-bar"><i class="bi bi-window"></i><span>{{ block.data.title|default:"Embedded resource" }}</span>
+        <a class="ms-auto text-decoration-none" href="{{ block.embed_src }}" target="_blank" rel="noopener">Open <i class="bi bi-box-arrow-up-right"></i></a></div>
+      <iframe src="{{ block.embed_src }}" style="height:{{ block.data.height|default:480 }}px" loading="lazy"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms" referrerpolicy="no-referrer"></iframe>
+    </div>
+
+  {% elif block.block_type == 'file' %}
+    <a class="lv-filecard" href="{{ block.media_url }}" download>
+      <i class="bi bi-file-earmark-arrow-down"></i>
+      <span class="flex-grow-1">
+        <strong>{{ block.data.title|default:"Download file" }}</strong>
+        {% if block.data.description %}<span class="d-block small text-muted">{{ block.data.description }}</span>{% endif %}
+      </span>
+      <span class="lv-dl">Download</span>
+    </a>
+
+  {% elif block.block_type == 'reference' %}
+    <div class="lv-ref"><i class="bi bi-quote"></i>
+      {{ block.data.authors }}{% if block.data.year %} ({{ block.data.year }}){% endif %}
+      {% if block.data.text %}— <em>{{ block.data.text }}</em>{% endif %}
+      {% if block.data.url %}<a href="{{ block.data.url }}" target="_blank" rel="noopener">link</a>{% endif %}</div>
+
+  {% elif block.block_type == 'quiz' %}
+    <div class="lv-action lv-action--quiz">
+      <i class="bi bi-ui-checks ic"></i>
+      <div class="flex-grow-1">
+        <strong>{{ block.data.title|default:"Quiz" }}</strong>
+        <div class="small text-muted">
+          {% if block.assessment %}{{ block.assessment.get_kind_display }} ·
+            {{ block.assessment.total_marks }} marks · pass {{ block.assessment.pass_mark_pct }}%
+            {% if block.assessment.time_limit_minutes %} · {{ block.assessment.time_limit_minutes }} min{% endif %}
+          {% else %}Check your understanding{% endif %}
+        </div>
+      </div>
+      <button type="button" class="lv-mark" data-bookmark-block="{{ block.id }}"
+              data-label="{{ block.data.title|default:'Quiz' }}" data-kind="question"
+              title="Bookmark this quiz"><i class="bi bi-bookmark-plus"></i></button>
+      {% if block.assessment_id %}
+      <a class="btn btn-primary" href="{% url 'assessments:take' block.assessment_id %}">
+        <i class="bi bi-pencil-square me-1"></i>Start</a>
+      {% endif %}
+    </div>
+
+  {% elif block.block_type == 'meeting' %}
+    <div class="lv-action lv-action--live">
+      <i class="bi bi-camera-video-fill ic"></i>
+      <div class="flex-grow-1"><strong>{{ block.data.title|default:"Live session" }}</strong>
+        <div class="small text-muted">Online video session{% if block.meeting %} · {{ block.meeting.get_provider_display }}{% endif %}</div></div>
+      {% if block.meeting %}
+      <button class="btn btn-success" data-join-meeting="{% url 'communication:meeting-room' block.meeting.slug %}">
+        <i class="bi bi-camera-video me-1"></i>Join</button>
+      {% endif %}
+    </div>
+    <div class="lv-meet" data-meet-frame hidden></div>
+
+  {% elif block.block_type == 'table' %}
+    <div class="table-responsive" data-bookmarkable>
+      <table class="lv-table table">
+        {% if block.data.has_header and block.data.headers %}
+        <thead><tr>{% for h in block.data.headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+        {% endif %}
+        <tbody>
+          {% for row in block.data.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if block.data.caption %}<figcaption class="small text-muted mt-1">{{ block.data.caption }}</figcaption>{% endif %}
+
+  {% elif block.block_type == 'diagram' %}
+    <figure class="lv-diagram">
+      {% if block.media_url %}
+      <div class="lv-diagram-stage">
+        <a href="{{ block.media_url }}" data-glightbox><img src="{{ block.media_url }}" alt="{{ block.data.alt }}"></a>
+        {% for lb in block.data.labels %}
+          <span class="lv-diagram-marker" style="left:{{ lb.x }}%;top:{{ lb.y }}%">{{ forloop.counter }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if block.data.labels %}
+      <ol class="lv-diagram-legend">{% for lb in block.data.labels %}<li>{{ lb.text }}</li>{% endfor %}</ol>
+      {% endif %}
+      {% if block.data.caption %}<figcaption>{{ block.data.caption }}</figcaption>{% endif %}
+    </figure>
+
+  {% elif block.block_type == 'divider' %}
+    <hr class="lv-divider">
+  {% endif %}
+</div>
+{% endfor %}

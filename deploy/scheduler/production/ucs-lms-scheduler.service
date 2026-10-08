@@ -1,0 +1,47 @@
+# UCS LMS — one tick of the background-job runner.
+#
+# Host-ready copy for THIS deployment: project under /home/ubuntu, in-tree
+# virtualenv (.environment), service account "ubuntu". The generic template it
+# was adapted from is ../ucs-lms-scheduler.service.
+#
+# Install:
+#   sudo cp deploy/scheduler/production/ucs-lms-scheduler.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ucs-lms-scheduler.timer
+#
+# Watch it:  journalctl -u ucs-lms-scheduler -f
+#
+# The timer runs this hourly through the day and evening (see the .timer). A
+# second, lighter unit (ucs-lms-scheduler-quick) runs only the cheap,
+# time-sensitive jobs every 15 minutes.
+
+[Unit]
+Description=UCS LMS background jobs (one tick)
+After=network-online.target postgresql@16-main.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/projects/UCS/United-Church-School
+ExecStart=/home/ubuntu/projects/UCS/United-Church-School/.environment/bin/python manage.py run_scheduled_jobs
+
+# A tick should be quick; if a job wedges, don't let it block the next one forever.
+TimeoutStartSec=1800
+
+# Background work must never slow the site down: lowest CPU and disk priority.
+Nice=15
+IOSchedulingClass=idle
+CPUWeight=20
+
+# Hardening. ProtectHome is deliberately off: unlike the /srv layout the generic
+# template assumes, this deployment lives under /home/ubuntu, and the runner
+# writes user_activity.log, media/ and backups/ inside the project directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+
+[Install]
+WantedBy=multi-user.target

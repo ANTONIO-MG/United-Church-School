@@ -1,0 +1,62 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="{{ ui_language|default:'en' }}"{% if ui_theme_attr %} data-bs-theme="{{ ui_theme_attr }}"{% endif %} {% block html_attribute %}{% endblock html_attribute %}>
+
+<head>
+  {% comment %}Title / meta come from the central string catalog (.strings.json via core.context_processors.branding).{% endcomment %}
+  <title>{% block page_title %}{% if page_title %}{{ page_title }} &middot; {% endif %}{{ brand.name|default:"United Church School" }}{% endblock %}</title>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="{{ brand.description|default:strings.meta.description }}">
+  <meta name="keywords" content="{{ strings.meta.keywords }}">
+
+  {% include 'partials/_favicons.html' %}
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+
+  <link href="{% static 'vendor/@fortawesome/fontawesome-free/css/all.min.css' %}" rel="stylesheet" type="text/css">
+  <link href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}" rel="stylesheet" type="text/css">
+
+  {% block css %}
+  {% block extra_css %}{% endblock extra_css %}
+
+  <link href="{% static 'css/vendor.min.css' %}" rel="stylesheet" />
+  <link href="{% static 'css/style.css' %}" rel="stylesheet" />
+
+  {% include 'partials/head-css.html' %}
+
+  <link href="{% static 'css/chrome.css' %}" rel="stylesheet" />
+  <link href="{% static 'soft-ui/soft-ui-shell.css' %}?v=2" rel="stylesheet" />
+  {% endblock css %}
+
+  {% block additional_css %}{% endblock additional_css %}
+</head>
+
+<body class="su-shell" {% block body_attribute %}{% endblock body_attribute %}>
+
+  {# Pre-paint: restore the collapsed sidebar state before first render. #}
+  <script>try{if(localStorage.getItem('thrivehub.sidebar.collapsed')==='1')document.body.classList.add('sidebar-start-enabled');}catch(e){}</script>
+
+  {% include 'partials/_loader.html' %}
+  {% include 'partials/_alerts.html' %}
+  {% include 'partials/_cookie_banner.html' %}
+
+  {% block content %}{% endblock content %}
+
+  {% block javascript %}
+  <script src="{% static 'js/vendors.js' %}"></script>
+  <script src="{% static 'js/functions.js' %}?v=2"></script>
+  <script src="{% static 'js/chrome.js' %}?v=3"></script>
+  <script src="{% static 'js/theme.js' %}"></script>
+  {% include 'partials/footer-script.html' %}   {# stories carousel behaviour #}
+  {% block extra_javascript %}{% endblock extra_javascript %}
+  {% endblock javascript %}
+
+  {% block additional_js %}{% endblock additional_js %}
+  {% include 'partials/_media.html' %}   {# global lightbox + media grid + dropzone #}
+</body>
+
+</html>

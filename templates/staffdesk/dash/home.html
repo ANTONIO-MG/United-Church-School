@@ -1,0 +1,195 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static commerce %}
+{% comment %}Operations dashboard (/staff/): what needs the admin team today. Every tile and panel links to where you act on it; numbers come from apps.staffdesk.dashboards.operations.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/dash/_head.html' %}{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk · {{ today|date:"l j F" }}</span><h3>Operations</h3>
+      <p>Today's numbers, what's waiting on someone, and whether the platform is healthy.</p></div>
+    <div class="tc-head__actions">
+      <form method="get" action="{% url 'staffdesk:students' %}" class="sdd-picker" role="search">
+        <label class="visually-hidden" for="sddFind">Find a student</label>
+        <input id="sddFind" class="form-control form-control-sm" type="search" name="q" placeholder="Find a student…">
+        <button class="btn btn-sm btn-primary mb-0"><i class="bi bi-search"></i><span class="visually-hidden">Search</span></button>
+      </form>
+      <a class="btn btn-sm btn-outline-secondary mb-0" href="{% url 'staffdesk:teaching' %}"><i class="bi bi-easel me-1"></i>Teaching</a>
+    </div>
+  </div>
+
+  <nav class="sdd-quick" aria-label="Quick actions">
+    {% for a in ops.actions %}<a href="{{ a.url }}"><i class="bi {{ a.icon }}"></i>{{ a.label }}</a>{% endfor %}
+  </nav>
+
+  {% with p=ops.people m=ops.money r=ops.risk q=ops.marking %}
+  <div class="tc-kpis">
+    <a class="tc-kpi sdd-kpi" href="{{ p.url|default:'#' }}"><i class="bi bi-people"></i>
+      <span>Active students</span><b>{{ p.total|default:0 }}</b><em>{{ p.active_week|default:0 }} signed in this week</em></a>
+    <a class="tc-kpi sdd-kpi {% if p.new_week %}is-good{% endif %}" href="{{ p.url|default:'#' }}"><i class="bi bi-person-plus"></i>
+      <span>New registrations</span><b>{{ p.new_week|default:0 }}</b><em>this week · {{ p.new_month|default:0 }} in 30 days</em></a>
+    <a class="tc-kpi sdd-kpi {% if m.overdue_count %}is-danger{% endif %}" href="{{ m.url|default:'#' }}"><i class="bi bi-exclamation-octagon"></i>
+      <span>Overdue</span><b>{{ m.overdue_amount|default:0|rand }}</b><em>{{ m.overdue_count|default:0 }} invoice{{ m.overdue_count|pluralize }}</em></a>
+    <a class="tc-kpi sdd-kpi is-good" href="{{ m.overview_url|default:'#' }}"><i class="bi bi-cash-coin"></i>
+      <span>Collected this month</span><b>{{ m.collected_month|default:0|rand }}</b><em>{{ m.payments_month|default:0 }} payment{{ m.payments_month|pluralize }}</em></a>
+    <a class="tc-kpi sdd-kpi {% if r.high %}is-danger{% elif r.students %}is-warning{% endif %}" href="{{ r.url|default:'#' }}"><i class="bi bi-life-preserver"></i>
+      <span>At-risk students</span><b>{{ r.students|default:0 }}</b><em>{{ r.high|default:0 }} at high risk</em></a>
+    <a class="tc-kpi sdd-kpi {% if q.oldest_days and q.oldest_days >= 7 %}is-danger{% elif q.total %}is-warning{% endif %}" href="{{ q.url|default:'#' }}"><i class="bi bi-pencil-square"></i>
+      <span>Marking queue</span><b>{{ q.total|default:0 }}</b><em>{% if q.oldest %}oldest waiting {{ q.oldest|timesince }}{% else %}nothing waiting{% endif %}</em></a>
+  </div>
+  {% endwith %}
+
+  <div class="sdd-grid">
+    <div class="sdd-col">
+      {# --- Live sessions ------------------------------------------------ #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-camera-video"></i><h5>Live sessions</h5>
+          <a class="tc-link" href="{{ ops.sessions.url|default:'#' }}">Calendar</a></div>
+        <div class="tc-card__body pt-1">
+          {% for day in ops.sessions.days %}{% with label=day.label rows=day.rows %}
+            <div class="sdd-day">{{ label|capfirst }}</div>
+            {% if rows %}
+            <ul class="sdd-list">
+              {% for s in rows %}
+              <li>
+                <div class="sdd-time"><b>{{ s.scheduled_start|time:"H:i" }}</b><small>{{ s.duration_minutes }} min</small></div>
+                <div class="sdd-main"><a class="sdd-title" href="{{ s.get_absolute_url }}">{{ s.title }}</a>
+                  <small>{% if s.module %}{{ s.module.label }} · {% endif %}{{ s.get_session_kind_display }}{% if s.host %} · {{ s.host|person_name }}{% endif %}</small></div>
+                <div class="sdd-end">{% if s.is_live_now %}<span class="tc-chip tc-chip--danger"><i class="bi bi-broadcast"></i>Live</span>{% else %}<span class="tc-chip">{{ s.get_audience_display|truncatechars:22 }}</span>{% endif %}</div>
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}<div class="sdd-empty"><i class="bi bi-calendar2"></i>No sessions {{ label }}.</div>{% endif %}
+          {% endwith %}{% endfor %}
+          {% if not ops.sessions %}<div class="sdd-empty">Sessions couldn't be loaded.</div>{% endif %}
+          <a class="btn btn-sm tc-btn-soft mt-2 mb-0" href="{{ ops.sessions.create_url|default:'#' }}"><i class="bi bi-plus-lg me-1"></i>Schedule a session</a>
+        </div>
+      </section>
+
+      {# --- Broadcasts --------------------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-megaphone"></i><h5>Recent broadcasts</h5>
+          <a class="tc-link" href="{{ ops.broadcasts.url|default:'#' }}">All notifications</a></div>
+        {% if ops.broadcasts.rows %}
+        <div class="tc-table-wrap"><table class="tc-table">
+          <thead><tr><th>Notification</th><th>Sent</th><th class="r">Reached</th><th>Read</th></tr></thead>
+          <tbody>
+          {% for row in ops.broadcasts.rows %}
+            <tr>
+              <td><a href="{% url 'communication:announcement-detail' row.a.pk %}">{{ row.a.title|truncatechars:60 }}</a>
+                {% if row.a.is_important %}<span class="tc-chip tc-chip--danger ms-1">Important</span>{% endif %}</td>
+              <td class="text-nowrap small">{{ row.a.sent_at|date:"j M, H:i" }}</td>
+              <td class="r">{{ row.reached }}</td>
+              <td class="text-nowrap">{% if row.read_pct is not None %}<span class="sdd-meter"><i style="width:{{ row.read_pct }}%"></i></span> <small class="tc-num">{{ row.read_pct }}%</small>{% else %}<small class="text-muted">—</small>{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+        {% else %}
+        <div class="tc-card__body"><div class="sdd-empty"><i class="bi bi-megaphone"></i>Nothing broadcast yet.</div></div>
+        {% endif %}
+        <div class="tc-card__body pt-2"><a class="btn btn-sm tc-btn-soft mb-0" href="{{ ops.broadcasts.compose_url|default:'#' }}"><i class="bi bi-send me-1"></i>Send a notification</a></div>
+      </section>
+
+      {# --- Activity ----------------------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-activity"></i><h5>Recent activity</h5>
+          {% if ops.activity_url and ops.activity_url != '#' %}<a class="tc-link" href="{{ ops.activity_url }}">Audit log</a>{% endif %}</div>
+        <div class="tc-card__body pt-1">
+          {% if ops.activity %}
+          <ul class="sdd-list">
+            {% for e in ops.activity %}
+            <li>
+              <span class="sdd-ico {% if e.action == 'delete' %}is-danger{% elif e.action == 'create' %}is-success{% endif %}"><i class="bi {% if e.action == 'login' %}bi-box-arrow-in-right{% elif e.action == 'logout' %}bi-box-arrow-right{% elif e.action == 'create' %}bi-plus-lg{% elif e.action == 'delete' %}bi-trash{% else %}bi-pencil{% endif %}"></i></span>
+              <div class="sdd-main"><b>{% if e.actor %}{{ e.actor }}{% else %}System{% endif %} <span class="fw-normal text-muted">· {{ e.get_action_display|lower }}</span></b>
+                <small>{{ e.description|default:e.request_path|default:"—"|truncatechars:90 }}</small></div>
+              <div class="sdd-end">{{ e.timestamp|timesince }} ago</div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}<div class="sdd-empty"><i class="bi bi-activity"></i>No activity recorded yet.</div>{% endif %}
+        </div>
+      </section>
+    </div>
+
+    <div class="sdd-col">
+      {# --- Health ------------------------------------------------------- #}
+      {% with j=ops.jobs e=ops.errors %}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-heart-pulse"></i><h5>Platform health</h5></div>
+        <div class="tc-card__body pt-1">
+          <div class="sdd-health">
+            <a class="{% if j.problem_count %}is-bad{% else %}is-ok{% endif %}" href="{{ j.url|default:'/staff/jobs/' }}">
+              <span>Background jobs</span><b>{% if j.total %}{{ j.healthy }}/{{ j.total }}{% else %}—{% endif %}</b>
+              <span>{% if j.problem_count %}{{ j.problem_count }} need{{ j.problem_count|pluralize:"s," }} attention{% else %}all healthy{% endif %}</span></a>
+            <a class="{% if e.count %}is-bad{% else %}is-ok{% endif %}" href="{{ e.url|default:'#' }}">
+              <span>Unresolved errors</span><b>{{ e.count|default:0 }}</b>
+              <span>{{ e.today|default:0 }} seen in 24h</span></a>
+          </div>
+          {% if j.problems or e.latest %}
+          <ul class="sdd-list">
+            {% for p in j.problems %}
+            <li>
+              <span class="sdd-ico {% if p.is_failure %}is-danger{% else %}is-warning{% endif %}"><i class="bi bi-gear"></i></span>
+              <div class="sdd-main"><b>{{ p.name }}</b><small>{% if p.state.last_started_at %}last ran {{ p.state.last_started_at|timesince }} ago{% else %}no run recorded{% endif %}</small></div>
+              <div class="sdd-end"><span class="tc-chip {% if p.is_failure %}tc-chip--danger{% else %}tc-chip--warning{% endif %}">{{ p.issue }}</span></div>
+            </li>
+            {% endfor %}
+            {% for ev in e.latest %}
+            <li>
+              <span class="sdd-ico is-danger"><i class="bi bi-bug"></i></span>
+              <div class="sdd-main"><a class="sdd-title" href="{% url 'diagnostics:event' ev.pk %}">{{ ev.code }} · {{ ev.title|default:ev.exception_type|truncatechars:48 }}</a>
+                <small>×{{ ev.count }} · last {{ ev.last_seen|timesince }} ago</small></div>
+              <div class="sdd-end"><span class="tc-chip">{{ ev.get_status_display }}</span></div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}<div class="sdd-empty"><i class="bi bi-check-circle-fill"></i>Jobs on schedule, no open errors.</div>{% endif %}
+          {% if j.last_tick %}<div class="small text-muted mt-2">Scheduler last ticked {{ j.last_tick|timesince }} ago.</div>{% endif %}
+        </div>
+      </section>
+      {% endwith %}
+
+      {# --- At risk ------------------------------------------------------ #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-life-preserver"></i><h5>Students at risk</h5>
+          <a class="tc-link" href="{{ ops.risk.url|default:'#' }}">See all</a></div>
+        <div class="tc-card__body pt-1">
+          {% if ops.risk.top %}
+          <ul class="sdd-list">
+            {% for row in ops.risk.top %}
+            <li>
+              <span class="tc-avatar">{{ row.name|slice:":1" }}</span>
+              <div class="sdd-main">{% if row.person_id %}<a class="sdd-title" href="{% url 'staffdesk:student' row.person_id %}">{{ row.name }}</a>{% else %}<b>{{ row.name }}</b>{% endif %}
+                <small>{% if row.flag.module %}{{ row.flag.module.code }} · {% endif %}{% for reason in row.reasons %}{{ reason }}{% if not forloop.last %}; {% endif %}{% empty %}flagged {{ row.flag.created_at|timesince }} ago{% endfor %}</small></div>
+              <div class="sdd-end"><span class="tc-chip {% if row.flag.score >= 70 %}tc-chip--danger{% else %}tc-chip--warning{% endif %}">{{ row.flag.score }}%</span></div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}<div class="sdd-empty"><i class="bi bi-check-circle-fill"></i>Nobody is flagged at risk.</div>{% endif %}
+        </div>
+      </section>
+
+      {# --- New registrations ------------------------------------------- #}
+      <section class="tc-card">
+        <div class="tc-card__head sdd-card-head"><i class="bi bi-person-plus"></i><h5>New members</h5>
+          <a class="tc-link" href="{% url 'staffdesk:students' %}?role=">Everyone</a></div>
+        <div class="tc-card__body pt-1">
+          {% if ops.people.recent %}
+          <ul class="sdd-list">
+            {% for row in ops.people.recent %}
+            <li>
+              <span class="tc-avatar">{{ row.name|slice:":1" }}</span>
+              <div class="sdd-main">{% if row.person %}<a class="sdd-title" href="{% url 'staffdesk:student' row.person.pk %}">{{ row.name }}</a>{% else %}<b>{{ row.name }}</b>{% endif %}
+                <small>{{ row.user.email }}</small></div>
+              <div class="sdd-end"><span class="tc-chip">{{ row.role|default:"student"|capfirst }}</span><br>{{ row.user.date_joined|timesince }} ago</div>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}<div class="sdd-empty"><i class="bi bi-person"></i>No sign-ups in the last 30 days.</div>{% endif %}
+        </div>
+      </section>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends 'soft_ui/auth_base.html' %}
+{% comment %}The page the verification link in the email lands on. Overrides
+allauth's account/email_confirm.html, which extends allauth's own
+base_entrance.html and therefore renders unstyled. Context (confirmation,
+can_confirm) comes from allauth's ConfirmEmailView.{% endcomment %}
+{% load i18n %}
+{% load account %}
+{% block title %}{% trans "Confirm your email" %} · {{ brand.name|default:"United Church School" }}{% endblock %}
+
+{% block auth_card %}
+<div class="card card-plain mt-8">
+  {% if confirmation and can_confirm %}
+    {% user_display confirmation.email_address.user as the_user %}
+    <div class="card-header pb-0 text-center bg-transparent">
+      <i class="bi bi-envelope-check text-info" style="font-size:2.5rem"></i>
+      <h3 class="font-weight-bolder text-info text-gradient mt-2">{% trans "Confirm your email" %}</h3>
+    </div>
+    <div class="card-body text-center pb-0">
+      <p class="text-sm mb-0">
+        {% blocktrans with email=confirmation.email_address.email %}Confirm that <strong>{{ email }}</strong> belongs to {{ the_user }}.{% endblocktrans %}
+      </p>
+    </div>
+    <div class="card-footer text-center pt-3">
+      <form method="post" action="{% url 'account_confirm_email' confirmation.key %}">
+        {% csrf_token %}
+        {{ redirect_field }}
+        <button type="submit" class="btn bg-gradient-info w-100 mt-2 mb-0">{% trans "Confirm email" %}</button>
+      </form>
+    </div>
+  {% elif confirmation %}
+    <div class="card-header pb-0 text-center bg-transparent">
+      <i class="bi bi-exclamation-triangle text-warning" style="font-size:2.5rem"></i>
+      <h3 class="font-weight-bolder text-warning text-gradient mt-2">{% trans "Already confirmed" %}</h3>
+    </div>
+    <div class="card-body text-center">
+      <p class="text-sm mb-0">
+        {% blocktrans with email=confirmation.email_address.email %}{{ email }} is already confirmed by a different account.{% endblocktrans %}
+      </p>
+    </div>
+    <div class="card-footer text-center pt-0">
+      <a href="{% url 'myhub:page-login' %}" class="btn bg-gradient-info mt-2 mb-0">{% trans "Back to sign in" %}</a>
+    </div>
+  {% else %}
+    <div class="card-header pb-0 text-center bg-transparent">
+      <i class="bi bi-hourglass-bottom text-danger" style="font-size:2.5rem"></i>
+      <h3 class="font-weight-bolder text-danger text-gradient mt-2">{% trans "Link expired" %}</h3>
+    </div>
+    <div class="card-body text-center">
+      <p class="text-sm mb-0">
+        {% blocktrans %}This confirmation link has expired or is not valid. Sign in to request a new one.{% endblocktrans %}
+      </p>
+    </div>
+    <div class="card-footer text-center pt-0">
+      <a href="{% url 'myhub:page-login' %}" class="btn bg-gradient-info mt-2 mb-0">{% trans "Back to sign in" %}</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

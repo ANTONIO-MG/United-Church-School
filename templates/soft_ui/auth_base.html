@@ -1,0 +1,211 @@
+{% load static %}
+<!DOCTYPE html>
+{% comment %}`data-bs-theme` is stamped server-side from the saved preference,
+exactly as base.html does it. Without it these pages painted light whatever the
+user had chosen, and the Mode buttons in the navbar this page includes were inert
+because js/theme.js was never loaded here either.{% endcomment %}
+<html lang="{{ ui_language|default:'en' }}"{% if ui_theme_attr %} data-bs-theme="{{ ui_theme_attr }}"{% endif %}>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>{% block title %}{{ page_title|default:"Account" }} · {{ brand.name|default:"United Church School" }}{% endblock %}</title>
+  {% include 'partials/_favicons.html' %}
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="{% static 'soft-ui/css/nucleo-icons.css' %}" rel="stylesheet" />
+  <link href="{% static 'soft-ui/css/nucleo-svg.css' %}" rel="stylesheet" />
+  <link id="pagestyle" href="{% static 'soft-ui/css/soft-ui-dashboard.min.css' %}" rel="stylesheet" />
+  <link href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}?v=1.11.3" rel="stylesheet">
+  <style>
+    @font-face{
+      font-family:"bootstrap-icons"; font-display:block;
+      src:url("{% static 'vendor/bootstrap-icons/font/fonts/bootstrap-icons.woff2' %}?r=3") format("woff2"),
+          url("{% static 'vendor/bootstrap-icons/font/fonts/bootstrap-icons.woff' %}?r=3") format("woff");
+    }
+  </style>
+  <link href="{% static 'soft-ui/soft-ui-shell.css' %}?v=2" rel="stylesheet" />
+  <style>
+    /* Soft UI look for plain form fields inside auth cards (e.g. allauth forms). */
+    .card form p{ margin-bottom:.9rem; }
+    .card form label{ font-size:.82rem; font-weight:600; color:#344767; display:block; margin-bottom:.3rem; }
+    .card input:not([type=checkbox]):not([type=radio]):not([type=file]),
+    .card select, .card textarea{
+      width:100%; border:1px solid #d2d6da; border-radius:.5rem; padding:.5rem .75rem;
+      font-size:.875rem; color:#495057; background:#fff; transition:box-shadow .15s, border-color .15s;
+    }
+    .card input:focus, .card select:focus, .card textarea:focus{ border-color:#6ec1e4; box-shadow:0 0 0 2px rgba(23,193,232,.2); outline:0; }
+    .card ::placeholder{ color:#adb5bd; opacity:1; }
+    .card form ul.errorlist{ list-style:none; padding:0; margin:.2rem 0 0; color:#ea0606; font-size:.8rem; }
+
+    /* --- Password show/hide toggle. Uses inline SVGs (below) so it never
+           depends on an icon font loading. --- */
+    .pw-field{ position:relative; }
+    .pw-field > input{ padding-right:2.75rem !important; }
+    .pw-toggle{
+      position:absolute; top:0; right:0; height:100%; width:2.75rem;
+      display:flex; align-items:center; justify-content:center;
+      border:0; background:transparent; color:#8392ab; cursor:pointer; padding:0;
+    }
+    .pw-toggle:hover{ color:#344767; }
+    .pw-toggle svg{ width:1.2rem; height:1.2rem; display:block; }
+    .pw-toggle .icon-hide{ display:none; }
+    .pw-toggle.is-revealed .icon-show{ display:none; }
+    .pw-toggle.is-revealed .icon-hide{ display:block; }
+
+    /* --- Green tick for agreement checkboxes (theme strips the default tick). --- */
+    .form-check-input.tick-green{
+      width:1.15rem; height:1.15rem; margin-top:.15rem; float:none; flex:0 0 auto;
+      border:1px solid #cbd3da !important; border-radius:.35rem !important;
+      background-color:#fff !important; appearance:none; -webkit-appearance:none;
+      background-repeat:no-repeat; background-position:center;
+      transition:background-color .15s, border-color .15s;
+    }
+    .form-check-input.tick-green:checked{
+      background-color:#2dce89 !important; border-color:#2dce89 !important;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M4.5 10.5 8 14l7.5-8'/%3E%3C/svg%3E") !important;
+      background-size:72% !important;
+    }
+    .form-check-input.tick-green:focus{ box-shadow:0 0 0 2px rgba(45,206,137,.25); outline:0; }
+
+    /* --- Terms modal must render ABOVE the fixed navbar (z-index:1040). The
+           JS below also lifts it to <body> so no ancestor can trap it. --- */
+    .modal{ z-index:1060 !important; }
+    .modal-backdrop{ z-index:1055 !important; }
+    /* Explicit close button (inline SVG) — always visible top-right. */
+    .btn-close-x{
+      display:inline-flex; align-items:center; justify-content:center;
+      width:2rem; height:2rem; margin-left:auto; padding:0;
+      border:0; border-radius:50%; background:#f0f2f5; color:#67748e; cursor:pointer;
+      transition:background-color .15s, color .15s;
+    }
+    .btn-close-x:hover{ background:#e0483b; color:#fff; }
+
+    /* --- Passwords match: green "valid" state on both boxes (see JS below) --- */
+    .pw-ok{
+      border-color:#2dce89 !important;
+      box-shadow:0 0 0 2px rgba(45,206,137,.18) !important;
+      background-color:#f6fdf9 !important;
+    }
+    .js-pw-mismatch{ color:#ea0606; font-size:.8rem; margin-top:.35rem; }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body class="">
+  {% include 'partials/navbar.html' %}
+
+  {% include 'partials/_alerts.html' %}
+
+  <main class="main-content mt-0">
+    <section>
+      <div class="page-header min-vh-100">
+        <div class="container">
+          <div class="row">
+            <div class="{% block card_col %}col-xl-4 col-lg-5 col-md-7{% endblock %} col-12 d-flex flex-column mx-auto">
+              {% block auth_card %}{% endblock %}
+            </div>
+            {% block oblique %}
+            {% comment %}The artwork beside the form. Each auth page picks its own
+            by overriding `auth_image` — sign-in and sign-up deliberately show
+            different photographs. `static_or` falls back to the theme's own
+            image if the named file has not been added yet, so a missing photo
+            is a stock background rather than a blank panel.{% endcomment %}
+            <div class="col-md-6">
+              <div class="oblique position-absolute top-0 h-100 d-md-block d-none me-n8">
+                <div class="oblique-image bg-cover position-absolute fixed-top ms-auto h-100 z-index-0 ms-n6"
+                     style="background-image:url('{% block auth_image %}{% static 'soft-ui/img/curved-images/curved6.jpg' %}{% endblock %}')"></div>
+              </div>
+            </div>
+            {% endblock %}
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="{% static 'soft-ui/js/core/popper.min.js' %}"></script>
+  <script src="{% static 'soft-ui/js/core/bootstrap.min.js' %}"></script>
+  <script src="{% static 'soft-ui/js/soft-ui-dashboard.min.js' %}"></script>
+  <script src="{% static 'js/theme.js' %}"></script>
+  <script>
+  (function () {
+    // Password show/hide — event-delegated so it covers every .pw-toggle on
+    // login and sign-up without per-page wiring. Swaps the input type and
+    // flips which inline SVG (eye / eye-slash) is shown via a class.
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.pw-toggle');
+      if (!btn) return;
+      var input = document.getElementById(btn.dataset.target);
+      if (!input) return;
+      var reveal = input.type === 'password';
+      input.type = reveal ? 'text' : 'password';
+      btn.classList.toggle('is-revealed', reveal);
+      var lbl = reveal ? 'Hide password' : 'Show password';
+      btn.setAttribute('aria-label', lbl);
+      btn.setAttribute('title', lbl);
+    });
+    // Lift the terms modal to <body> so it escapes any transformed/stacked
+    // ancestor and paints on top of the fixed navbar rather than behind it.
+    document.addEventListener('DOMContentLoaded', function () {
+      var m = document.getElementById('termsModal');
+      if (m && m.parentNode !== document.body) document.body.appendChild(m);
+    });
+
+    // Auto-dismiss every server-rendered error/alert after 3s (login, sign-up,
+    // forgot / reset password, e-mail-confirm flash). Snapshots the nodes at
+    // load, so live client-side messages (created later, marked data-persist)
+    // are never touched. Also clears the red invalid outline on inputs.
+    document.addEventListener('DOMContentLoaded', function () {
+      var nodes = Array.prototype.slice
+        .call(document.querySelectorAll('.alert, .invalid-feedback, .errorlist'))
+        .filter(function (el) { return !el.hasAttribute('data-persist'); });
+      if (!nodes.length) return;
+      setTimeout(function () {
+        nodes.forEach(function (el) {
+          el.style.transition = 'opacity .4s ease';
+          el.style.opacity = '0';
+          setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 400);
+        });
+        document.querySelectorAll('.is-invalid').forEach(function (i) {
+          i.classList.remove('is-invalid');
+        });
+      }, 3000);
+    });
+
+    // Live "passwords match" check for sign-up and the set-new-password page
+    // (both expose #id_password1 / #id_password2). Shows an error under the
+    // confirm box until the two match, then turns both boxes green. This is a
+    // UX aid only — the server still validates the match on submit.
+    document.addEventListener('DOMContentLoaded', function () {
+      var p1 = document.getElementById('id_password1');
+      var p2 = document.getElementById('id_password2');
+      if (!p1 || !p2) return;
+      var wrap = p2.closest('.pw-field') || p2.parentElement;
+      var msg = document.createElement('div');
+      msg.className = 'js-pw-mismatch';
+      msg.setAttribute('data-persist', '');   // exempt from the 3s auto-dismiss
+      msg.style.display = 'none';
+      msg.textContent = 'Passwords do not match.';
+      wrap.parentNode.insertBefore(msg, wrap.nextSibling);
+
+      function evaluate() {
+        if (!p2.value) {                       // confirm box empty → neutral
+          msg.style.display = 'none';
+          p1.classList.remove('pw-ok'); p2.classList.remove('pw-ok');
+        } else if (p1.value === p2.value) {    // match → green, no error
+          msg.style.display = 'none';
+          p1.classList.add('pw-ok'); p2.classList.add('pw-ok');
+          p1.classList.remove('is-invalid'); p2.classList.remove('is-invalid');
+        } else {                               // mismatch → error, not green
+          msg.style.display = 'block';
+          p1.classList.remove('pw-ok'); p2.classList.remove('pw-ok');
+        }
+      }
+      p1.addEventListener('input', evaluate);
+      p2.addEventListener('input', evaluate);
+    });
+  })();
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

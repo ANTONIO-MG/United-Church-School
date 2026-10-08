@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  UCS LMS — background jobs on macOS (launchd).
+
+  Ticks the runner every 60 seconds; each job's own interval decides whether it
+  is due. Edit the three paths below, then:
+
+      cp za.org.ucs.scheduler.plist ~/Library/LaunchAgents/
+      launchctl load ~/Library/LaunchAgents/za.org.ucs.scheduler.plist
+      tail -f /tmp/ucs-lms-scheduler.log
+
+  To stop:
+      launchctl unload ~/Library/LaunchAgents/za.org.ucs.scheduler.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>za.org.ucs.scheduler</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- 1. the interpreter with the project's dependencies -->
+        <string>/Users/YOU/Documents/Development/.env/bin/python3</string>
+        <string>manage.py</string>
+        <string>run_scheduled_jobs</string>
+    </array>
+
+    <!-- 2. the directory containing manage.py -->
+    <key>WorkingDirectory</key>
+    <string>/Users/YOU/Documents/Development/UCS/United-Church-School</string>
+
+    <key>StartInterval</key>
+    <integer>60</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- 3. where output goes -->
+    <key>StandardOutPath</key>
+    <string>/tmp/ucs-lms-scheduler.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/ucs-lms-scheduler.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>DJANGO_SETTINGS_MODULE</key>
+        <string>config.settings</string>
+        <key>LANG</key>
+        <string>en_US.UTF-8</string>
+    </dict>
+
+    <!-- Don't restart in a tight loop if the command exits immediately. -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+</dict>
+</plist>

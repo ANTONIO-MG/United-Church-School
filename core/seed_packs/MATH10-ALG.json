@@ -1,0 +1,82 @@
+{
+ "pack": "thrive-pack/1",
+ "module": "MATH",
+ "programme": "UCS-GR10",
+ "cohort": "",
+ "week": 1,
+ "topic": {
+  "code": "MATH10-ALG",
+  "title": "Algebraic expressions — products and factorisation"
+ },
+ "items": [
+  {
+   "type": "study_guide",
+   "title": "Algebraic expressions — revision sheet",
+   "subtitle": "Grade 10 Mathematics · CAPS Term 1 · products, factorisation and simplifying",
+   "sections": [
+    {
+     "heading": "Multiplying out (products)",
+     "body_html": "<p>Use the <strong>distributive law</strong>: every term in the first bracket multiplies every term in the second.</p><ul><li>(x + 3)(x − 5) = x² − 5x + 3x − 15 = <strong>x² − 2x − 15</strong></li><li>Square of a binomial: (a + b)² = a² + 2ab + b², so (2x − 1)² = 4x² − 4x + 1</li><li>Difference of squares: (a − b)(a + b) = a² − b²</li><li>Binomial × trinomial: (x + 2)(x² − 2x + 4) = x³ + 8</li></ul><p>Always collect like terms at the end and write the answer in descending powers of x.</p>"
+    },
+    {
+     "heading": "Factorising — work through this checklist",
+     "body_html": "<ol><li><strong>Common factor first:</strong> 3x² + 6x = 3x(x + 2)</li><li><strong>Difference of two squares:</strong> x² − 9 = (x − 3)(x + 3)</li><li><strong>Trinomials</strong> x² + bx + c: find two numbers that multiply to c and add to b. x² − 7x + 12 = (x − 3)(x − 4)</li><li><strong>Trinomials</strong> ax² + bx + c: use the product ac. 2x² + 5x − 3 = (2x − 1)(x + 3)</li><li><strong>Grouping</strong> (four terms): ax + ay + bx + by = a(x + y) + b(x + y) = (x + y)(a + b)</li><li><strong>Sum and difference of cubes:</strong> a³ ± b³ = (a ± b)(a² ∓ ab + b²)</li></ol><p>Check every factorisation by multiplying it back out.</p>"
+    },
+    {
+     "heading": "Simplifying algebraic fractions",
+     "body_html": "<p>Factorise the numerator and the denominator completely, then cancel <em>factors</em> (never terms).</p><p>(3x² + 6x) ÷ 3x = 3x(x + 2) ÷ 3x = <strong>x + 2</strong>, for x ≠ 0.</p><p>State the restrictions: a denominator may never be zero.</p>"
+    }
+   ]
+  },
+  {
+   "type": "mock",
+   "title": "Algebra check-up",
+   "subtitle": "Grade 10 Mathematics · products and factorisation · 10 marks · 20 minutes",
+   "scenario_html": "<p>Answer each question with a single number. Show your working in your exercise book.</p>",
+   "instructions": "Expand, factorise or simplify as asked, then give the number requested.",
+   "total_marks": 10,
+   "minutes": 20,
+   "release_solution": "on_submit",
+   "parts": [
+    {
+     "ref": "1",
+     "required": "Products and factorisation",
+     "marks": 10,
+     "marking": "auto",
+     "lines": [
+      {
+       "label": "Expand (x + 3)(x − 5). What is the constant term?",
+       "authority": "Products",
+       "amount": -15,
+       "marks": 2
+      },
+      {
+       "label": "Expand (2x − 1)². What is the coefficient of x?",
+       "authority": "Square of a binomial",
+       "amount": -4,
+       "marks": 2
+      },
+      {
+       "label": "x² − 7x + 12 = (x − a)(x − b) with a < b. What is a?",
+       "authority": "Factorising trinomials",
+       "amount": 3,
+       "marks": 2
+      },
+      {
+       "label": "In the same factorisation, what is b?",
+       "authority": "Factorising trinomials",
+       "amount": 4,
+       "marks": 2
+      },
+      {
+       "label": "Simplify (3x² + 6x) ÷ 3x, then evaluate the result at x = 4.",
+       "authority": "Algebraic fractions",
+       "amount": 6,
+       "marks": 2
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

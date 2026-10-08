@@ -1,0 +1,84 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}
+Admin/staff: choose which module offerings one member is enrolled in.
+Matches accounts.views.member_enrol — POST reads `modules` (the ticked offering
+ids); the programme filter is a client-side convenience only. Ticked modules are
+enrolled, unticked ones are dropped. Added modules start LOCKED — enrolling
+someone is not the same as paying for them.
+{% endcomment %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <a href="{% url 'accounts:manage-members' %}" class="small text-muted"><i class="bi bi-arrow-left me-1"></i>All members</a>
+        <h1 class="h4 mb-0 mt-2"><i class="bi bi-person-gear text-primary me-2"></i>Enrol {{ person }}</h1>
+        <p class="small text-muted mb-0">{{ person.user.email }} · {{ person.get_user_type_display }}</p>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="card">
+        <div class="card-header"><h6 class="mb-0">Grade</h6></div>
+        <div class="card-body">
+            <p class="small text-muted">Pick a grade to narrow the subject list. Enrolment itself is per subject — a learner can hold subjects across more than one grade.</p>
+            <select id="id_programme" class="form-control form-select" style="max-width:420px;">
+                <option value="">— all grades —</option>
+                {% for p in programmes %}
+                <option value="{{ p.pk }}">{{ p.name }}{% if p.institution %} · {{ p.institution.name }}{% endif %}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex align-items-center">
+            <h6 class="mb-0">Subjects</h6>
+            <span class="ms-auto small text-muted">Ticked = enrolled</span>
+        </div>
+        <div class="card-body">
+            <p class="small text-muted">Newly ticked subjects are created locked; they open on a trial or once their invoice settles.</p>
+            <div class="row" id="module-list">
+                {% for m in modules %}
+                <div class="col-md-6 module-option" data-programme="{{ m.programme_id|default:'' }}">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="modules" value="{{ m.pk }}" id="mod{{ m.pk }}"
+                               {% if m.pk in enrolled_module_ids %}checked{% endif %}>
+                        <label class="form-check-label" for="mod{{ m.pk }}">
+                            {{ m.display_name }} <span class="small text-muted">· {{ m.programme.name|default:'—' }}</span>
+                            {% if m.pk in enrolled_module_ids %}<span class="badge bg-success bg-opacity-10 text-success ms-1">enrolled</span>{% endif %}
+                        </label>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted small mb-0">No subjects yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary" data-loading><i class="bi bi-save me-1"></i>Save enrolment</button>
+        <a href="{% url 'accounts:manage-members' %}" class="btn btn-secondary-soft">Cancel</a>
+    </div>
+</form>
+
+<script>
+  // Show only the chosen programme's modules (all shown until one is picked).
+  (function () {
+    var sel = document.getElementById('id_programme');
+    var list = document.getElementById('module-list');
+    if (!sel || !list) return;
+    function refresh() {
+      var pid = sel.value;
+      list.querySelectorAll('.module-option').forEach(function (opt) {
+        var op = opt.getAttribute('data-programme');
+        opt.style.display = (!pid || op === pid) ? '' : 'none';
+      });
+    }
+    sel.addEventListener('change', refresh);
+    refresh();
+  })();
+</script>
+{% endblock %}

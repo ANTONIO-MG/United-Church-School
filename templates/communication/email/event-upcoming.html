@@ -1,0 +1,12 @@
+{% extends 'communication/email/base_email.html' %}{% load org_branding %}
+{% comment %}Upcoming event reminder. Context: recipient, event_title, event_when, event_location, action_url.{% endcomment %}
+{% block heading %}Upcoming: {{ event_title }}{% endblock %}
+{% block content %}
+  {% if recipient %}<p style="margin:0 0 14px">Hi {{ recipient|greeting_name }},</p>{% endif %}
+  <p style="margin:0 0 14px">This is a reminder about an upcoming event.</p>
+  <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
+    <tr><td style="padding:6px 0;color:#97a2da">When</td><td style="text-align:right"><strong>{{ event_when }}</strong></td></tr>
+    {% if event_location %}<tr><td style="padding:6px 0;color:#97a2da">Where</td><td style="text-align:right">{{ event_location }}</td></tr>{% endif %}
+  </table>
+{% endblock %}
+{% block cta %}{% include 'communication/email/_button.html' with url=action_url label="VIEW ON CALENDAR" %}{% endblock %}

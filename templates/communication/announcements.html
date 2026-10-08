@@ -1,0 +1,75 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% comment %}Notifications centre (admin / staff): every broadcast, its status and how many have read it.{% endcomment %}
+{% block additional_css %}
+<link rel="stylesheet" href="{% static 'css/commerce.css' %}">
+<link rel="stylesheet" href="{% static 'css/broadcast.css' %}?v=1">
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Communication</span><h3>{{ page_title }}</h3>
+      <p>Broadcast to everyone, or to any school, grade, class, subject or person.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'communication:notifications' %}"><i class="bi bi-bell me-1"></i>My notifications</a>
+      <a class="btn btn-sm btn-primary" href="{% url 'communication:announcement-compose' %}"><i class="bi bi-plus-lg me-1"></i>Send a notification</a>
+    </div>
+  </div>
+
+  {% if not scheduler_ok and counts.scheduled %}
+  <div class="tc-alert tc-alert--danger mb-3"><i class="bi bi-exclamation-triangle me-1"></i>
+    {{ counts.scheduled }} scheduled notification{{ counts.scheduled|pluralize }} will not go out: the background scheduler isn't running on this server.</div>
+  {% endif %}
+
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Sent this month</span><b>{{ kpis.sent_month }}</b><em>broadcasts</em></div>
+    <div class="tc-kpi"><span>People reached</span><b>{{ kpis.reached_month }}</b><em>this month</em></div>
+    <div class="tc-kpi"><span>Read rate</span><b>{% if kpis.read_rate is not None %}{{ kpis.read_rate }}%{% else %}—{% endif %}</b><em>opened on the platform</em></div>
+    <div class="tc-kpi"><span>Scheduled</span><b>{{ kpis.scheduled }}</b><em>waiting to go out</em></div>
+  </div>
+
+  <nav class="tc-aisles" aria-label="Filter">
+    <a class="tc-aisle {% if tab == 'all' %}is-active{% endif %}" href="?tab=all">All<span class="tc-count">{{ counts.all }}</span></a>
+    <a class="tc-aisle {% if tab == 'sent' %}is-active{% endif %}" href="?tab=sent">Sent<span class="tc-count">{{ counts.sent }}</span></a>
+    <a class="tc-aisle {% if tab == 'scheduled' %}is-active{% endif %}" href="?tab=scheduled">Scheduled<span class="tc-count">{{ counts.scheduled }}</span></a>
+    <a class="tc-aisle {% if tab == 'drafts' %}is-active{% endif %}" href="?tab=drafts">Drafts<span class="tc-count">{{ counts.drafts }}</span></a>
+  </nav>
+
+  <form method="get" class="tc-toolbar"><input type="hidden" name="tab" value="{{ tab }}">
+    <label class="visually-hidden" for="bcSearch">Search</label>
+    <input id="bcSearch" class="form-control form-control-sm tc-search" type="search" name="q" value="{{ search }}" placeholder="Search headlines and messages">
+    <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i><span class="visually-hidden">Search</span></button>
+  </form>
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>Notification</th><th>Audience</th><th>Status</th><th class="text-end">Reached</th><th>Read</th><th></th></tr></thead>
+      <tbody>
+      {% for a in announcements %}
+        <tr>
+          <td class="bc-title-cell">
+            <a href="{% url 'communication:announcement-detail' a.pk %}">{{ a.title }}</a>
+            {% if a.is_important %}<span class="tc-chip tc-chip--danger ms-1">Important</span>{% endif %}
+            {% if a.n_attachments %}<i class="bi bi-paperclip text-muted ms-1" title="{{ a.n_attachments }} file{{ a.n_attachments|pluralize }}"></i>{% endif %}
+            {% if a.media_url %}<i class="bi bi-play-btn text-muted ms-1" title="Video"></i>{% endif %}
+            <small>{{ a.body|truncatechars:110 }}</small>
+          </td>
+          <td class="small">{% if a.audience == 'all' %}Everyone{% elif a.audience == 'targeted' %}Selected groups{% else %}{{ a.get_audience_display }}{% endif %}{% if a.role_labels %}<br><span class="text-muted">{{ a.role_labels|join:", " }}</span>{% endif %}</td>
+          <td>{% include 'communication/_broadcast_status.html' %}</td>
+          <td class="text-end tc-num">{% if a.status == 'sent' or a.recipient_count %}{{ a.recipient_count }}{% else %}—{% endif %}</td>
+          <td>{% if a.recipient_count %}<span class="bc-readbar"><i style="width:{{ a.read_pct }}%"></i></span> <small class="tc-num">{{ a.read_pct }}%</small>{% else %}<small class="text-muted">—</small>{% endif %}</td>
+          <td class="text-end text-nowrap">
+            {% if a.is_editable %}<a class="btn btn-sm btn-light mb-0" href="{% url 'communication:announcement-edit' a.pk %}">Edit</a>{% endif %}
+            <a class="btn btn-sm btn-light mb-0" href="{% url 'communication:announcement-compose' %}?copy={{ a.pk }}" title="Duplicate"><i class="bi bi-copy"></i></a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6"><div class="tc-empty"><i class="bi bi-megaphone fs-2 d-block mb-2"></i>Nothing here yet.
+          <div class="mt-2"><a class="btn btn-sm btn-primary" href="{% url 'communication:announcement-compose' %}">Send your first notification</a></div></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div></div>
+{% endblock %}

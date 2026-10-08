@@ -1,0 +1,34 @@
+{% extends 'soft_ui/auth_base.html' %}
+{% load i18n %}
+{% comment %}Shown by django-axes when an account/IP pair has failed too many
+sign-in attempts (AXES_FAILURE_LIMIT). Deliberately says nothing about whether
+the account exists or whether the password was close — an attacker learns only
+that they have been stopped.{% endcomment %}
+{% block title %}{% trans "Too many sign-in attempts" %} · {{ brand.name|default:"United Church School" }}{% endblock %}
+
+{% block auth_card %}
+<div class="card card-plain mt-8">
+  <div class="card-header pb-0 text-start bg-transparent">
+    <h3 class="font-weight-bolder text-danger text-gradient">{% trans "Too many attempts" %}</h3>
+    <p class="mb-0">{% trans "Sign-in has been paused for this account and device." %}</p>
+  </div>
+  <div class="card-body">
+    <div class="alert alert-warning text-white text-sm py-2">
+      {% blocktrans %}For your security we've temporarily blocked further sign-in attempts.
+      Please wait a while and try again.{% endblocktrans %}
+    </div>
+    <p class="text-sm text-muted">
+      {% blocktrans %}If this wasn't you, someone may be trying to get into your account —
+      change your password as soon as you can get back in.{% endblocktrans %}
+    </p>
+    <a href="{% url 'myhub:page-forgot-password' %}" class="btn bg-gradient-info w-100 mb-2">
+      {% trans "Reset my password" %}</a>
+    <a href="/" class="btn btn-outline-secondary w-100 mb-0">{% trans "Back to the site" %}</a>
+    {% if brand.support_email %}
+    <p class="text-xs text-center text-muted mt-3 mb-0">
+      {% trans "Still stuck?" %} <a href="mailto:{{ brand.support_email }}">{{ brand.support_email }}</a>
+    </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

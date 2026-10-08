@@ -1,0 +1,125 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% comment %}Backups & restore points (administrators only). See apps/staffdesk/backups.py.{% endcomment %}
+{% block additional_css %}
+<link rel="stylesheet" href="{% static 'css/commerce.css' %}">
+<style>
+  .bk-kind{ text-transform:capitalize; }
+  .bk-restore{ display:none; }
+  .bk-restore.is-open{ display:table-row; }
+  .bk-restore td{ background:var(--tc-surface-2); }
+  .bk-restore form{ display:flex; flex-wrap:wrap; gap:.5rem; align-items:flex-end; }
+  .bk-restore label{ font-size:.75rem; font-weight:700; text-transform:uppercase; color:var(--tc-muted); display:block; }
+  .bk-progress{ display:flex; gap:.6rem; align-items:center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk · Administrators</span><h3>{{ page_title }}</h3>
+      <p>Every backup is a full copy of the database you can download or restore. A safety backup is always taken before a restore, so a restore can be undone.</p></div>
+    <div class="tc-head__actions">
+      <form method="post" action="{% url 'staffdesk:backup-create' %}" class="d-flex gap-2 mb-0">
+        {% csrf_token %}
+        <input class="form-control form-control-sm" name="note" placeholder="Note (optional), e.g. before term import" maxlength="300" style="min-width:16rem">
+        <button class="btn btn-sm btn-primary mb-0 text-nowrap" {% if not tools_ok or restoring %}disabled{% endif %}><i class="bi bi-database-add me-1"></i>Back up now</button>
+      </form>
+    </div>
+  </div>
+
+  {% if not tools_ok %}<div class="tc-alert tc-alert--danger mb-3"><i class="bi bi-x-octagon me-1"></i>{{ tools_error }} [BKP-7001]</div>{% endif %}
+  {% if stale %}<div class="tc-alert tc-alert--danger mb-3"><i class="bi bi-exclamation-triangle me-1"></i>No automatic backup in the last 26 hours. Check the <a href="{% url 'staffdesk:ops-jobs' %}">Background jobs</a> page for the <b>database-backup</b> job.</div>{% endif %}
+
+  {% if status.state %}
+  <div id="bkStatus" class="tc-alert {% if status.state == 'failed' %}tc-alert--danger{% elif status.state == 'done' %}tc-alert--info{% else %}tc-alert--info{% endif %} mb-3" data-live="{{ restoring|yesno:'1,0' }}">
+    <div class="bk-progress">
+      {% if restoring %}<span class="spinner-border spinner-border-sm"></span>{% endif %}
+      <div>
+        <b>Last restore:</b> {{ status.backup }} by {{ status.by|default:"—" }} —
+        {% if status.state == 'done' %}finished{% if status.migrated %} and brought up to date{% endif %}.
+        {% elif status.state == 'failed' %}failed and was rolled back; the database is as it was. <small class="d-block text-break">{{ status.error|truncatechars:400 }}</small>
+        {% elif status.state == 'safety-backup' %}taking the safety backup…
+        {% elif status.state == 'restoring' %}restoring…
+        {% else %}starting…{% endif %}
+        {% if status.safety_backup %}<small class="d-block">Safety backup: <code>{{ status.safety_backup }}</code> — restore it to undo.</small>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Restore points</span><b>{{ rows|length }}</b><em>on this server</em></div>
+    <div class="tc-kpi"><span>Last automatic backup</span><b>{% if last_scheduled %}{{ last_scheduled.created|timesince }} ago{% else %}never{% endif %}</b><em>daily · last {{ keep_daily }} kept</em></div>
+    <div class="tc-kpi"><span>Space used</span><b>{{ usage.backups_bytes|filesizeformat }}</b><em>{{ usage.disk_free|filesizeformat }} free on disk</em></div>
+    <div class="tc-kpi"><span>Safety backups</span><b>last {{ keep_safety }}</b><em>taken before every restore</em></div>
+  </div>
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>Restore point</th><th>Kind</th><th>By / note</th><th class="text-end">Size</th><th class="text-end"></th></tr></thead>
+      <tbody>
+      {% for b in rows %}
+        <tr>
+          <td><b>{{ b.created|date:"D d M Y, H:i" }}</b> <small class="text-muted">UTC</small><br><small class="text-muted text-break">{{ b.name }}</small></td>
+          <td><span class="tc-chip {% if b.kind == 'pre-restore' %}tc-chip--warning{% elif b.kind == 'manual' %}tc-chip--primary{% elif b.kind == 'uploaded' %}tc-chip--cyan{% else %}tc-chip--success{% endif %} bk-kind">{{ b.kind }}</span></td>
+          <td class="small">{{ b.by|default:"—" }}{% if b.note %}<br><span class="text-muted">{{ b.note }}</span>{% endif %}{% if b.code_version %}<br><span class="text-muted">code {{ b.code_version }}</span>{% endif %}</td>
+          <td class="text-end tc-num">{{ b.size|filesizeformat }}</td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-light mb-0" href="{% url 'staffdesk:backup-download' b.name %}" title="Download"><i class="bi bi-download"></i></a>
+            <button type="button" class="btn btn-sm btn-outline-danger mb-0" data-restore="{{ forloop.counter }}" {% if restoring %}disabled{% endif %}><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+            <form method="post" action="{% url 'staffdesk:backup-delete' b.name %}" class="d-inline mb-0" onsubmit="return confirm('Delete this backup permanently?')">{% csrf_token %}
+              <button class="btn btn-sm btn-light mb-0" title="Delete"><i class="bi bi-trash"></i></button></form>
+          </td>
+        </tr>
+        <tr class="bk-restore" id="bkRestore{{ forloop.counter }}">
+          <td colspan="5">
+            <p class="mb-2"><b>Restore the whole database to {{ b.created|date:"D d M Y, H:i" }} UTC.</b> Everything created or changed since then — registrations, payments, marks, messages — will be replaced by this copy. A safety backup of the database as it is now is taken first.</p>
+            <form method="post" action="{% url 'staffdesk:backup-restore' b.name %}">{% csrf_token %}
+              <div><label for="c{{ forloop.counter }}">Type {{ confirm_word }}</label><input id="c{{ forloop.counter }}" class="form-control form-control-sm" name="confirm" autocomplete="off" required></div>
+              {% if needs_password %}<div><label for="p{{ forloop.counter }}">Your password</label><input id="p{{ forloop.counter }}" type="password" class="form-control form-control-sm" name="password" autocomplete="current-password" required></div>{% endif %}
+              <button class="btn btn-sm btn-danger mb-0"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore this point</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5"><div class="tc-empty"><i class="bi bi-database fs-2 d-block mb-2"></i>No backups yet. Press “Back up now”, or wait for the daily backup.</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+
+  <div class="tc-card mt-3"><div class="tc-card__body p-3">
+    <h6 class="mb-2"><i class="bi bi-upload me-1"></i>Bring in a backup from elsewhere</h6>
+    <p class="small text-muted mb-2">A PostgreSQL custom-format dump (.dump, as downloaded above). It is checked before it is listed; nothing is restored until you choose to.</p>
+    <form method="post" action="{% url 'staffdesk:backup-upload' %}" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 mb-0">{% csrf_token %}
+      <input type="file" name="dump" accept=".dump" class="form-control form-control-sm" style="max-width:22rem" required>
+      <button class="btn btn-sm btn-outline-secondary mb-0">Upload</button>
+    </form>
+    <p class="small text-muted mt-3 mb-0">Kept automatically: the last {{ keep_daily }} daily backups and the last {{ keep_safety }} safety backups. Manual and uploaded backups are kept until deleted. Uploaded files (pictures, documents) are not in these backups — only the database.</p>
+  </div></div>
+</div></div>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+(function () {
+  document.querySelectorAll('[data-restore]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var row = document.getElementById('bkRestore' + btn.dataset.restore);
+      row.classList.toggle('is-open');
+      var input = row.querySelector('input[name=confirm]'); if (input) input.focus();
+    });
+  });
+  var box = document.getElementById('bkStatus');
+  if (box && box.dataset.live === '1') {
+    var timer = setInterval(function () {
+      fetch("{% url 'staffdesk:backup-status' %}", {credentials: 'same-origin'})
+        .then(function (r) { return r.json(); })
+        .then(function (s) { if (s.state === 'done' || s.state === 'failed') { clearInterval(timer); location.reload(); } })
+        .catch(function () { /* the site pauses during the swap; keep polling */ });
+    }, 3000);
+  }
+})();
+</script>
+{% endblock %}

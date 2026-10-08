@@ -1,0 +1,92 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static commerce %}
+{% comment %}A student's (or parent's) money at a glance: spent, owed, what finishing
+is likely to cost, where it went, and every invoice and receipt.{% endcomment %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">{% if viewing_child %}{{ subject|person_name }}'s finances{% else %}My finances{% endif %}</span>
+      <h3>{% if s.owed %}{{ s.owed|rand }} to pay{% else %}You're all paid up{% endif %}</h3>
+      <p>Everything spent on studies since {{ s.since|date:"F Y" }}, and what's still to come.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:statement' %}"><i class="bi bi-journal-text me-1"></i>Statement</a>
+      {% if s.next_due %}<a class="btn btn-sm btn-primary" href="{% url 'finance:pay' s.next_due.public_id %}"><i class="bi bi-credit-card me-1"></i>Pay {{ s.next_due.balance|rand }}</a>{% endif %}
+    </div>
+  </div>
+
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Spent to date</span><b>{{ s.spent|rand }}</b><em>since {{ s.since|date:"M Y" }}</em></div>
+    <div class="tc-kpi"><span>Outstanding</span><b class="{% if s.owed %}text-danger{% endif %}">{{ s.owed|rand }}</b><em>{{ s.open_invoices|length }} unpaid invoice{{ s.open_invoices|length|pluralize }}</em></div>
+    <div class="tc-kpi"><span>Estimated to finish</span><b>{{ s.to_finish|rand }}</b><em>{% if s.forecast.until %}owed now + fees to {{ s.forecast.until|date:"M Y" }}{% else %}what you owe now{% endif %}</em></div>
+    <div class="tc-kpi"><span>Next payment</span><b>{% if s.next_due %}{{ s.next_due.due_date|date:"j M" }}{% else %}—{% endif %}</b><em>{% if s.next_due %}{{ s.next_due.balance|rand }} · {{ s.next_due.number }}{% else %}nothing due{% endif %}</em></div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-xl-7">
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>What you've paid, month by month</h5></div>
+        <div class="tc-card__body"><div class="tc-chart"><canvas id="myChart" role="img" aria-label="Amount paid per month over the last 12 months"></canvas></div></div>
+      </div>
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Invoices</h5><a class="tc-link" href="{% url 'finance:invoices' %}">All invoices</a></div>
+        <div class="tc-table-wrap"><table class="tc-table">
+          <thead><tr><th>Invoice</th><th>Date</th><th>Status</th><th class="r">Total</th><th class="r">Due</th><th></th></tr></thead>
+          <tbody>{% for inv in s.invoices|slice:":12" %}
+            <tr><td><a class="fw-semibold" href="{% url 'finance:invoice-detail' inv.pk %}">{{ inv.number }}</a>{% if inv.summary %}<div class="small text-muted">{{ inv.summary|truncatechars:36 }}</div>{% endif %}</td>
+              <td class="small">{{ inv.issue_date|date:"j M Y" }}</td><td>{% include 'finance/_status.html' with doc=inv %}</td>
+              <td class="r">{{ inv.total|rand }}</td><td class="r fw-semibold">{{ inv.balance|rand }}</td>
+              <td class="r text-nowrap"><a href="{% url 'finance:invoice-pdf' inv.pk %}" title="Invoice PDF"><i class="bi bi-file-earmark-pdf"></i><span class="visually-hidden">Invoice PDF</span></a>
+                {% if inv.amount_paid %}<a class="ms-2" href="{% url 'finance:receipt-pdf' inv.pk %}" title="Receipt"><i class="bi bi-receipt"></i><span class="visually-hidden">Receipt</span></a>{% endif %}</td></tr>
+          {% empty %}<tr><td colspan="6" class="text-muted text-center py-4">No invoices yet.</td></tr>{% endfor %}</tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="col-xl-5">
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Your studies, paid vs still to come</h5></div>
+        <div class="tc-card__body">
+          <div class="tc-split mb-2" role="img" aria-label="{{ progress.paid }}% paid, {{ progress.owed }}% owed now, the rest still to come">
+            <i style="width:{{ progress.paid }}%;background:var(--tc-success)"></i><i style="width:{{ progress.owed }}%;background:var(--tc-warning)"></i>
+          </div>
+          <div class="tc-legend mb-3"><span><i style="background:var(--tc-success)"></i>Paid {{ s.spent|rand }}</span><span><i style="background:var(--tc-warning)"></i>Owed now {{ s.owed|rand }}</span><span><i style="background:var(--tc-surface-2);border:1px solid var(--tc-line)"></i>Still to come {{ s.forecast.total|rand }}</span></div>
+          {% if s.forecast.lines %}
+            <table class="tc-table"><thead><tr><th>Subject</th><th class="r">Months left</th><th class="r">Per month</th><th class="r">Cost</th></tr></thead><tbody>
+              {% for l in s.forecast.lines %}<tr><td>{{ l.code }}<div class="small text-muted">to {{ l.until|date:"M Y" }}</div></td><td class="r">{{ l.months }}</td><td class="r">{{ l.monthly|rand }}</td><td class="r fw-semibold">{{ l.cost|rand }}</td></tr>{% endfor %}
+            </tbody></table>
+            <p class="small text-muted mt-2 mb-0">An estimate: each subject's monthly fee from the month it's paid up to until your class ends, at today's prices.</p>
+          {% else %}<p class="small text-muted mb-0">No further subject fees are scheduled.</p>{% endif %}
+        </div>
+      </div>
+
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Where your money went</h5></div>
+        <div class="tc-card__body"><div class="tc-bars">
+          {% for row in s.streams %}<div class="tc-bar"><span>{{ row.label }}</span><span class="tc-bar__track"><span class="tc-bar__fill" style="width:{% widthratio row.amount stream_max 100 %}%"></span></span><span class="tc-bar__v">{{ row.amount|rand }}</span></div>
+          {% empty %}<p class="small text-muted mb-0">Nothing paid yet.</p>{% endfor %}
+        </div></div>
+      </div>
+
+      {% if bookings or orders %}
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Sessions &amp; deliveries</h5></div>
+        <div class="tc-card__body small">
+          {% for b in bookings %}<div class="d-flex justify-content-between py-1 border-bottom"><span><i class="bi bi-person-video3 me-1"></i>{{ b.product.name }} · {{ b.label }}</span><a href="{% url 'shop:my-bookings' %}">Open</a></div>{% endfor %}
+          {% for o in orders %}{% if o.shipment %}<div class="d-flex justify-content-between py-1 border-bottom"><span><i class="bi bi-truck me-1"></i>{{ o.order_no }} · {{ o.shipment.get_status_display }}</span><a href="{% url 'shop:order-detail' o.pk %}">Track</a></div>{% endif %}{% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Recent payments</h5><a class="tc-link" href="{% url 'finance:payment-history' %}">All</a></div>
+        <div class="tc-card__body">
+          {% for p in s.payments|slice:":6" %}<div class="d-flex justify-content-between small py-1 border-bottom"><span>{{ p.paid_at|date:"j M Y" }} · {{ p.get_method_display }} · {{ p.invoice.number }}</span><b class="num">{{ p.amount|rand }}</b></div>
+          {% empty %}<p class="small text-muted mb-0">No payments yet.</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+{% include 'finance/_chart_js.html' with canvas_id='myChart' in_label='Paid' %}
+{% endblock %}

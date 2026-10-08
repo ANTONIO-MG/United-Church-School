@@ -1,0 +1,73 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Support / help centre — a searchable user manual. Content and role scoping
+come from apps.communication.support; only the articles for the viewer's role are shown.{% endcomment %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="text-center mb-4">
+    <div class="icon-shape bg-gradient-info text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width:52px;height:52px">
+      <i class="bi bi-life-preserver" style="font-size:1.4rem"></i>
+    </div>
+    <h4 class="mb-1">Support &amp; help</h4>
+    <p class="text-sm text-muted mb-0">How-to guides and answers for using the {{ brand.name|default:"United Church School" }} learning platform.
+      {% if audience_label %}<span class="badge bg-gradient-secondary ms-1">{{ audience_label }}</span>{% endif %}</p>
+  </div>
+
+  <div class="row justify-content-center mb-4">
+    <div class="col-lg-7 col-md-9">
+      <form method="get" role="search">
+        <div class="input-group input-group-lg">
+          <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+          <input type="search" name="q" value="{{ query }}" class="form-control"
+                 placeholder="Search help — e.g. “unlock a subject”, “class”, “marking”, “error”" autofocus>
+          <button class="btn bg-gradient-info mb-0" type="submit">Search</button>
+        </div>
+      </form>
+      {% if query %}<p class="text-xs text-muted text-center mt-2">{{ total }} result{{ total|pluralize }} for “{{ query }}”.
+        <a href="{% url 'communication:support' %}">Clear</a></p>{% endif %}
+    </div>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-9">
+      {% for section in sections %}
+      <h6 class="text-uppercase text-muted mt-4 mb-2" style="letter-spacing:.06em; font-size:.72rem;">{{ section.name }}</h6>
+      <div class="accordion" id="acc-{{ forloop.counter }}">
+        {% for a in section.articles %}
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#help-{{ a.id }}" aria-expanded="false" aria-controls="help-{{ a.id }}">
+              <i class="bi {{ a.icon }} me-2 text-info"></i>{{ a.title }}
+            </button>
+          </h2>
+          <div id="help-{{ a.id }}" class="accordion-collapse collapse" data-bs-parent="#acc-{{ forloop.parentloop.counter }}">
+            <div class="accordion-body text-sm">{{ a.body|safe }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% empty %}
+      <div class="card"><div class="card-body text-center py-6">
+        <i class="bi bi-search text-muted" style="font-size:2rem"></i>
+        <h6 class="mt-3 mb-1">No help articles match “{{ query }}”.</h6>
+        <p class="text-sm text-muted mb-3">Try a different word, or browse everything.</p>
+        <a href="{% url 'communication:support' %}" class="btn btn-sm bg-gradient-info">Show all help</a>
+      </div></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="row justify-content-center mt-4">
+    <div class="col-lg-9">
+      <div class="alert alert-light border text-sm d-flex align-items-center">
+        <i class="bi bi-headset text-info me-2"></i>
+        <span>Still stuck? <strong>Academic</strong> questions — message your educator or academic staff from
+          <a href="{% url 'communication:chat-home' %}">Messages</a>. <strong>Technical</strong> problems —
+          contact an administrator.</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

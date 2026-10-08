@@ -1,0 +1,59 @@
+{% comment %}
+500 — server error.
+
+DELIBERATELY SELF-CONTAINED. Django renders this one differently from the other
+error pages: `django.views.defaults.server_error` calls `template.render()` with
+**no request**, so NO context processors run — `dz_array`, `brand`, `strings`,
+`request` and `user` are all undefined here. Anything that depends on them fails
+*while handling a failure*, so the visitor gets a bare "A server error occurred"
+instead of this page, and the original traceback is masked.
+
+That is exactly what the previous version did: it inherited the theme's asset
+map and looped over `…|getdata:request.path`, which raised VariableDoesNotExist
+on every 500.
+
+So: no {% extends %}, no {% include %}, no {% static %} (a hashed-manifest miss
+would raise too), no external CSS or JS. Inline everything. If you edit this
+file, keep it standalone — and test it with `DEBUG = False` and a view that
+raises, not just by opening the file.
+
+404 / 403 / 400 are NOT affected: their handlers do pass the request, so they can
+use the normal context.
+{% endcomment %}<!DOCTYPE html>
+<html lang="{{ ui_language|default:'en' }}"{% if ui_theme_attr %} data-bs-theme="{{ ui_theme_attr }}"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Server error · United Church School</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f8f9fa; color: #344767; text-align: center; padding: 1.5rem;
+    }
+    .box { max-width: 30rem; }
+    .code { font-size: 5rem; font-weight: 700; line-height: 1; margin: 0; color: #e53935; }
+    h1 { font-size: 1.25rem; margin: .75rem 0 .5rem; }
+    p { margin: 0 0 1.5rem; color: #67748e; line-height: 1.6; }
+    a {
+      display: inline-block; padding: .6rem 1.4rem; border-radius: .5rem;
+      background: #0f6fec; color: #fff; text-decoration: none; font-weight: 600;
+    }
+    a:hover { opacity: .9; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a2035; color: #e9ecef; }
+      p { color: #a0aec0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <p class="code">500</p>
+    <h1>Something went wrong on our end</h1>
+    <p>This one is our fault, not yours. The error has been logged and we're on it — please try again in a moment.</p>
+    <a href="/">Back to home</a>
+  </div>
+</body>
+</html>

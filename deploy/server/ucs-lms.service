@@ -1,0 +1,26 @@
+[Unit]
+Description=UCS LMS (Django ASGI via gunicorn/uvicorn)
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target
+# Wants, not Requires: a Requires= would propagate a `systemctl stop redis-server`
+# into stopping the site, and it would NOT come back when redis returned.
+# Ordering is still guaranteed by After=; Restart=always covers a redis blip.
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=notify
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/projects/UCS/United-Church-School
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/ubuntu/projects/UCS/United-Church-School/.environment/bin/gunicorn config.asgi:application --worker-class uvicorn_worker.UvicornWorker --workers 1 --bind 0.0.0.0:80 --access-logfile - --error-logfile -
+# port 80 is privileged; grant just that capability instead of running as root
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,48 @@
+{% comment %}A grid of imported YouTube videos. Expects `videos` (a YouTubeVideo
+iterable). Click a thumbnail to play it inline (privacy-enhanced nocookie embed).
+Self-contained: the tiny play handler installs itself once per page.{% endcomment %}
+{% if videos %}
+<div class="row g-3 yt-grid">
+  {% for v in videos %}
+  <div class="col-sm-6 col-lg-4">
+    <div class="card h-100">
+      <div class="yt-embed" data-embed="{{ v.embed_url }}?rel=0">
+        {% if v.thumbnail_url %}<img src="{{ v.thumbnail_url }}" alt="" loading="lazy">
+        {% else %}<img src="https://i.ytimg.com/vi/{{ v.youtube_id }}/mqdefault.jpg" alt="" loading="lazy">{% endif %}
+        <button type="button" class="yt-play" aria-label="Play video"><i class="bi bi-play-circle-fill"></i></button>
+      </div>
+      <div class="card-body p-2">
+        <div class="text-sm fw-semibold text-truncate" title="{{ v.title }}">{{ v.title|default:"Recording" }}</div>
+        {% if v.published_at %}<div class="text-xs text-muted"><i class="bi bi-calendar3 me-1"></i>{{ v.published_at|date:"j M Y" }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<style>
+  .yt-embed{ position:relative; aspect-ratio:16/9; background:#000; border-radius:.5rem .5rem 0 0; overflow:hidden; cursor:pointer; }
+  .yt-embed img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .yt-embed iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
+  .yt-play{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.15); border:0; color:#fff; font-size:3rem; cursor:pointer;
+    text-shadow:0 2px 10px rgba(0,0,0,.5); transition:background .15s; }
+  .yt-embed:hover .yt-play{ background:rgba(0,0,0,.28); }
+</style>
+<script>
+if (!window.__ytPlayInit) {
+  window.__ytPlayInit = true;
+  document.addEventListener('click', function (e) {
+    var wrap = e.target.closest && e.target.closest('.yt-embed');
+    if (!wrap || wrap.querySelector('iframe')) return;
+    var src = wrap.getAttribute('data-embed');
+    if (!src) return;
+    var f = document.createElement('iframe');
+    f.src = src + (src.indexOf('?') > -1 ? '&' : '?') + 'autoplay=1';
+    f.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
+    f.allowFullscreen = true;
+    wrap.innerHTML = '';
+    wrap.appendChild(f);
+  });
+}
+</script>
+{% endif %}

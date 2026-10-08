@@ -1,0 +1,28 @@
+# UCS LMS — background jobs.
+#
+# One entry is all that is needed: the runner ticks every minute and each job's
+# own interval (apps/scheduler/jobs.py) decides whether it is due. Do not add a
+# line per job — that would put the schedule in two places.
+#
+# Install with:  crontab -e     (then paste the line below, with real paths)
+#
+# Replace:
+#   /srv/ucs-lms/United-Church-School   → the directory containing manage.py
+#   /srv/ucs-lms/.venv/bin/python  → the interpreter with the project's deps
+#
+# cron runs with a minimal environment, so give it absolute paths and cd first.
+# If settings are read from a .env file, the project already loads it; otherwise
+# export what you need on the command line.
+
+* * * * * cd /srv/ucs-lms/United-Church-School && /srv/ucs-lms/.venv/bin/python manage.py run_scheduled_jobs >> /var/log/ucs-lms-jobs.log 2>&1
+
+# Log rotation (so the log above does not grow without bound) — /etc/logrotate.d/ucs-lms-jobs:
+#
+#   /var/log/ucs-lms-jobs.log {
+#       weekly
+#       rotate 8
+#       compress
+#       missingok
+#       notifempty
+#       copytruncate
+#   }

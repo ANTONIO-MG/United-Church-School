@@ -1,0 +1,171 @@
+/* =============================================================================
+   Profile pages (course / subject / person) — templates/profiles/shell.html.
+
+   Layout: the old Bootstrap `.container` capped the page at ~1140px and left
+   wide empty gutters on a desktop screen. This replaces it with a fluid grid
+   that fills the viewport: a 74% main column, a 24% rail and a 2% gap, with the
+   leftover screen width spent as page padding instead of dead space.
+
+   Visual language matches css/dashboard.css and css/sidenav.css — Inter, ink
+   labels, a single blue accent. Token values mirror the `.dash` block there.
+   ========================================================================== */
+
+.prof{
+  --prof-ink:      #344767;
+  --prof-muted:    #8392ab;
+  --prof-blue:     #2152ff;
+  --prof-blue-soft:rgba(33,82,255,.09);
+  --prof-line:     rgba(52,71,103,.09);
+  --prof-surface:  #fff;
+
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Profiles now render inside the shared chrome's content column, which
+     already supplies the page gutter — so this only needs to breathe, not to
+     stand in for a missing container. */
+  padding: 0;
+}
+[data-bs-theme="dark"] .prof{
+  --prof-ink:      #e9ecef;
+  --prof-muted:    #a3aed0;
+  --prof-blue:     #6ea8ff;
+  --prof-blue-soft:rgba(110,168,255,.14);
+  --prof-line:     rgba(255,255,255,.10);
+  --prof-surface:  #1b1e2b;
+}
+
+/* ---- 74 / 24 grid (2% gap) ---- */
+.prof-grid{ display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
+@media (min-width: 992px){
+  .prof-grid{ grid-template-columns: 74% 24%; column-gap: 2%; align-items: start; }
+}
+.prof-main{ min-width: 0; display: flex; flex-direction: column; gap: 1.5rem; }
+.prof-rail{ min-width: 0; display: flex; flex-direction: column; gap: 1.5rem; }
+@media (min-width: 992px){
+  /* The rail tracks the page rather than stretching to the main column. */
+  .prof-rail{ position: sticky; top: 6rem; max-height: calc(100vh - 7rem); overflow-y: auto; }
+  .prof-rail::-webkit-scrollbar{ width: 6px; }
+  .prof-rail::-webkit-scrollbar-thumb{ background: var(--prof-line); border-radius: 99px; }
+}
+
+/* ---- Tab strip: one line, always ---- */
+.prof-tabs{
+  display: flex; flex-wrap: nowrap; align-items: center;
+  gap: .15rem; margin: 0; padding: 0 0 .1rem; list-style: none;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;               /* the strip scrolls, but invisibly */
+  -webkit-overflow-scrolling: touch;
+}
+.prof-tabs::-webkit-scrollbar{ display: none; }
+.prof-tabs > li{ flex: 0 0 auto; }
+.prof-tabs .nav-link{
+  display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap;
+  /* Padding and label size shrink with the viewport so all eight tabs stay on
+     one line on a laptop before the strip ever needs to scroll. */
+  padding: .5rem clamp(.4rem, 1vw, .85rem);
+  font-size: clamp(.74rem, .9vw, .84rem); font-weight: 600;
+  color: var(--prof-muted); border: 0; border-bottom: 2px solid transparent;
+  border-radius: .4rem .4rem 0 0; text-decoration: none;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+.prof-tabs .nav-link .bi{ font-size: .95em; }
+.prof-tabs .nav-link:hover{ color: var(--prof-blue); background: var(--prof-blue-soft); }
+.prof-tabs .nav-link.active{ color: var(--prof-blue); border-bottom-color: var(--prof-blue); background: transparent; }
+.prof-tabs .tab-badge{
+  font-size: .62rem; font-weight: 700; padding: .05rem .32rem; border-radius: 99px;
+  background: var(--prof-blue-soft); color: var(--prof-blue);
+}
+/* Below lg the icons carry the meaning; dropping labels keeps one line. */
+@media (max-width: 575.98px){
+  .prof-tabs .nav-link .tab-label{ display: none; }
+  .prof-tabs .nav-link{ padding: .5rem .6rem; }
+  .prof-tabs .nav-link.active .tab-label{ display: inline; }
+}
+
+/* ---- Header card ---- */
+.prof-cover{ height: 168px; border-radius: 1rem 1rem 0 0; background-position: center; background-size: cover; }
+.prof-title{ font-size: 1.25rem; font-weight: 700; color: var(--prof-ink); margin: 0; letter-spacing: -.02em; }
+.prof-subtitle{ font-size: .82rem; color: var(--prof-muted); margin: .1rem 0 0; }
+.prof-meta{ display: flex; flex-wrap: wrap; gap: .15rem 1rem; margin: .6rem 0 0; padding: 0; list-style: none; }
+.prof-meta li{ font-size: .76rem; color: var(--prof-muted); }
+.prof-meta .bi{ color: var(--prof-blue); margin-right: .25rem; }
+
+/* ---- Grouped lists (Past / Today / Upcoming) ---- */
+.prof-group{ margin-bottom: 1.25rem; }
+.prof-group:last-child{ margin-bottom: 0; }
+.prof-group__head{
+  display: flex; align-items: center; gap: .45rem; margin: 0 0 .5rem;
+  font-size: .66rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--prof-muted);
+}
+.prof-group__head .bi{ color: var(--prof-blue); font-size: .85rem; }
+.prof-group__count{
+  margin-left: auto; font-size: .62rem; font-weight: 700; padding: .05rem .35rem;
+  border-radius: 99px; background: var(--prof-blue-soft); color: var(--prof-blue);
+}
+/* "Today" is the one group that should catch the eye. */
+.prof-group--today .prof-group__head{ color: var(--prof-blue); }
+.prof-group--today .prof-row{ background: var(--prof-blue-soft); border-radius: .6rem; }
+.prof-group--past .prof-row{ opacity: .72; }
+
+/* ---- List rows ---- */
+.prof-row{
+  display: flex; align-items: center; gap: .75rem;
+  padding: .6rem .65rem; border-bottom: 1px solid var(--prof-line);
+  text-decoration: none; color: inherit;
+}
+.prof-row:last-child{ border-bottom: 0; }
+.prof-row:hover{ background: var(--prof-blue-soft); border-radius: .6rem; }
+.prof-row__ico{
+  width: 2.2rem; height: 2.2rem; flex: 0 0 auto; border-radius: .6rem;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--prof-blue-soft); color: var(--prof-blue); font-size: .95rem;
+}
+.prof-row__date{
+  width: 3rem; flex: 0 0 auto; text-align: center; border-radius: .6rem; padding: .25rem 0;
+  background: var(--prof-blue-soft); color: var(--prof-blue); line-height: 1.1;
+}
+.prof-row__date b{ display: block; font-size: 1rem; font-weight: 700; }
+.prof-row__date span{ font-size: .6rem; text-transform: uppercase; letter-spacing: .04em; }
+.prof-row__main{ min-width: 0; flex: 1 1 auto; }
+.prof-row__title{ display: block; font-size: .86rem; font-weight: 600; color: var(--prof-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prof-row__meta{ display: block; font-size: .72rem; color: var(--prof-muted); }
+.prof-row__side{ flex: 0 0 auto; text-align: right; }
+
+/* ---- Progress bar (lesson list) ---- */
+.prof-bar{ height: 5px; border-radius: 99px; background: rgba(52,71,103,.09); overflow: hidden; margin-top: .3rem; }
+[data-bs-theme="dark"] .prof-bar{ background: rgba(255,255,255,.10); }
+.prof-bar > span{ display: block; height: 100%; border-radius: 99px; background: var(--prof-blue);
+  transition: width .7s cubic-bezier(.16,1,.3,1); }
+.prof-bar--done > span{ background: #82d616; }
+@media (prefers-reduced-motion: reduce){ .prof-bar > span{ transition: none; } }
+
+/* ---- Chips ---- */
+.prof-chip{
+  display: inline-flex; align-items: center; gap: .2rem; white-space: nowrap;
+  font-size: .66rem; font-weight: 700; padding: .12rem .45rem; border-radius: 99px;
+  background: var(--prof-blue-soft); color: var(--prof-blue);
+}
+.prof-chip--muted  { background: rgba(131,146,171,.16); color: #5a6a85; }
+.prof-chip--success{ background: rgba(130,214,22,.16);  color: #3c8000; }
+.prof-chip--warning{ background: rgba(251,207,51,.22);  color: #8a6a00; }
+.prof-chip--danger { background: rgba(234,6,6,.12);     color: #c00; }
+[data-bs-theme="dark"] .prof-chip--muted{ color: #b6c2d8; }
+[data-bs-theme="dark"] .prof-chip--success{ color: #a9ef4c; }
+[data-bs-theme="dark"] .prof-chip--warning{ color: #ffe27a; }
+[data-bs-theme="dark"] .prof-chip--danger{ color: #ff8a8a; }
+
+/* ---- Empty state ---- */
+.prof-empty{ text-align: center; padding: 1.5rem .8rem; color: var(--prof-muted); font-size: .8rem; }
+.prof-empty .bi{ display: block; font-size: 1.7rem; opacity: .35; margin-bottom: .4rem; }
+
+/* ---- Rail cards ---- */
+.prof-rail .card-title{ font-size: .9rem; font-weight: 700; color: var(--prof-ink); }
+.prof-rail .card-title .bi{ color: var(--prof-blue); }
+
+/* ---- Feed media inside the activity rail ---- */
+.prof-media{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; margin-top: .4rem; border-radius: .5rem; overflow: hidden; }
+.prof-media--1{ grid-template-columns: 1fr; }
+.prof-media a, .prof-media video{ display: block; width: 100%; }
+.prof-media img, .prof-media video{ width: 100%; height: 100%; object-fit: cover; aspect-ratio: 1/1; display: block; }
+.prof-media--1 img, .prof-media--1 video{ aspect-ratio: 16/10; }

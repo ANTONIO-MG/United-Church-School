@@ -1,0 +1,231 @@
+{% extends base_template|default:'profiles/shell.html' %}
+{% load static %}
+{% comment %}Module profile — same shell as a person/course profile.
+Tabs: feed · chat · lessons · assessments · documents · events · reminders · activity.{% endcomment %}
+
+{% block profile_content %}
+
+{# ---------------- FEED — the class wall (same component as person/course) ---------------- #}
+{% if active_tab == 'feed' %}
+  {% include 'profiles/_wall.html' %}
+
+{# ---------------- CHAT ---------------- #}
+{% elif active_tab == 'chat' %}
+  <div class="card">
+    <div class="card-body text-center py-5">
+      <i class="bi bi-chat-left-text display-5 text-primary"></i>
+      <h5 class="mt-3 mb-1">{{ module.name }} group chat</h5>
+      {% if chat_group %}
+        <p class="small text-muted">Talk to your classmates and educators in the subject group.</p>
+        <a href="/communication/chat/" class="btn btn-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>Open chat</a>
+      {% else %}
+        <p class="small text-muted mb-0">No chat group exists for this subject yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+{# ---------------- LESSONS ---------------- #}
+{% elif active_tab == 'lessons' %}
+  <div class="card">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Lessons</h5></div>
+    <div class="card-body">
+      {% for l in lessons %}
+      <a href="{% url 'learning:lesson-view' l.id %}" class="prof-row">
+        <span class="prof-row__ico"><i class="bi bi-journal-richtext"></i></span>
+        <span class="prof-row__main">
+          <span class="prof-row__title">{{ l.title }}</span>
+          <span class="prof-row__meta">
+            {% if l.unit %}{{ l.unit.title }} · {% endif %}
+            {% if l.section_count %}{{ l.section_count }} section{{ l.section_count|pluralize }} · {% endif %}
+            <i class="bi bi-clock"></i> ~{{ l.estimated_minutes }} min
+            {% if l.minutes_spent %} · {{ l.minutes_spent }} min studied{% endif %}
+            {% if l.resource_count %} · <i class="bi bi-paperclip"></i> {{ l.resource_count }}{% endif %}
+            {% if l.assessment_count %} · <i class="bi bi-ui-checks"></i> {{ l.assessment_count }}{% endif %}
+            {% if l.has_locks %} · <i class="bi bi-lock"></i> gated{% endif %}
+          </span>
+          <span class="prof-bar {% if l.pct >= 100 %}prof-bar--done{% endif %}"><span style="width: {{ l.pct }}%"></span></span>
+        </span>
+        <span class="prof-row__side">
+          <span class="d-block fw-bold" style="font-size:.85rem; color:var(--prof-ink);">{{ l.pct }}%</span>
+          <span class="prof-chip {% if l.status_tone == 'success' %}prof-chip--success{% elif l.status_tone == 'muted' %}prof-chip--muted{% endif %}">{{ l.status_label }}</span>
+        </span>
+      </a>
+      {% empty %}
+      <div class="prof-empty"><i class="bi bi-journal-richtext"></i>No lessons yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+{# ---------------- ASSESSMENTS ---------------- #}
+{% elif active_tab == 'assessments' %}
+  <div class="card">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Assessments</h5></div>
+    <div class="card-body">
+      {% for group in assessment_groups %}
+      <div class="prof-group prof-group--{{ group.key }}">
+        <p class="prof-group__head"><i class="bi {{ group.icon }}"></i>{{ group.label }}
+          <span class="prof-group__count">{{ group.count }}</span></p>
+        {% for a in group.rows %}
+        <a href="{% url 'assessments:take' a.id %}" class="prof-row">
+          <span class="prof-row__ico"><i class="bi bi-ui-checks"></i></span>
+          <span class="prof-row__main">
+            <span class="prof-row__title">{{ a.title }}</span>
+            <span class="prof-row__meta">
+              {{ a.get_kind_display }} · {{ a.total_marks }} marks · pass {{ a.pass_mark_pct }}%
+              {% if a.available_to %} · closes {{ a.available_to|date:"d M Y, H:i" }}
+              {% elif a.available_from %} · opens {{ a.available_from|date:"d M Y, H:i" }}{% endif %}
+            </span>
+          </span>
+          <span class="prof-row__side">
+            <span class="prof-chip {% if a.status == 'open' %}prof-chip--success{% else %}prof-chip--muted{% endif %}">{{ a.get_status_display }}</span>
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+      {% empty %}
+      <div class="prof-empty"><i class="bi bi-ui-checks"></i>No assessments yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+{# ---------------- LIVE CLASSES ---------------- #}
+{% elif active_tab == 'live' %}
+  {% if can_host_live %}
+  <div class="card mb-3">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0"><i class="bi bi-camera-video-fill text-primary me-2"></i>Schedule a live class</h5></div>
+    <div class="card-body">
+      <form method="post" action="{% url 'learning:module-live-schedule' module.pk %}" class="row g-2 align-items-end">
+        {% csrf_token %}
+        <div class="col-md-4"><label class="form-label small text-muted mb-1">Title</label>
+          <input name="title" class="form-control form-control-sm" placeholder="e.g. Topic 3 revision" required></div>
+        <div class="col-md-3"><label class="form-label small text-muted mb-1">Date</label>
+          <input name="session_date" type="date" class="form-control form-control-sm" required></div>
+        <div class="col-md-2"><label class="form-label small text-muted mb-1">Start</label>
+          <input name="start_time" type="time" class="form-control form-control-sm" required></div>
+        <div class="col-md-2"><label class="form-label small text-muted mb-1">Minutes</label>
+          <input name="duration" type="number" min="15" step="15" value="60" class="form-control form-control-sm"></div>
+        <div class="col-md-1"><button class="btn btn-primary btn-sm w-100" data-loading><i class="bi bi-plus-lg"></i></button></div>
+      </form>
+      <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>Uses Microsoft Teams when configured, otherwise an in-app video room. Enrolled learners join from here; attendance is recorded automatically.</div>
+    </div>
+  </div>
+  {% endif %}
+  <div class="card">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Live classes</h5></div>
+    <div class="card-body">
+      {% for s in live_sessions %}
+      <div class="d-flex align-items-center py-2 border-bottom">
+        <div class="text-center bg-primary bg-opacity-10 rounded p-2 me-3" style="min-width:56px">
+          <div class="fw-bold lh-1 text-primary">{{ s.session_date|date:"d" }}</div>
+          <small class="text-primary">{{ s.session_date|date:"M" }}</small>
+        </div>
+        <div class="flex-grow-1 min-w-0">
+          <span class="d-block">{{ s.title|default:"Live class" }}</span>
+          <small class="text-muted">
+            {% if s.starts_at %}{{ s.starts_at|date:"H:i" }}{% endif %}
+            {% if s.meeting %}· {{ s.meeting.get_provider_display }}{% endif %}
+            · {{ s.present_count }} present</small>
+        </div>
+        {% if s.meeting %}
+          <a class="btn btn-sm btn-success" href="{% url 'communication:meeting-room' s.meeting.slug %}" target="_blank"><i class="bi bi-camera-video me-1"></i>Join</a>
+        {% else %}<span class="badge bg-secondary-soft">No room</span>{% endif %}
+      </div>
+      {% empty %}<p class="text-muted small mb-0">No live classes scheduled yet.</p>{% endfor %}
+    </div>
+  </div>
+
+{# ---------------- DOCUMENTS ---------------- #}
+{% elif active_tab == 'documents' %}
+  {% include 'profiles/_documents.html' %}
+
+{# ---------------- EVENTS ---------------- #}
+{% elif active_tab == 'events' %}
+  <div class="card">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Events &amp; class sessions</h5></div>
+    <div class="card-body">
+      {% for group in event_groups %}
+      <div class="prof-group prof-group--{{ group.key }}">
+        <p class="prof-group__head"><i class="bi {{ group.icon }}"></i>{{ group.label }}
+          <span class="prof-group__count">{{ group.count }}</span></p>
+        {% for e in group.rows %}
+        <div class="prof-row">
+          <span class="prof-row__date"><b>{{ e.session_date|date:"d" }}</b><span>{{ e.session_date|date:"M" }}</span></span>
+          <span class="prof-row__main">
+            <span class="prof-row__title">{{ e.title|default:e.module }}</span>
+            <span class="prof-row__meta">
+              {{ e.present_count }} present · {{ e.absent_count }} absent
+              {% if e.starts_at %} · {{ e.starts_at|date:"H:i" }}{% endif %}
+            </span>
+          </span>
+          <span class="prof-row__side">
+            {% if e.meeting %}
+              <a class="prof-chip" href="{{ e.meeting.get_join_url }}"><i class="bi bi-box-arrow-in-right"></i>Join</a>
+            {% elif e.is_open %}
+              <span class="prof-chip prof-chip--success">Open</span>
+            {% else %}
+              <span class="prof-chip prof-chip--muted">Closed</span>
+            {% endif %}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      {% empty %}
+      <div class="prof-empty"><i class="bi bi-calendar-event"></i>No sessions scheduled.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+{# ---------------- REMINDERS ---------------- #}
+{% elif active_tab == 'reminders' %}
+  <div class="card">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Reminders &amp; tasks</h5></div>
+    <div class="card-body">
+      {% for t in reminders %}
+      <a href="{{ t.get_absolute_url }}" class="d-flex align-items-center text-reset text-decoration-none py-2 border-bottom">
+        <i class="bi bi-bell fs-5 text-danger me-3"></i>
+        <span class="flex-grow-1 min-w-0">
+          <span class="d-block">{{ t.title }}</span>
+          <small class="text-muted">{% if t.due_date %}Due {{ t.due_date|date:"d M Y" }}{% else %}No due date{% endif %}</small>
+        </span>
+        <span class="badge bg-{% if t.is_overdue %}danger{% else %}secondary{% endif %}-soft">{{ t.get_priority_display }}</span>
+      </a>
+      {% empty %}<p class="text-muted small mb-0">No reminders.</p>{% endfor %}
+    </div>
+  </div>
+
+{# ---------------- ACTIVITY ---------------- #}
+{% elif active_tab == 'activity' %}
+  <div class="card">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Activity</h5></div>
+    <div class="card-body">
+      {% for a in activity %}
+      <div class="prof-row align-items-start">
+        <span class="prof-row__ico"><i class="bi {{ a.icon|default:'bi-dot' }}"></i></span>
+        <span class="prof-row__main">
+          <span class="prof-row__title" style="white-space:normal;">
+            {% if a.url %}<a class="text-reset text-decoration-none" href="{{ a.url }}">{{ a.text }}</a>{% else %}{{ a.text }}{% endif %}
+          </span>
+          <span class="prof-row__meta">{{ a.when|timesince }} ago</span>
+          {% if a.media %}
+          <span class="prof-media prof-media--{{ a.media|length }}">
+            {% for m in a.media %}
+              {% if m.kind == 'image' %}
+                <a href="{{ m.url }}" data-glightbox><img src="{{ m.url }}" alt="{{ m.name|default:'Shared image' }}" loading="lazy"></a>
+              {% elif m.kind == 'video' %}
+                <video src="{{ m.url }}" controls preload="metadata"></video>
+              {% else %}
+                <a class="prof-chip prof-chip--muted" href="{{ m.url }}"><i class="bi bi-paperclip"></i>{{ m.name|default:"Attachment"|truncatechars:20 }}</a>
+              {% endif %}
+            {% endfor %}
+          </span>
+          {% endif %}
+        </span>
+      </div>
+      {% empty %}
+      <div class="prof-empty"><i class="bi bi-activity"></i>No learning activity recorded yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+{% endblock profile_content %}

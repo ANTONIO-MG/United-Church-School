@@ -1,0 +1,5 @@
+<div class="mb-2"><label class="form-label" for="{{ form.title.id_for_label }}">Title</label>
+  <input class="form-control form-control-sm" id="{{ form.title.id_for_label }}" name="{{ form.title.html_name }}" value="{{ form.title.value|default_if_none:'' }}" maxlength="200" required></div>
+<div class="mb-2"><label class="form-label" for="{{ form.body.id_for_label }}">Message</label>
+  <textarea class="form-control form-control-sm" id="{{ form.body.id_for_label }}" name="{{ form.body.html_name }}" rows="3" required>{{ form.body.value|default_if_none:'' }}</textarea>
+  <div class="form-text">Sent on the learning platform and by e-mail (where their preferences allow).</div></div>

@@ -1,0 +1,86 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Background jobs: every registered scheduler job, how it last went, and a way to run it now.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/ops/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk</span><h3>Background jobs</h3>
+      <p>What runs unattended, when it last ran and how it went.</p></div>
+    <div class="tc-head__actions">
+      <form method="post" action="{% url 'staffdesk:ops-jobs-run-due' %}">{% csrf_token %}
+        <button class="btn btn-sm btn-primary"><i class="bi bi-play-fill me-1"></i>Run all due jobs</button>
+      </form>
+    </div>
+  </div>
+
+  {% if kpis.failing or kpis.overdue %}
+  <div class="tc-alert tc-alert--danger mb-3"><i class="bi bi-exclamation-triangle"></i>
+    <div>{% if kpis.failing %}{{ kpis.failing }} job{{ kpis.failing|pluralize }} failing.{% endif %}
+      {% if kpis.overdue %}{{ kpis.overdue }} job{{ kpis.overdue|pluralize }} overdue — the scheduler timers may not be running on this server.{% endif %}</div></div>
+  {% endif %}
+
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Jobs</span><b>{{ kpis.total }}</b><em>registered</em></div>
+    <div class="tc-kpi"><span>Running now</span><b class="{% if kpis.running %}text-primary{% endif %}">{{ kpis.running }}</b><em>lock held</em></div>
+    <div class="tc-kpi"><span>Failing</span><b class="{% if kpis.failing %}text-danger{% endif %}">{{ kpis.failing }}</b><em>last run failed</em></div>
+    <div class="tc-kpi"><span>Overdue</span><b class="{% if kpis.overdue %}text-danger{% endif %}">{{ kpis.overdue }}</b><em>missed their tick</em></div>
+  </div>
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table sd-jobs">
+      <thead><tr><th>Job</th><th>Status</th><th>Interval</th><th>Last run</th><th class="r">Runs</th><th>Next expected</th><th></th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr class="{% if r.failing or r.overdue %}sd-row-alert{% endif %}">
+          <td class="sd-job-desc"><span class="fw-semibold font-monospace">{{ r.job.name }}</span>
+            <div class="small text-muted">{{ r.job.description }}</div>
+            {% if r.state.last_output %}
+            <details class="sd-output"><summary class="small">Last output</summary><pre>{{ r.state.last_output }}</pre></details>
+            {% endif %}
+          </td>
+          <td>
+            {% if r.running %}<span class="tc-chip tc-chip--primary"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span>Running</span>
+            {% elif not r.job.enabled %}<span class="tc-chip">Disabled</span>
+            {% elif r.never %}<span class="tc-chip tc-chip--warning">Never run</span>
+            {% elif r.state.last_status == 'failed' %}<span class="tc-chip tc-chip--danger"><i class="bi bi-x-circle"></i>Failed</span>
+            {% elif r.state.last_status == 'running' %}<span class="tc-chip tc-chip--warning" title="Started but never finished — the process was probably killed.">Interrupted</span>
+            {% else %}<span class="tc-chip tc-chip--success"><i class="bi bi-check-circle"></i>OK</span>{% endif %}
+            {% if r.overdue %}<div class="mt-1"><span class="tc-chip tc-chip--danger"><i class="bi bi-clock-history"></i>Overdue</span></div>{% endif %}
+            {% if r.state.consecutive_failures %}<div class="small text-danger mt-1">{{ r.state.consecutive_failures }} failure{{ r.state.consecutive_failures|pluralize }} in a row</div>{% endif %}
+          </td>
+          <td class="small text-nowrap">{{ r.every }}<div class="text-muted">{{ r.tick }} tick</div></td>
+          <td class="small text-nowrap">
+            {% if r.state.last_started_at %}{{ r.state.last_started_at|timesince }} ago
+              <div class="text-muted" title="Started {{ r.state.last_started_at|date:'j M H:i:s' }}{% if r.state.last_finished_at %} · finished {{ r.state.last_finished_at|date:'j M H:i:s' }}{% endif %}">{{ r.state.last_started_at|date:"j M H:i" }}{% if r.duration %} · {{ r.duration }}{% endif %}</div>
+            {% else %}—{% endif %}
+          </td>
+          <td class="r small text-nowrap">{{ r.state.run_count|default:0 }}{% if r.state.failure_count %}<div class="text-danger">{{ r.state.failure_count }} failed</div>{% endif %}</td>
+          <td class="small text-nowrap">{% if r.next %}{{ r.next|date:"j M H:i" }}{% else %}—{% endif %}</td>
+          <td class="r">
+            <form method="post" action="{% url 'staffdesk:ops-job-run' r.job.name %}">{% csrf_token %}
+              <button class="btn btn-sm tc-btn-soft text-nowrap" {% if r.running %}disabled{% endif %}><i class="bi bi-play me-1"></i>Run now</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+
+  <div class="tc-card mt-3"><div class="tc-card__body">
+    <h6 class="mb-2"><i class="bi bi-calendar-week me-1"></i>Production schedule</h6>
+    <dl class="sd-schedule mb-0">
+      {% for label, text in schedule %}<dt>{{ label }}</dt><dd>{{ text }}</dd>{% endfor %}
+    </dl>
+    <p class="small text-muted mt-2 mb-0">A job runs on the first tick after its interval has elapsed, so a 5-minute job outside the quick tick really runs hourly. "Run now" ignores the interval; "Run all due jobs" respects it. A job is overdue when it is more than 30 minutes past the tick it should have run on.</p>
+  </div></div>
+</div></div>
+{% endblock %}
+{% block additional_js %}
+{% if any_running %}
+<script>
+// Something is running: refresh until it finishes so the result appears without a manual reload.
+setTimeout(function () { window.location.reload(); }, 8000);
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends 'soft_ui/auth_base.html' %}
+{% block title %}Check your e-mail · {{ brand.name|default:"United Church School" }}{% endblock %}
+
+{% block auth_card %}
+<div class="card card-plain mt-8">
+  <div class="card-body text-center">
+    <div class="mb-3" style="font-size:3.25rem; line-height:1;">✅</div>
+    <h3 class="font-weight-bolder text-info text-gradient mb-2">Account created!</h3>
+    <p class="mb-2">We've sent an activation link to</p>
+    <p class="mb-3"><strong>{{ email }}</strong></p>
+    <p class="text-sm text-secondary mb-4">
+      Open your inbox (check the spam folder too) and click the link to activate
+      your account, then sign in to continue your application.
+    </p>
+    <p class="text-sm mb-4">
+      Taking you to sign in in <strong id="rdCount">{{ redirect_seconds }}</strong>
+      second<span id="rdPlural">s</span>…
+    </p>
+    <a href="{{ login_url }}" class="btn bg-gradient-info w-100 mb-0">Go to sign in now</a>
+  </div>
+</div>
+
+{# Fallback redirect for browsers with JavaScript disabled. #}
+<noscript>
+  <meta http-equiv="refresh" content="{{ redirect_seconds }};url={{ login_url }}">
+</noscript>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    var seconds = {{ redirect_seconds|default:10 }};
+    var target = "{{ login_url|escapejs }}";
+    var count = document.getElementById('rdCount');
+    var plural = document.getElementById('rdPlural');
+    var timer = setInterval(function () {
+      seconds -= 1;
+      if (count) count.textContent = seconds < 0 ? 0 : seconds;
+      if (plural) plural.style.display = (seconds === 1) ? 'none' : '';
+      if (seconds <= 0) { clearInterval(timer); window.location.href = target; }
+    }, 1000);
+  })();
+</script>
+{% endblock %}

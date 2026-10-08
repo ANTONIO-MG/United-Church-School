@@ -1,0 +1,47 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}One institution — its details + the programmes it offers. Each programme
+links to its own page where modules and cohorts are managed.{% endcomment %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <a href="{% url 'learning:manage-institutions' %}" class="btn btn-link text-secondary p-0 mb-2"><i class="bi bi-arrow-left me-1"></i>All schools</a>
+
+  <div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="rounded-circle d-inline-block" style="width:16px;height:16px;background:{{ institution.accent_colour|default:'#1F3864' }}"></span>
+        <h4 class="mb-0">{{ institution.display_name }}</h4>
+      </div>
+      <p class="text-sm text-muted mb-0">{{ institution.code }}{% if institution.accent_name %} · {{ institution.accent_name }}{% endif %}{% if not institution.is_active %} · inactive{% endif %}</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'learning:manage-institution-edit' institution.pk %}" class="btn btn-sm btn-outline-secondary mb-0"><i class="bi bi-pencil me-1"></i>Edit</a>
+      <form method="post" action="{% url 'learning:manage-institution-delete' institution.pk %}" onsubmit="return confirm('Delete {{ institution.display_name }} and all its programmes, modules and cohorts?');">{% csrf_token %}
+        <button class="btn btn-sm btn-outline-danger mb-0"><i class="bi bi-trash"></i></button></form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center pb-0">
+      <h6 class="mb-0">Grades</h6>
+      <a href="{% url 'learning:manage-programme-add' institution.pk %}" class="btn btn-sm bg-gradient-info mb-0"><i class="bi bi-plus-circle me-1"></i>Add grade</a>
+    </div>
+    <div class="card-body">
+      <div class="list-group">
+        {% for p in programmes %}
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <a href="{% url 'learning:manage-programme' p.pk %}" class="fw-bold text-dark">{{ p.display_name }}</a>
+            <span class="text-sm text-muted">— {{ p.full_name|default:p.name }}</span>
+            <div class="text-xs text-muted">{{ p.get_level_display }} · {{ p.modules.count }} subject{{ p.modules.count|pluralize }} · {{ p.cohorts.count }} class{{ p.cohorts.count|pluralize }}{% if not p.is_active %} · inactive{% endif %}</div>
+          </div>
+          <a href="{% url 'learning:manage-programme' p.pk %}" class="btn btn-sm btn-outline-info mb-0">Manage →</a>
+        </div>
+        {% empty %}
+        <p class="text-sm text-muted mb-0">No grades yet — add the first one.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

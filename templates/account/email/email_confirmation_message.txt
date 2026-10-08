@@ -1,0 +1,15 @@
+{% load org_branding %}{% org_brand as brand %}Hi,
+
+Please confirm your e-mail address for {{ brand.name|default:"United Church School" }} by visiting:
+
+{{ activate_url }}
+
+If you didn't deliberately request this, please ignore this e-mail — your
+address won't be confirmed and nothing will change.
+
+Kind regards,
+The {{ brand.name|default:"United Church School" }} team
+{% if brand.support_email %}Questions? E-mail {{ brand.support_email }}
+{% endif %}
+--
+{{ brand.copyright|default:"United Church School" }}

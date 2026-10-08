@@ -1,0 +1,61 @@
+{% comment %}Assessment readiness — analytic #1. Each open assessment gets a 0–100
+readiness score built from content coverage, past accuracy, study recency and
+pace fit, plus the single action that lifts the weakest signal.{% endcomment %}
+
+<div class="dash-card">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--warning"><i class="bi bi-clipboard-pulse"></i></span>
+    <h6>Assessment readiness</h6>
+    <a class="dash-link" href="{% url 'assessments:index' %}">All assessments</a>
+  </div>
+
+  <div class="dash-card__body dash-card__body--flush pt-1">
+    {% for item in readiness %}
+    <div class="dash-ready">
+      <div class="dash-ready__top">
+        <div class="dash-ready__score dash-ready__score--{{ item.tone }}">
+          <b>{{ item.score }}</b><span>/100</span>
+        </div>
+
+        <div class="min-w-0 flex-grow-1">
+          <a class="dash-module__title" href="{{ item.url|default:'#' }}">{{ item.assessment.title }}</a>
+          <div class="dash-module__meta">
+            {{ item.module.name }} · {{ item.assessment.get_kind_display }}
+            {% if item.assessment.time_limit_minutes %} · {{ item.assessment.time_limit_minutes }} min{% endif %}
+            {% if item.attempts_allowed %} · attempt {{ item.attempts_used|add:1 }} of {{ item.attempts_allowed }}{% endif %}
+          </div>
+          <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
+            <span class="dash-chip dash-chip--{{ item.tone }}">{{ item.band }}</span>
+            {% if item.closes_in_days is not None %}
+              <span class="dash-chip dash-chip--{% if item.closes_in_days <= 2 %}danger{% else %}secondary{% endif %}">
+                <i class="bi bi-calendar-event"></i>
+                {% if item.closes_in_days == 0 %}Closes today{% else %}{{ item.closes_in_days }} day{{ item.closes_in_days|pluralize }} left{% endif %}
+              </span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-signals">
+        {% for signal in item.signals %}
+        <div class="dash-signal" title="{{ signal.detail }}">
+          <div class="dash-signal__row">
+            <i class="bi {{ signal.icon }}"></i>{{ signal.name }}<b>{{ signal.value }}%</b>
+          </div>
+          <div class="dash-bar dash-bar--{% if signal.value >= 70 %}success{% elif signal.value >= 45 %}warning{% else %}danger{% endif %}">
+            <span style="width: {{ signal.value }}%"></span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="dash-advice"><i class="bi bi-lightbulb"></i><span>{{ item.advice }}</span></div>
+    </div>
+    {% empty %}
+    <div class="dash-empty">
+      <i class="bi bi-clipboard-check"></i>
+      Nothing open to prepare for right now.
+    </div>
+    {% endfor %}
+  </div>
+</div>

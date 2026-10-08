@@ -1,0 +1,59 @@
+{% extends 'soft_ui/auth_base.html' %}
+{% load static %}
+{% comment %}Registration checkout — settle the enrolment invoice created during
+registration. Paid → PayFast; free → confirm here. Same Soft UI card look as the
+rest of the registration wizard (step1-3).{% endcomment %}
+{% block title %}Checkout · {{ brand.name|default:"United Church School" }}{% endblock %}
+{% block card_col %}col-xl-6 col-lg-8 col-md-10{% endblock %}
+{% block oblique %}{% endblock %}
+
+{% block auth_card %}
+<div class="card mt-7 mb-4 shadow-lg">
+  <div class="card-body p-4">
+    <div class="rf-icon-head mb-4">
+      <img class="rf-icon" src="{% static 'images/reg/funding.png' %}" alt="">
+      <div>
+        <h4 class="font-weight-bolder text-info text-gradient mb-1">Almost there</h4>
+        <p class="text-sm text-muted mb-0">Confirm your enrolment to enter {{ brand.name|default:"the hub" }}.</p>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-start mb-3">
+      <div class="pe-3">
+        <div class="rf-label mb-0">You're registering for</div>
+        <h5 class="mb-0">{{ item.description|default:"Enrolment" }}</h5>
+      </div>
+      <div class="text-end">
+        <div class="rf-label mb-0">Amount</div>
+        <h4 class="mb-0">{% if is_free %}<span class="text-success">Free</span>{% else %}R{{ invoice.total }}{% endif %}</h4>
+      </div>
+    </div>
+
+    <div class="rf-summary mb-3">
+      <div class="sum-row"><span class="text-muted">Invoice</span><strong>{{ invoice.number }}</strong></div>
+      <div class="sum-row"><span class="text-muted">Status</span><span class="text-capitalize">{{ invoice.get_status_display }}</span></div>
+      <div class="sum-row sum-total"><span>Total</span><span>{% if is_free %}Free{% else %}R{{ invoice.total }}{% endif %}</span></div>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      {% if is_free %}
+        <button type="submit" class="btn bg-gradient-success w-100 mb-0" data-loading>
+          <i class="bi bi-check2-circle me-1"></i>Confirm free enrolment</button>
+        <p class="rf-help text-center mt-2 mb-0">Records a R0 payment + invoice and completes your registration.</p>
+      {% else %}
+        <button type="submit" class="btn bg-gradient-info w-100 mb-0" data-loading>
+          <i class="bi bi-credit-card me-1"></i>Pay R{{ invoice.total }} with PayFast</button>
+        <p class="rf-help text-center mt-2 mb-0">You'll be redirected to PayFast to pay securely, then returned to the hub.</p>
+      {% endif %}
+    </form>
+
+    <div class="text-center mt-3">
+      {# Step 1 is gated by the pending invoice, so "back" returns to the reachable review step. #}
+      <a class="text-sm text-secondary" href="{% url 'accounts:register-review' %}"><i class="bi bi-arrow-left me-1"></i>Back to review</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}{% include 'accounts/register/_reg_styles.html' %}{% endblock %}

@@ -1,0 +1,88 @@
+{% extends 'communication/email/base_email.html' %}
+{% comment %}The e-mail a family gets the moment the online application is
+submitted — the grade and subjects applied for, what is due, and what happens
+next (UCS Application Form 2026, page 15: "the application is pending until
+payment is received; final registration is only completed once UCS receives a
+copy of the transfer card and final report directly from the previous school").
+
+Deliberately carries NO personal detail: no e-mail address, no phone, no
+address. The figures are in the attached PDF (the invoice, or the proof of
+payment when paid by card); this says the total and points at the attachment.
+
+Context: person, first_name, institution, programme (the grade), modules (the
+subjects), total, currency, paid (bool), attachment_label, login_url.{% endcomment %}
+
+{% block preheader %}Your application{% if programme %} for {{ programme }}{% endif %} at {{ brand.name|default:"United Church School" }} has been received.{% endblock %}
+{% block heading %}Application received{% endblock %}
+
+{% block content %}
+  <p style="margin:0 0 14px">Dear {{ first_name|default:"parent / guardian" }},</p>
+
+  <p style="margin:0 0 14px">
+    Thank you for applying to {{ brand.name|default:"United Church School" }}. Here is a summary of
+    the application:
+  </p>
+
+  <table style="width:100%;border-collapse:collapse;margin:4px 0 16px">
+    {% if programme %}
+    <tr>
+      <td style="padding:7px 0;color:#97a2da;vertical-align:top">Grade applied for</td>
+      <td style="padding:7px 0;text-align:right"><strong>{{ programme }}</strong></td>
+    </tr>
+    {% endif %}
+    {% if modules %}
+    <tr>
+      <td style="padding:7px 0;color:#97a2da;vertical-align:top;border-top:1px solid #e7ebf8">
+        Subject{{ modules|length|pluralize }}
+      </td>
+      <td style="padding:7px 0;text-align:right;border-top:1px solid #e7ebf8">
+        {% for m in modules %}<strong>{{ m }}</strong>{% if not forloop.last %}<br>{% endif %}{% endfor %}
+      </td>
+    </tr>
+    {% endif %}
+    <tr>
+      <td style="padding:9px 0;color:#40507a;vertical-align:top;border-top:2px solid #d9dffa">
+        <strong>{% if paid %}Paid{% else %}Due on enrolment{% endif %}</strong>
+        <span style="display:block;font-size:12px;color:#97a2da;font-weight:normal">Registration (new learners), levy and the first month's school fees</span>
+      </td>
+      <td style="padding:9px 0;text-align:right;border-top:2px solid #d9dffa;font-size:18px;color:#00498b">
+        <strong>{{ currency|default:"R" }} {{ total|floatformat:2 }}</strong>
+      </td>
+    </tr>
+  </table>
+
+  {% if paid %}
+  <p style="margin:0 0 14px">
+    Your payment has gone through and your child's subjects are open on the learning platform.
+    <strong>Your proof of payment is attached</strong> to this e-mail.
+  </p>
+  {% else %}
+  <p style="margin:0 0 14px">
+    <strong>The application is pending until payment is received.</strong> Your invoice is attached.
+    The school does not accept cash: please pay at any Standard Bank
+    {% if brand.banking.account_number %}(account <strong>{{ brand.banking.account_number }}</strong>{% if brand.banking.branch_code %}, branch code {{ brand.banking.branch_code }}{% endif %}){% endif %},
+    using <strong>the learner's name and grade</strong> as the reference, and e-mail the deposit slip to
+    {{ brand.support_email|default:"uchs@unitedcs.co.za" }} — or use the card machine at the school office.
+  </p>
+  {% endif %}
+
+  <p style="margin:0 0 6px"><strong>What happens next</strong></p>
+  <table style="width:100%;border-collapse:collapse;margin:0 0 14px">
+    <tr><td style="padding:4px 0;color:#40507a">1. Upload any outstanding documents under <em>My application</em> on the platform.</td></tr>
+    <tr><td style="padding:4px 0;color:#40507a">2. The school office reviews the application once payment and documents are in.</td></tr>
+    <tr><td style="padding:4px 0;color:#40507a">3. Final registration is completed once UCS receives the transfer card and final report directly from the previous school.</td></tr>
+  </table>
+
+  <p style="margin:0 0 14px">
+    Remember: monthly school fees are paid in advance on the 1st of every month, January to December,
+    and the levy must be settled in full by 25 January.
+  </p>
+
+  <p style="margin:0 0 14px">United We Stand — we look forward to welcoming your child to UCS.</p>
+{% endblock %}
+
+{% block cta %}{% include 'communication/email/_button.html' with url=login_url label="VIEW MY APPLICATION" %}{% endblock %}
+
+{% block expiry_note %}
+  Keep the attached {{ attachment_label|default:"document" }} for your records.{% if brand.support_email %} Questions? {{ brand.support_email }} or {{ brand.contact.phone|default:"011 648 4727" }}.{% endif %}
+{% endblock %}

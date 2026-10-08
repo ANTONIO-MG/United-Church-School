@@ -1,0 +1,150 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static %}
+{% comment %}Attendance for one class session.
+
+Attendance is automatic and time-based: a student's row accrues real seconds
+from the presence heartbeat, and crossing the session's threshold marks them
+present (or late, by arrival time). Educators/staff/admins see the measured time
+per student and can override any row by hand — a manual mark is never undone by
+a later heartbeat.{% endcomment %}
+
+{% block additional_css %}
+<link href="{% static 'css/profile.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="prof">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <h3 class="prof-title mb-0">{{ session.title|default:"Class session" }}</h3>
+      <span class="prof-row__meta">
+        {{ session.module }} · {{ session.session_date }}
+        {% if session.is_open %}<span class="prof-chip prof-chip--success ms-1">Open</span>
+        {% else %}<span class="prof-chip prof-chip--muted ms-1">Closed</span>{% endif %}
+        {% if session.finalised_at %}<span class="prof-chip ms-1"><i class="bi bi-lock"></i>Register closed</span>{% endif %}
+        · needs {{ session.min_attendance_pct }}% attendance
+        · {{ session.planned_seconds|floatformat:0 }}s planned
+      </span>
+    </div>
+    <a href="{% url 'communication:attendance' %}" class="btn btn-outline-secondary btn-sm">← All sessions</a>
+  </div>
+
+  {% if not can_manage %}
+    {# ---------------- Student view: their own measured attendance ---------------- #}
+    <div class="card"><div class="card-body text-center py-4">
+      {% if my_record %}
+        <div class="d-inline-flex flex-column align-items-center gap-2">
+          <span class="prof-chip {% if my_record.status == 'present' %}prof-chip--success{% elif my_record.status == 'late' %}prof-chip--warning{% elif my_record.status == 'excused' %}prof-chip--muted{% else %}prof-chip--danger{% endif %}">
+            {{ my_record.get_status_display }}
+          </span>
+          <div style="min-width:260px">
+            <div class="prof-bar {% if my_record.meets_threshold %}prof-bar--done{% endif %}">
+              <span style="width: {{ my_record.attended_pct }}%"></span>
+            </div>
+            <span class="prof-row__meta">
+              {{ my_record.minutes_attended }} min attended · {{ my_record.attended_pct }}%
+              of the {{ session.min_attendance_pct }}% needed
+            </span>
+          </div>
+          {% if my_record.is_manual %}
+            <span class="prof-row__meta"><i class="bi bi-person-check"></i> Set by your educator</span>
+          {% elif my_record.meets_threshold %}
+            <span class="prof-row__meta"><i class="bi bi-check2-circle"></i> Threshold met — marked automatically</span>
+          {% endif %}
+        </div>
+      {% elif session.is_open %}
+        <form method="post"><input type="hidden" name="action" value="checkin">{% csrf_token %}
+          <button class="btn btn-lg btn-success"><i class="bi bi-check2-circle"></i> Join this class</button>
+          <p class="prof-row__meta mt-2 mb-0">
+            Your time in the session is tracked automatically — stay for
+            {{ session.min_attendance_pct }}% of it to be marked present.
+          </p>
+        </form>
+      {% else %}
+        <p class="text-muted mb-0">This session is closed for check-in.</p>
+      {% endif %}
+    </div></div>
+
+  {% else %}
+    {# ---------------- Educator / admin roll ---------------- #}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="mark">
+      <div class="card"><div class="card-body table-responsive">
+        <table class="table align-middle">
+          <thead><tr>
+            <th>Student</th><th style="min-width:170px">Attended</th>
+            <th style="min-width:160px">Status</th><th>Source</th><th>First seen</th>
+          </tr></thead>
+          <tbody>
+          {% for row in roster %}
+            <tr>
+              <td>
+                <span class="prof-row__title">{{ row.user|person_name }}</span>
+              </td>
+
+              {# Measured presence — the evidence behind the auto status. #}
+              <td>
+                {% if row.record and row.record.seconds_attended %}
+                  <div class="prof-bar {% if row.record.meets_threshold %}prof-bar--done{% endif %}">
+                    <span style="width: {{ row.record.attended_pct }}%"></span>
+                  </div>
+                  <span class="prof-row__meta">{{ row.record.minutes_attended }} min · {{ row.record.attended_pct }}%</span>
+                {% elif row.record.note %}
+                  {% comment %}Credited from engagement rather than session time — say
+                  which, or the row reads as "absent but marked present".{% endcomment %}
+                  <span class="prof-row__meta">{{ row.record.note }}</span>
+                {% else %}
+                  <span class="prof-row__meta">Never joined</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <select name="status_{{ row.user.id }}" class="form-select form-select-sm">
+                  {% with cur=row.record.status %}
+                  <option value="present" {% if cur == 'present' %}selected{% endif %}>Present</option>
+                  <option value="late" {% if cur == 'late' %}selected{% endif %}>Late</option>
+                  <option value="absent" {% if cur == 'absent' or not row.record %}selected{% endif %}>Absent</option>
+                  <option value="excused" {% if cur == 'excused' %}selected{% endif %}>Excused</option>
+                  {% endwith %}
+                </select>
+              </td>
+
+              <td>
+                {% if row.record %}
+                  <span class="prof-chip {% if row.record.is_manual %}prof-chip--warning{% else %}prof-chip--muted{% endif %}">
+                    {{ row.record.get_source_display }}
+                  </span>
+                {% else %}—{% endif %}
+              </td>
+
+              <td><span class="prof-row__meta">{{ row.record.first_seen_at|date:"H:i"|default:"—" }}</span></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5" class="text-muted">No students enrolled in this subject yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer d-flex gap-2 flex-wrap align-items-center">
+        <button class="btn btn-primary">Save attendance</button>
+        <button class="btn btn-outline-secondary" name="action" value="toggle_open" formnovalidate>
+          {% if session.is_open %}Close check-in{% else %}Re-open check-in{% endif %}
+        </button>
+        <button class="btn btn-outline-secondary" name="action" value="finalise" formnovalidate
+                title="Mark everyone below the threshold absent and give non-attendees a row">
+          <i class="bi bi-lock me-1"></i>Close register
+        </button>
+        <span class="prof-row__meta ms-auto">
+          Saving overrides the automatic result; heartbeats will not undo it.
+        </span>
+      </div></div>
+    </form>
+  {% endif %}
+</div>
+
+{% comment %}Students on this page are "in" the session too — track their time.{% endcomment %}
+{% if not can_manage and session.is_open %}
+  {% include 'partials/_presence.html' with presence_session=session %}
+{% endif %}
+{% endblock %}

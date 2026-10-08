@@ -1,0 +1,9 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}The person card as a page of its own (what a name links to without JavaScript).{% endcomment %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <div class="card mx-auto" style="max-width:26rem"><div class="card-body">
+    {% include 'accounts/_person_card.html' %}
+  </div></div>
+</div></div>
+{% endblock %}

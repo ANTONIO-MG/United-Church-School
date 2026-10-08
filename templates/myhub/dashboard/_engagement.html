@@ -1,0 +1,64 @@
+{% comment %}Engagement matrix — module × activity, every cell measured behaviour.
+
+Lessons come from study-session completion, Assessments from what was actually
+submitted, Attendance from time really spent in class sessions (the presence
+heartbeat), Tasks from assignment progress. A column with nothing to measure
+shows "—" and is left out of the row score rather than counted as zero.{% endcomment %}
+
+{% if engagement.has_data %}
+<div class="dash-card">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--info"><i class="bi bi-activity"></i></span>
+    <h6>Engagement matrix</h6>
+    <span class="dash-chip dash-chip--{{ engagement.overall_tone }}">
+      {{ engagement.overall }}/100 · {{ engagement.overall_label }}
+    </span>
+  </div>
+
+  <div class="dash-card__body">
+    <div class="dash-matrix-scroll">
+      <table class="dash-matrix">
+        <thead>
+          <tr>
+            <th class="dash-matrix__module">Subject</th>
+            {% for col in engagement.columns %}
+            <th title="{{ col.label }}"><i class="bi {{ col.icon }}"></i><span>{{ col.label }}</span></th>
+            {% endfor %}
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in engagement.rows %}
+          <tr>
+            <td class="dash-matrix__module" title="{{ row.module.name }}">{{ row.module.name }}</td>
+            {% for cell in row.cells %}
+            <td>
+              {% if cell.value is None %}
+                <span class="dash-matrix__none">—</span>
+              {% else %}
+                <span class="dash-matrix__cell dash-matrix__cell--{{ cell.tone }}"
+                      style="--fill: {{ cell.value }}%">{{ cell.value }}</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+            <td>
+              {% if row.score is None %}
+                <span class="dash-matrix__none">—</span>
+              {% else %}
+                <span class="dash-chip dash-chip--{{ row.tone }}">{{ row.score }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <p class="dash-module__meta mt-2 mb-0">
+      <i class="bi bi-info-circle"></i>
+      Every figure is measured — watch time, submissions and real time in class —
+      and updates itself as you work.
+    </p>
+  </div>
+</div>
+{% endif %}

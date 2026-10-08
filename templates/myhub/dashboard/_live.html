@@ -1,0 +1,47 @@
+{% load people %}{% comment %}Upcoming online sessions (Microsoft Teams / Jitsi meeting rooms scoped to
+the user's modules). A session already in progress shows a live pill and a join
+button instead of a countdown.{% endcomment %}
+
+<div class="dash-card h-100">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--danger"><i class="bi bi-camera-video"></i></span>
+    <h6>Live sessions</h6>
+    <a class="dash-link" href="{% url 'communication:meetings' %}">All sessions</a>
+  </div>
+
+  <div class="dash-card__body dash-card__body--flush pt-1">
+    {% for item in live_sessions %}
+    <div class="dash-module">
+      <span class="dash-module__ico dash-glyph--{% if item.is_live %}danger{% else %}info{% endif %}">
+        <i class="bi bi-{% if item.is_live %}broadcast{% else %}camera-video{% endif %}"></i>
+      </span>
+
+      <div class="dash-module__main">
+        <a class="dash-module__title" href="{{ item.url }}">{{ item.room.title }}</a>
+        <span class="dash-module__meta">
+          {% if item.module %}{{ item.module.name|truncatechars:26 }} · {% endif %}
+          {% if item.starts_at %}{{ item.starts_at|date:"D d M, H:i" }}{% else %}Open room{% endif %}
+          {% if item.room.host %} · {{ item.room.host|person_name }}{% endif %}
+        </span>
+      </div>
+
+      <div class="dash-module__side">
+        {% if item.is_live %}
+          <a class="dash-chip dash-chip--live text-decoration-none" href="{{ item.url }}">Live now</a>
+        {% elif item.starts_in_minutes and item.starts_in_minutes < 60 %}
+          <span class="dash-chip dash-chip--warning">in {{ item.starts_in_minutes }} min</span>
+        {% else %}
+          <a class="dash-chip dash-chip--info text-decoration-none" href="{{ item.url }}">
+            <i class="bi bi-box-arrow-in-right"></i> Join
+          </a>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="dash-empty">
+      <i class="bi bi-camera-video-off"></i>
+      No online sessions scheduled.
+    </div>
+    {% endfor %}
+  </div>
+</div>

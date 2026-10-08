@@ -1,0 +1,72 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}One day. For schedulers it also shows the free slots — the gaps big
+enough to hold a session — computed across every session on the platform, not
+only the ones this viewer is allowed to see, so a slot is never offered twice.{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+      <h3 class="mb-0">{{ day|date:"l j F Y" }}</h3>
+      <small class="text-muted">{{ entries|length }} entr{{ entries|length|pluralize:"y,ies" }}{% if sessions %} · {{ sessions|length }} live session{{ sessions|length|pluralize }}{% endif %}</small>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-light" href="{% url 'livesessions:calendar' %}?m={{ day|date:'Y-m' }}"><i class="bi bi-arrow-left me-1"></i>Back to the month</a>
+      {% if can_schedule %}<a class="btn btn-primary" href="{% url 'livesessions:session-create' %}"><i class="bi bi-plus-lg me-1"></i>Schedule</a>{% endif %}
+    </div>
+  </div>
+
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card"><div class="card-body">
+        <h6 class="mb-3">On this day</h6>
+        <div class="list-group list-group-flush">
+          {% for e in entries %}
+            <a class="list-group-item list-group-item-action" href="{{ e.url|default:'#' }}">
+              <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div>
+                  <i class="bi bi-{{ e.icon }} me-1" style="color:{{ e.colour }}"></i>
+                  <strong>{{ e.title }}</strong>
+                  {% if e.meta.live %}<span class="badge bg-success ms-1">Live</span>{% endif %}
+                  {% if e.meta.watchable %}<span class="badge bg-secondary ms-1">Recording ready</span>{% endif %}
+                  <br><small class="text-muted">{{ e.label }}{% if e.detail %} · {{ e.detail }}{% endif %}
+                    {% if e.location %} · {{ e.location }}{% endif %}</small>
+                </div>
+                <span class="text-nowrap"><small>
+                  {% if e.all_day %}All day{% else %}{{ e.local_start|time:"H:i" }}{% endif %}
+                </small></span>
+              </div>
+            </a>
+          {% empty %}
+            <p class="text-muted mb-0">Nothing on this day.</p>
+          {% endfor %}
+        </div>
+      </div></div>
+    </div>
+
+    {% if can_schedule %}
+    <div class="col-lg-4">
+      <div class="card"><div class="card-body">
+        <h6 class="mb-1">Free slots</h6>
+        <p class="text-muted small">Gaps of 30 minutes or more between 08:00 and 20:00 — across every
+          session on the platform, and your own connected calendar.</p>
+        <div class="list-group list-group-flush">
+          {% for start, end in free_slots %}
+            <a class="list-group-item list-group-item-action d-flex justify-content-between"
+               href="{% url 'livesessions:session-create' %}?start={{ start|date:'c' }}">
+              <span>{{ start|time:"H:i" }} – {{ end|time:"H:i" }}</span>
+              <small class="text-muted">Book</small>
+            </a>
+          {% empty %}
+            <p class="text-muted mb-0">The day is fully booked.</p>
+          {% endfor %}
+        </div>
+      </div></div>
+    </div>
+    {% endif %}
+  </div>
+
+</div></div>
+{% endblock %}

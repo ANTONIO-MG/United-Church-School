@@ -1,0 +1,21 @@
+{% extends 'communication/email/base_email.html' %}
+{% comment %}
+allauth "someone tried to sign up with your address" e-mail (HTML alternative).
+Sent by ACCOUNT_PREVENT_ENUMERATION when a sign-up names an address that is
+already registered: the sign-up page shows the same response either way, and
+the existing owner is told here instead. Context from allauth: `email`,
+`password_reset_url`, `request`. Without this override the message falls back to
+allauth's unbranded default, which greets the reader from "example.com".
+{% endcomment %}
+{% block preheader %}Someone tried to sign up using your e-mail address.{% endblock %}
+{% block heading %}You already have an account{% endblock %}
+{% block content %}
+  <p style="margin:0 0 14px">Hi,</p>
+  <p style="margin:0 0 14px">Someone — possibly you — tried to create a <strong>{{ brand.name|default:"United Church School" }}</strong> account using <strong>{{ email }}</strong>. An account with that address already exists, so we didn't create a second one.</p>
+  <p style="margin:0 0 14px">If that was you and you've forgotten your password, you can set a new one:</p>
+{% endblock %}
+{% block cta %}{% include 'communication/email/_button.html' with url=password_reset_url label="RESET MY PASSWORD" %}{% endblock %}
+{% block disclaimer %}
+  <table class="paragraph_block" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;word-break:break-word"><tr><td class="pad"><div style="color:#40507a;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:120%"><p style="margin:0">Wasn't you? You can safely ignore this message — nothing has changed and your account is untouched.</p></div></td></tr></table>
+{% endblock %}
+{% block expiry_note %}{% if brand.support_email %}Need help? {{ brand.support_email }}.{% endif %}{% endblock %}

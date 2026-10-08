@@ -1,0 +1,33 @@
+# UCS LMS — one tick of the background-job runner.
+#
+# Triggered by ucs-lms-scheduler.timer; this unit runs once and exits (Type=oneshot),
+# which keeps every run's output in the journal as a discrete entry:
+#
+#   journalctl -u ucs-lms-scheduler -f
+#
+# Edit User/Group and the three paths to match your deployment.
+
+[Unit]
+Description=UCS LMS background jobs (one tick)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ucs-lms
+Group=ucs-lms
+WorkingDirectory=/srv/ucs-lms/United-Church-School
+ExecStart=/srv/ucs-lms/.venv/bin/python manage.py run_scheduled_jobs
+
+# A tick should be quick; if a job wedges, don't let it block the next one forever.
+TimeoutStartSec=900
+
+# Hardening — the runner only needs to read the project and talk to the database.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/srv/ucs-lms/United-Church-School/media /srv/ucs-lms/United-Church-School/backups
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,69 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static %}
+{% load custom_tags %}
+
+{% block content %}
+<div class="content-body">
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text"><h4>{{ page_title }}</h4></div>
+            </div>
+            <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex align-items-center">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'communication:discussions' %}">Community</a></li>
+                    <li class="breadcrumb-item active"><a href="javascript:void(0);">Discussions</a></li>
+                </ol>
+                <a href="{% url 'communication:discussion-create' %}" class="btn btn-primary btn-sm ms-3"><i class="fa fa-plus me-1"></i> Ask / Post</a>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <form method="get" class="position-relative">
+                            <input class="form-control" type="search" name="q" value="{{ search }}" placeholder="Search discussions, topics, tags…">
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            {% for d in discussions %}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0">
+                                {% if d.author.profile %}
+                                    <img class="rounded-circle" style="width:48px;height:48px;object-fit:cover" src="{{ d.author.profile.avatar_url }}" alt="">
+                                {% else %}
+                                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width:48px;height:48px;">{{ d.author.email|first|upper }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="ms-3 flex-grow-1">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h5 class="mb-1"><a href="{% url 'communication:discussion-detail' d.pk %}">{% if d.is_pinned %}<i class="fa fa-thumb-tack text-warning me-1"></i>{% endif %}{{ d.title }}</a></h5>
+                                        <small class="text-muted">{% person_link d.author %} · {{ d.created_at|timesince }} ago{% if d.course %} · {{ d.course }}{% endif %}{% if d.module %} · {{ d.module.name }}{% endif %}</small>
+                                    </div>
+                                </div>
+                                <p class="mt-2 mb-2">{{ d.body|truncatewords:40 }}</p>
+                                {% for tag in d.tag_list %}<span class="badge badge-primary light me-1">#{{ tag }}</span>{% endfor %}
+                                <div class="mt-2 text-muted small">
+                                    <span class="me-3"><i class="fa fa-comment me-1"></i>{{ d.reply_count }} replies</span>
+                                    <span class="me-3"><i class="fa fa-heart me-1"></i>{{ d.like_count }} likes</span>
+                                    <span><i class="fa fa-eye me-1"></i>{{ d.view_count }} views</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12"><div class="card"><div class="card-body text-center text-muted">No discussions yet. <a href="{% url 'communication:discussion-create' %}">Start one</a>.</div></div></div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

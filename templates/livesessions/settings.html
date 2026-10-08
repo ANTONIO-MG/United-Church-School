@@ -1,0 +1,75 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Live-session settings — behaviour only. Credentials stay in the
+environment, so this page can be handed to an administrator without also handing
+them the tenant secret.{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Live session settings</h3>
+    <a class="btn btn-light" href="{% url 'livesessions:calendar' %}">Back to the calendar</a>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="card"><div class="card-body">
+      <h6 class="mb-1">Microsoft Teams</h6>
+      {% if teams_ready %}
+        <span class="badge bg-success">Connected</span>
+        <p class="text-muted small mb-0 mt-2">Sessions are created in Teams and record automatically.</p>
+      {% else %}
+        <span class="badge bg-secondary">Not configured</span>
+        <p class="text-muted small mb-0 mt-2">Set <code>MS_GRAPH_TENANT_ID</code>, <code>MS_GRAPH_CLIENT_ID</code>
+           and <code>MS_GRAPH_CLIENT_SECRET</code>, and grant the Teams application access policy.</p>
+      {% endif %}
+    </div></div></div>
+
+    <div class="col-md-4"><div class="card"><div class="card-body">
+      <h6 class="mb-1">YouTube</h6>
+      {% if youtube_configured %}
+        <span class="badge bg-{% if conf.youtube_enabled %}success{% else %}secondary{% endif %}">
+          {% if conf.youtube_enabled %}On{% else %}Credentials present, switched off{% endif %}</span>
+        <p class="text-muted small mb-0 mt-2">{{ youtube_remaining }} more upload{{ youtube_remaining|pluralize }}
+           before today's quota runs out. Sessions above that queue for tomorrow.</p>
+      {% else %}
+        <span class="badge bg-secondary">Not configured</span>
+        <p class="text-muted small mb-0 mt-2">Set <code>YOUTUBE_CLIENT_ID</code>, <code>YOUTUBE_CLIENT_SECRET</code>
+           and <code>YOUTUBE_REFRESH_TOKEN</code>. Until then recordings play from their OneDrive link.</p>
+      {% endif %}
+    </div></div></div>
+
+    <div class="col-md-4"><div class="card"><div class="card-body">
+      <h6 class="mb-1">Pipeline</h6>
+      {% if pipeline_counts %}
+        <ul class="list-unstyled small mb-0">
+          {% for state, count in pipeline_counts.items %}<li>{{ state }}: <strong>{{ count }}</strong></li>{% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted small mb-0">Nothing has been processed yet.</p>
+      {% endif %}
+    </div></div></div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="card"><div class="card-body">
+      <div class="row g-3">
+        {% for field in form %}
+          <div class="col-md-6">
+            {% if field.field.widget.input_type == 'checkbox' %}
+              <div class="form-check">{{ field }}<label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+            {% else %}
+              <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+            {% endif %}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="card-footer bg-transparent">
+      <button class="btn btn-primary" type="submit">Save settings</button>
+    </div></div>
+  </form>
+</div></div>
+{% endblock %}

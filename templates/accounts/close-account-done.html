@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% comment %}
+Shown after an account is soft-closed. The user is already logged out, so this
+extends the plain site base (no app sidebar/navbar that would need auth).
+{% endcomment %}
+
+{% block content %}
+<main>
+  <div class="container">
+    <div class="row justify-content-center py-5">
+      <div class="col-md-7 col-lg-6">
+        <div class="card text-center shadow-sm">
+          <div class="card-body p-4 p-md-5">
+            <div class="mb-3"><i class="bi bi-check-circle text-success" style="font-size:3rem;"></i></div>
+            <h3 class="mb-2">Your account has been closed</h3>
+            <p class="text-muted">
+              You have been signed out and your account is now deactivated. We will keep a
+              copy of your data for <strong>{{ grace_days }} days</strong>. If you change your
+              mind during that time, contact an administrator and they can reactivate it.
+            </p>
+            <p class="text-muted small mb-4">
+              After {{ grace_days }} days your account is permanently purged and archived.
+            </p>
+            <a href="/" class="btn btn-primary"><i class="bi bi-house me-1"></i>Return home</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}

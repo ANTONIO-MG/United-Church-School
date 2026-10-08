@@ -1,0 +1,61 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}Payment history + upcoming/due payments, with status & gateway filters.{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Payment History</h3>
+    <a href="{% url 'finance:invoices' %}" class="btn btn-outline-secondary btn-sm">← Invoices</a>
+  </div>
+
+  {% if upcoming %}
+  <div class="card mb-3"><div class="card-body">
+    <h6 class="mb-3"><i class="bi bi-hourglass-split text-warning"></i> Upcoming / due</h6>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Invoice</th>{% if is_admin_staff %}<th>Customer</th>{% endif %}<th>Due</th><th class="text-end">Balance</th><th></th></tr></thead>
+      <tbody>
+      {% for invoice in upcoming %}
+        <tr><td>{{ invoice.number }}</td>{% if is_admin_staff %}<td>{{ invoice.customer|person_name }}</td>{% endif %}
+          <td>{{ invoice.due_date|default:"—" }}{% if invoice.is_overdue %} <span class="badge bg-danger">Overdue</span>{% endif %}</td>
+          <td class="text-end">R{{ invoice.balance }}</td>
+          <td>{% if invoice.customer_id == request.user.id %}<a class="btn btn-sm btn-primary" href="{% url 'finance:pay' invoice.public_id %}">Pay</a>{% else %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:invoice-detail' invoice.pk %}">View</a>{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div></div>
+  {% endif %}
+
+  <form method="get" class="d-flex gap-2 flex-wrap mb-3">
+    <select name="status" class="form-select form-select-sm" style="max-width:160px" onchange="this.form.submit()">
+      <option value="">All statuses</option>
+      {% for v, label in STATUS_CHOICES %}<option value="{{ v }}" {% if status == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="gateway" class="form-select form-select-sm" style="max-width:160px" onchange="this.form.submit()">
+      <option value="">All methods</option>
+      {% for v, label in GATEWAY_CHOICES %}<option value="{{ v }}" {% if gateway == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-sm btn-primary">Filter</button>
+  </form>
+
+  <div class="card"><div class="card-body table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Date</th><th>Invoice</th>{% if is_admin_staff %}<th>Customer</th>{% endif %}<th>Method</th><th>Gateway</th><th>Status</th><th class="text-end">Amount</th></tr></thead>
+      <tbody>
+      {% for payment in payments %}
+        <tr>
+          <td>{{ payment.paid_at|date:"M d, Y H:i" }}</td>
+          <td><a href="{% url 'finance:invoice-detail' payment.invoice.pk %}">{{ payment.invoice.number }}</a></td>
+          {% if is_admin_staff %}<td>{{ payment.invoice.customer|person_name }}</td>{% endif %}
+          <td class="text-capitalize">{{ payment.get_method_display }}</td>
+          <td class="text-capitalize">{{ payment.get_gateway_display }}</td>
+          <td><span class="badge bg-{% if payment.status == 'completed' %}success{% elif payment.status == 'failed' %}danger{% else %}warning{% endif %} bg-opacity-10 text-{% if payment.status == 'completed' %}success{% elif payment.status == 'failed' %}danger{% else %}warning{% endif %}">{{ payment.get_status_display }}</span></td>
+          <td class="text-end">R{{ payment.amount }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No payments yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div></div>
+{% endblock %}

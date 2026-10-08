@@ -1,0 +1,12 @@
+{% comment %}Generic labelled field for the registration wizard.
+  Params:  field (BoundField, required), col (grid class, default col-12).
+  The required star is derived from the field itself, so marking a field
+  required in the form is enough to show the "*".{% endcomment %}
+<div class="rf {{ col|default:'col-12' }}">
+  <label class="rf-label" for="{{ field.id_for_label }}">
+    {{ field.label }}{% if field.field.required %} <span class="req" title="Required">*</span>{% endif %}
+  </label>
+  {{ field }}
+  {% if field.help_text %}<div class="rf-help">{{ field.help_text }}</div>{% endif %}
+  {% if field.errors %}<div class="rf-err">{{ field.errors|striptags }}</div>{% endif %}
+</div>

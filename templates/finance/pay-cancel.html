@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% comment %}Public payment-cancelled page (return from PayFast).{% endcomment %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height:100vh;background:#f5f4ee">
+  <div class="card shadow-sm text-center" style="max-width:460px;width:100%">
+    <div class="card-body p-4">
+      <div class="display-4 text-warning mb-2"><i class="bi bi-x-circle-fill"></i></div>
+      <h4>Payment cancelled</h4>
+      {% if invoice %}
+        <p class="text-muted">Invoice <strong>{{ invoice.number }}</strong> hasn't been paid. You can try again any time.</p>
+        <a href="{% url 'finance:pay' invoice.public_id %}" class="btn btn-primary">Try again</a>
+      {% endif %}
+      <a href="/" class="btn btn-outline-secondary">Home</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

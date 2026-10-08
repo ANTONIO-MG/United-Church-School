@@ -1,0 +1,83 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static commerce %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><a class="small" href="{% url 'shop:educators' %}"><i class="bi bi-arrow-left me-1"></i>Educators</a>
+      <h3 class="mt-1">{{ person }}</h3><p>When {{ person.user.first_name|default:"they" }} can take 1-on-1s, and when they're away.</p></div>
+  </div>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <div class="tc-card">
+          <div class="tc-card__head"><h5>Weekly hours</h5><span class="tc-link">Several windows per day are fine</span></div>
+          <div class="tc-card__body">
+            {{ hours.management_form }}
+            {% if hours.non_form_errors %}<div class="tc-field-error">{{ hours.non_form_errors }}</div>{% endif %}
+            <div class="tc-table-wrap"><table class="tc-table" id="hoursTable">
+              <thead><tr><th>Day</th><th>From</th><th>To</th><th><span class="visually-hidden">Remove</span></th></tr></thead>
+              <tbody>
+                {% for f in hours %}<tr class="tc-variant-row">{% for h in f.hidden_fields %}{{ h }}{% endfor %}
+                  <td>{{ f.weekday }}</td><td>{{ f.start_time }}</td><td>{{ f.end_time }}{% if f.end_time.errors %}<div class="tc-field-error">{{ f.end_time.errors|join:" " }}</div>{% endif %}</td>
+                  <td class="text-center">{% if f.instance.pk %}<label class="small text-danger">{{ f.DELETE }} Remove</label>{% endif %}</td></tr>{% endfor %}
+              </tbody>
+            </table></div>
+            <template id="hoursTemplate"><tr class="tc-variant-row">{% for h in hours.empty_form.hidden_fields %}{{ h }}{% endfor %}
+              <td>{{ hours.empty_form.weekday }}</td><td>{{ hours.empty_form.start_time }}</td><td>{{ hours.empty_form.end_time }}</td><td></td></tr></template>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <button type="button" class="btn btn-sm tc-btn-soft" data-add="hours"><i class="bi bi-plus-lg me-1"></i>Add a window</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-weekdays>Mon–Fri 09:00–17:00</button>
+            </div>
+          </div>
+        </div>
+        <div class="tc-card">
+          <div class="tc-card__head"><h5>Time off</h5><span class="tc-link">No slots are offered during these</span></div>
+          <div class="tc-card__body">
+            {{ away.management_form }}
+            <div class="tc-table-wrap"><table class="tc-table" id="awayTable">
+              <thead><tr><th>From</th><th>To</th><th>Reason</th><th><span class="visually-hidden">Remove</span></th></tr></thead>
+              <tbody>
+                {% for f in away %}<tr class="tc-variant-row">{% for h in f.hidden_fields %}{{ h }}{% endfor %}
+                  <td>{{ f.start }}</td><td>{{ f.end }}{% if f.end.errors %}<div class="tc-field-error">{{ f.end.errors|join:" " }}</div>{% endif %}</td><td>{{ f.reason }}</td>
+                  <td class="text-center">{% if f.instance.pk %}<label class="small text-danger">{{ f.DELETE }} Remove</label>{% endif %}</td></tr>{% endfor %}
+              </tbody>
+            </table></div>
+            <template id="awayTemplate"><tr class="tc-variant-row">{% for h in away.empty_form.hidden_fields %}{{ h }}{% endfor %}
+              <td>{{ away.empty_form.start }}</td><td>{{ away.empty_form.end }}</td><td>{{ away.empty_form.reason }}</td><td></td></tr></template>
+            <button type="button" class="btn btn-sm tc-btn-soft mt-2" data-add="away"><i class="bi bi-plus-lg me-1"></i>Add time off</button>
+          </div>
+          <div class="tc-savebar"><a class="btn btn-link" href="{% url 'shop:educators' %}">Cancel</a><button class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Save hours</button></div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="tc-card">
+          <div class="tc-card__head"><h5>Next confirmed sessions</h5></div>
+          <div class="tc-card__body">
+            {% for b in upcoming %}<div class="d-flex justify-content-between py-2 border-bottom small"><span><b>{{ b.start|date:"D j M, H:i" }}</b> · {{ b.minutes }} min</span><span class="text-muted">{{ b.student|person_name }}</span></div>
+            {% empty %}<p class="text-muted small mb-0">Nothing booked yet.</p>{% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div></div>
+<script>
+(function () {
+  function add(prefix, values) {
+    var total = document.getElementById('id_' + prefix + '-TOTAL_FORMS');
+    var tpl = document.getElementById(prefix + 'Template');
+    var body = document.querySelector('#' + prefix + 'Table tbody');
+    var index = parseInt(total.value, 10);
+    body.insertAdjacentHTML('beforeend', tpl.innerHTML.replace(/__prefix__/g, index));
+    total.value = index + 1;
+    var row = body.lastElementChild;
+    Object.keys(values || {}).forEach(function (k) { var el = row.querySelector('[name$="-' + k + '"]'); if (el) { el.value = values[k]; } });
+  }
+  document.querySelectorAll('[data-add]').forEach(function (b) { b.addEventListener('click', function () { add(b.dataset.add); }); });
+  var wk = document.querySelector('[data-weekdays]');
+  if (wk) { wk.addEventListener('click', function () { [0, 1, 2, 3, 4].forEach(function (d) { add('hours', {weekday: d, start_time: '09:00', end_time: '17:00'}); }); }); }
+})();
+</script>
+{% endblock %}

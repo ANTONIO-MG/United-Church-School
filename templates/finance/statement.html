@@ -1,0 +1,45 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static commerce %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Finance</span><h3>Statement of account</h3>
+      <p>{{ subject|person_name }} · {{ s.start|date:"j M Y" }} – {{ s.end|date:"j M Y" }}</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-primary" href="?from={{ s.start|date:'Y-m-d' }}&to={{ s.end|date:'Y-m-d' }}&format=pdf"><i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</a>
+    </div>
+  </div>
+  <form method="get" class="tc-toolbar">
+    {% if customers %}
+      <label class="visually-hidden" for="stCustomer">Customer</label>
+      <select id="stCustomer" class="form-select form-select-sm" onchange="if(this.value){window.location='{% url 'finance:statement-for' 0 %}'.replace('/0/', '/' + this.value + '/') + window.location.search;}">
+        <option value="">Choose a customer…</option>
+        {% for c in customers %}<option value="{{ c.pk }}" {% if c.pk == subject.pk %}selected{% endif %}>{{ c|person_name }}</option>{% endfor %}
+      </select>
+    {% endif %}
+    <label class="small text-muted" for="stFrom">From</label><input id="stFrom" type="date" name="from" value="{{ s.start|date:'Y-m-d' }}" class="form-control form-control-sm">
+    <label class="small text-muted" for="stTo">To</label><input id="stTo" type="date" name="to" value="{{ s.end|date:'Y-m-d' }}" class="form-control form-control-sm">
+    <button class="btn btn-sm btn-primary">Show</button>
+  </form>
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Opening balance</span><b>{{ s.opening|rand }}</b><em>on {{ s.start|date:"j M Y" }}</em></div>
+    <div class="tc-kpi"><span>Invoiced</span><b>{{ s.invoiced|rand }}</b><em>in this period</em></div>
+    <div class="tc-kpi"><span>Paid</span><b class="text-success">{{ s.paid|rand }}</b><em>in this period</em></div>
+    <div class="tc-kpi"><span>Balance due</span><b class="{% if s.closing > 0 %}text-danger{% endif %}">{{ s.closing|rand }}</b><em>on {{ s.end|date:"j M Y" }}</em></div>
+  </div>
+  <div class="tc-card"><div class="tc-table-wrap"><table class="tc-table">
+    <thead><tr><th>Date</th><th>Reference</th><th>Details</th><th class="r">Invoiced</th><th class="r">Paid</th><th class="r">Balance</th></tr></thead>
+    <tbody>
+      <tr class="text-muted"><td>{{ s.start|date:"j M Y" }}</td><td></td><td>Opening balance</td><td></td><td></td><td class="r">{{ s.opening|rand }}</td></tr>
+      {% for r in s.rows %}
+      <tr><td class="small">{{ r.date|date:"j M Y" }}</td>
+        <td>{% if r.kind == 'invoice' %}<a href="{% url 'finance:invoice-detail' r.obj.pk %}">{{ r.ref }}</a>{% else %}{{ r.ref }}{% endif %}</td>
+        <td>{{ r.text|truncatechars:70 }}</td>
+        <td class="r">{% if r.debit %}{{ r.debit|rand }}{% endif %}</td><td class="r text-success">{% if r.credit %}{{ r.credit|rand }}{% endif %}</td>
+        <td class="r fw-semibold">{{ r.balance|rand }}</td></tr>
+      {% empty %}<tr><td colspan="6" class="text-muted text-center py-4">Nothing invoiced or paid in this period.</td></tr>{% endfor %}
+    </tbody>
+  </table></div></div>
+</div></div>
+{% endblock %}

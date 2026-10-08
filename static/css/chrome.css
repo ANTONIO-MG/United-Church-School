@@ -1,0 +1,365 @@
+/* =============================================================================
+   chrome.css — shared app chrome (navbar + sidebar + loaders/transitions).
+   Loaded by BOTH layouts (templates/base.html and myhub/elements/layouts/admin.html)
+   so the top navbar and left sidebar look & behave identically on every page.
+   Owns: navbar bottom-alignment, right-nav themed icons, the collapsible /
+   hover-reveal / scroll-remembering sidebar, and global loading affordances.
+   ========================================================================== */
+
+:root {
+  --app-nav-h: 66px;            /* live navbar height, kept in sync by chrome.js */
+  --app-sidebar-w: 290px;
+}
+
+/* =============================================================================
+   0. STICKY FOOTER — the footer sits at the BOTTOM OF THE VIEWPORT on a short
+   page instead of riding up under the content and leaving the page background
+   below it. On a long page it behaves normally and scrolls off the end.
+
+   Done with flex rather than `position:fixed` so the footer never covers
+   content: <body> is a column, <main> grows to eat the leftover height (which
+   shows as page background), and .footer is the last, non-growing row.
+
+   Scoped to `body.app-shell`, which only the app layout
+   (myhub/elements/layouts/admin.html) sets — it is the layout that renders a
+   footer. The public pages on base.html have none, so turning their <body> into
+   a flex container would change how they lay out for no gain.
+   ========================================================================== */
+html { min-height: 100%; }
+body.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;           /* mobile browsers: exclude the URL bar */
+}
+body.app-shell > main { flex: 1 0 auto; }
+body.app-shell > .footer { flex: 0 0 auto; margin-top: auto; }
+/* The rest of the chrome (navbar, loader bar, alert stack, cookie banner) is
+   position:fixed, so it is out of flow and never becomes a flex row competing
+   with <main> for height. Anything added later that is NOT fixed must be given
+   `flex: 0 0 auto`, or it will stretch. */
+
+/* =============================================================================
+   1. NAVBAR — bottom-aligned items with a constant margin all round
+   ========================================================================== */
+/* A comfortable, consistent navbar height with EQUAL breathing room top and
+   bottom, and every item vertically centred on one line — so nothing touches
+   or overlaps the top/bottom edges (logo, org title, search and the collapse
+   button now sit exactly like the menus on the far right). */
+header.navbar-light .navbar { padding-top: .5rem; padding-bottom: .5rem; min-height: 64px; }
+header.navbar-light .navbar > .container-fluid {
+  align-items: center;
+  column-gap: .4rem;
+  min-height: 48px;
+}
+header.navbar-light .navbar-collapse { align-items: center; }
+
+/* Logo + organisation title, vertically centred together */
+header.navbar-light .navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0;
+  padding: 0;
+}
+header.navbar-light .navbar-brand .navbar-brand-item { max-height: 32px; }
+header.navbar-light .navbar-brand > span { line-height: 1; }
+header.navbar-light .sidebar-start-toggle { margin: 0; align-self: center; }
+
+/* Search field sits centred with the same height rhythm as the icon buttons */
+header.navbar-light .navbar-nav .nav-link { padding-top: .35rem; padding-bottom: .35rem; }
+header.navbar-light .nav-item.w-100 .form-control { height: 42px; }
+
+/* Themed leading icons on the main (right-hand) nav options */
+header.navbar-light .navbar-nav > .nav-item > .nav-link > .nav-ico {
+  font-size: 1.05rem;
+  margin-right: .35rem;
+  vertical-align: -1px;
+}
+
+/* Make the dropdown carets on the non-linking top-level toggles obvious: swap
+   the theme's default ::after glyph for a chevron that rotates when open.
+   (Submenu toggles keep their native carets untouched.) */
+header.navbar-light .navbar-nav > .nav-item > .nav-link.dropdown-toggle::after { display: none; }
+header.navbar-light .nav-link.dropdown-toggle .nav-caret { transition: transform .18s ease; }
+header.navbar-light .nav-link.dropdown-toggle[aria-expanded="true"] .nav-caret { transform: rotate(180deg); }
+
+/* The right-side icon buttons keep a constant gap from each other + the edge */
+header.navbar-light .nav.flex-nowrap.align-items-center > .nav-item { margin-bottom: 0; }
+
+/* =============================================================================
+   2. SIDEBAR — sticky, independently scrollable, collapsible + hover-reveal
+
+   Every layout that renders a sidebar marks its two columns with
+   `.app-sidebar-col` / `.app-content-col` (the dashboard layout also keeps the
+   older #appSidebarCol / #appContentCol ids). Both are matched below, so the
+   collapse button in the navbar works on EVERY page with a rail rather than
+   only on the dashboard layout — which is why some pages would not minimise.
+   ========================================================================== */
+@media (min-width: 992px) {
+  /* Sticky, self-scrolling rail so the sidebar keeps its own scroll position
+     while the page content scrolls underneath it. */
+  #appSidebarCol, .app-sidebar-col {
+    position: sticky;
+    top: .75rem;
+    align-self: flex-start;
+    max-height: calc(100vh - 1rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+  }
+  #appSidebarCol::-webkit-scrollbar,
+  .app-sidebar-col::-webkit-scrollbar { width: 7px; }
+  #appSidebarCol::-webkit-scrollbar-thumb,
+  .app-sidebar-col::-webkit-scrollbar-thumb { background: rgba(0,0,0,.18); border-radius: 4px; }
+
+  /* --- Collapsed state (body.sidebar-start-enabled, toggled from the navbar) ---
+     The rail leaves the flow entirely and the content simply takes the width.
+     No transform animation: it is gone on the next frame, and hovering the
+     far-left edge brings it straight back. */
+  body.sidebar-start-enabled #appSidebarCol,
+  body.sidebar-start-enabled .app-sidebar-col {
+    position: fixed;
+    left: 0;
+    top: var(--app-nav-h);
+    width: var(--app-sidebar-w);
+    max-width: var(--app-sidebar-w);
+    height: calc(100vh - var(--app-nav-h));
+    max-height: none;
+    padding: .75rem .5rem 1rem;
+    margin: 0;
+    background: var(--bs-body-bg, #fff);
+    box-shadow: 0 .5rem 2rem rgba(0,0,0,.18);
+    border-right: 1px solid rgba(0,0,0,.06);
+    z-index: 1045;
+    display: none;
+  }
+  body.sidebar-start-enabled #appContentCol,
+  body.sidebar-start-enabled .app-content-col {
+    flex: 0 0 100%;
+    max-width: 100%;
+    width: 100%;
+  }
+  /* Reveal on hover of the edge zone or the panel itself */
+  body.sidebar-start-enabled.sidebar-hover-open #appSidebarCol,
+  body.sidebar-start-enabled.sidebar-hover-open .app-sidebar-col { display: block; }
+
+  /* Far-left hover trigger strip (only active while collapsed) */
+  #sidebarHoverZone {
+    position: fixed;
+    left: 0;
+    top: var(--app-nav-h);
+    width: 16px;
+    height: calc(100vh - var(--app-nav-h));
+    z-index: 1044;
+    display: none;
+  }
+  body.sidebar-start-enabled #sidebarHoverZone { display: block; }
+  /* A subtle handle so users can discover the hover zone */
+  body.sidebar-start-enabled #sidebarHoverZone::after {
+    content: "";
+    position: absolute;
+    left: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 4px; height: 64px;
+    border-radius: 0 6px 6px 0;
+    background: linear-gradient(180deg, #0d6efd, #6610f2);
+    opacity: .55;
+  }
+  body.sidebar-start-enabled #sidebarHoverZone:hover::after { opacity: 1; width: 6px; }
+}
+
+/* No sidebar on this page → the navbar's collapse button is meaningless, and a
+   dead control is worse than none. chrome.js sets this on <body>. */
+body.no-sidebar .sidebar-start-toggle { display: none !important; }
+
+/* Collapsing the sidebar re-lays the page out immediately: the content simply
+   stretches to fill the freed width and shrinks back when the rail returns.
+   There is deliberately NO transition here — animating flex-basis/max-width made
+   every element in the main column visibly slide and re-wrap, which read as the
+   whole page lurching rather than as one panel closing. */
+#appContentCol, .app-content-col { transition: none !important; }
+
+/* =============================================================================
+   3. GLOBAL LOADING / UPLOAD / DOWNLOAD affordances + micro-transitions
+   ========================================================================== */
+
+/* Determinate progress rail (uploads / downloads) — complements the
+   indeterminate bar in partials/_loader.html. */
+#appLoader .app-loader-bar.determinate { transition: width .15s linear; }
+
+/* Inline "is loading" spinner utility for buttons / cards / async regions */
+.is-loading { position: relative; pointer-events: none; }
+.is-loading > * { opacity: .45; }
+.is-loading::after {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 1.15rem; height: 1.15rem;
+  margin: -.575rem 0 0 -.575rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  opacity: .85;
+  animation: appspin .65s linear infinite;
+}
+button.is-loading, a.btn.is-loading { color: transparent !important; }
+button.is-loading::after, a.btn.is-loading::after { color: #fff; }
+
+/* Fade-in for content that arrives asynchronously */
+.app-fade-in { animation: appFadeIn .3s ease both; }
+@keyframes appFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* Skeleton shimmer for placeholder rows while data loads */
+.app-skeleton {
+  background: linear-gradient(90deg, rgba(0,0,0,.06) 25%, rgba(0,0,0,.12) 37%, rgba(0,0,0,.06) 63%);
+  background-size: 400% 100%;
+  animation: appShimmer 1.3s ease infinite;
+  border-radius: .5rem;
+}
+@keyframes appShimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+@keyframes appspin { to { transform: rotate(360deg); } }
+
+/* =============================================================================
+   4. FORMS — compact, centred, bordered "focus" cards for form-only pages
+   Add class .app-form to a <form> (already on the shared CRUD renderer
+   myhub/elements/_form.html) OR wrap a page in .app-form-focus.
+   ========================================================================== */
+
+/* The card that wraps a standalone form becomes a narrow, centred, elevated
+   surface so the form — not the surrounding chrome — is the focus. */
+.card:has(> .card-body > form.app-form),
+.card:has(> .card-body > .app-form),
+.app-form-focus > .card {
+  max-width: 820px;
+  margin-inline: auto;
+  border: 1px solid rgba(13, 110, 253, .12);
+  box-shadow: 0 1.25rem 3rem rgba(13, 110, 253, .10);
+  border-radius: 1rem;
+}
+.card:has(> .card-body > form.app-form) > .card-body,
+.app-form-focus > .card > .card-body { padding: 1.75rem; }
+
+/* Soft, blurred backdrop behind form-only pages so attention lands on the form */
+.app-form-focus,
+.card:has(> .card-body > form.app-form) { position: relative; }
+.app-form-focus::before,
+main:has(form.app-form)::before {
+  content: "";
+  position: fixed; inset: var(--app-nav-h) 0 0 0;
+  background: radial-gradient(60% 55% at 50% 30%, rgba(13,110,253,.06), transparent 70%);
+  backdrop-filter: saturate(108%);
+  pointer-events: none; z-index: 0;
+}
+main:has(form.app-form) > .container-fluid { position: relative; z-index: 1; }
+
+/* Roomier, non-stretched fields with a clear focus ring */
+form.app-form .form-control,
+form.app-form .form-select,
+form.app-form textarea {
+  padding: .6rem .85rem;
+  border-radius: .6rem;
+}
+form.app-form .form-control:focus,
+form.app-form .form-select:focus,
+form.app-form textarea:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 .25rem rgba(13, 110, 253, .15);
+}
+form.app-form .form-label { font-weight: 600; font-size: .875rem; margin-bottom: .3rem; }
+form.app-form .btn { padding-inline: 1.4rem; }
+form.app-form .mt-2 { margin-top: 1.25rem !important; display: flex; gap: .5rem; }
+
+/* =============================================================================
+   5. GLOBAL ALERT / TOAST STACK  (partials/_alerts.html)
+   One fixed stack anchored just below the navbar — the single place every
+   Django `messages` alert appears. Each auto-dismisses after 5s (chrome.js).
+   ========================================================================== */
+.app-alerts {
+  position: fixed;
+  top: calc(var(--app-nav-h) + .5rem);
+  right: 1rem;
+  z-index: 1090;
+  width: 380px;
+  max-width: calc(100vw - 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  pointer-events: none;               /* let clicks through the empty gaps */
+}
+.app-alert {
+  pointer-events: auto;
+  margin: 0;
+  border: 0;
+  border-left: 4px solid currentColor;
+  border-radius: .6rem;
+  box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .16);
+  animation: appAlertIn .28s cubic-bezier(.22, 1, .36, 1) both;
+}
+.app-alert .btn-close { padding: .6rem; }
+.app-alert.hiding { animation: appAlertOut .3s ease forwards; }
+@keyframes appAlertIn  { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes appAlertOut { to { opacity: 0; transform: translateX(24px); max-height: 0;
+  margin: 0; padding-top: 0; padding-bottom: 0; border-width: 0; } }
+
+/* =============================================================================
+   6. ONBOARDING FRAMED PAGES  (registration + enrolment checkout)
+   Full-bleed background image + one centred, nicely-framed form. No navbar/footer.
+   ========================================================================== */
+.reg-bg {
+  position: fixed; inset: 0; z-index: -2;
+  background: url('/static/images/bg/05.jpg') center / cover no-repeat;
+}
+.reg-bg::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(160deg, rgba(13,110,253,.82), rgba(8,17,38,.92));
+}
+.reg-shell { min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; }
+.reg-frame {
+  width: 100%; max-width: 800px; background: var(--bs-body-bg, #fff);
+  border-radius: 18px; border: 1px solid rgba(255,255,255,.35);
+  box-shadow: 0 28px 70px rgba(0,0,0,.38); overflow: hidden;
+}
+.reg-head { background: linear-gradient(135deg,#0d6efd,#0a58ca); color: #fff; padding: 28px 34px; }
+.reg-body { padding: 28px 34px 34px; }
+.reg-section { padding: 22px 0; border-bottom: 1px solid #eef0f3; }
+.reg-section:last-of-type { border-bottom: 0; }
+.reg-section > h6 { text-transform: uppercase; letter-spacing: .04em; color: #8a8f9c; font-size: .78rem; font-weight: 700; margin-bottom: 14px; }
+.reg-frame .form-control, .reg-frame .form-select, .reg-frame textarea { padding: .6rem .85rem; border-radius: .6rem; }
+.role-card { cursor: pointer; border: 2px solid #e6e8ee; border-radius: 12px; padding: 14px; text-align: center; transition: .15s; height: 100%; }
+.role-card:hover { border-color: #9ec5fe; }
+.role-card input { display: none; }
+.role-card:has(input:checked) { border-color: #0d6efd; background: #f0f7ff; }
+.pick { display: flex; align-items: center; gap: 12px; border: 2px solid #e6e8ee; border-radius: 12px; padding: 11px 14px; cursor: pointer; transition: .15s; margin-bottom: 10px; }
+.pick:hover { border-color: #9ec5fe; }
+.pick:has(input:checked) { border-color: #0d6efd; background: #f0f7ff; }
+.pick input { margin: 0; flex: 0 0 auto; }
+.pick .price { margin-left: auto; font-weight: 700; white-space: nowrap; }
+.pick .price.free { color: #198754; }
+.pick .price.paid { color: #0d6efd; }
+@media (max-width: 575.98px) { .reg-head, .reg-body { padding-left: 20px; padding-right: 20px; } }
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  #appSidebarCol, #appContentCol, .app-fade-in, .app-skeleton, .app-alert,
+  header.navbar-light .nav-caret { transition: none !important; animation: none !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   Global navbar search dropdown
+   --------------------------------------------------------------------------- */
+.app-search-results{
+  position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:1050;
+  background:#fff; border:1px solid #e6e8ee; border-radius:12px; overflow:hidden;
+  max-height:min(60vh,460px); overflow-y:auto; padding:4px;
+}
+.app-search-group{ font-size:.68rem; letter-spacing:.06em; text-transform:uppercase;
+  color:#94a0b8; font-weight:700; padding:8px 12px 4px; }
+.app-search-item{ display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px;
+  text-decoration:none; color:#2b3550; }
+.app-search-item:hover, .app-search-item.active{ background:#eef4ff; color:#0d6efd; }
+.app-search-item > i{ font-size:1rem; color:#6c8cff; flex:0 0 auto; }
+.app-search-item .asi-label{ flex:1 1 auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.app-search-item .asi-sub{ font-size:.72rem; color:#98a2b6; flex:0 0 auto; }
+.app-search-empty{ padding:14px 16px; color:#98a2b6; font-size:.85rem; text-align:center; }

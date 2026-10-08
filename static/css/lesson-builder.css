@@ -1,0 +1,146 @@
+/* lesson-builder.css — the educator's lesson builder.
+ * Extends static/css/lesson.css (block cards, palette, rich text) with the
+ * single body canvas, the dropdown-section container, the Format toolkit,
+ * drag-and-drop affordances, the audience switch and the attachments list.
+ * Loaded by templates/learning/lesson_editor.html.
+ */
+
+.le-topbar{ display:flex; align-items:flex-start; gap:.6rem; flex-wrap:wrap;
+  margin-bottom:1rem; padding-bottom:.85rem; border-bottom:1px solid #e6e8ee; }
+.le-savechip{ align-self:center; }
+.le-savechip.saving i{ animation:le-spin 1s linear infinite; }
+@keyframes le-spin{ to{ transform:rotate(360deg); } }
+
+.le-tip{ font-size:.72rem; color:#8a93a8; margin-bottom:.6rem; }
+.le-details > summary{ cursor:pointer; font-size:.8rem; font-weight:600; color:#6b7690; list-style:none; }
+.le-details > summary::-webkit-details-marker{ display:none; }
+.le-details > summary::before{ content:"▸ "; color:#aab2c5; }
+.le-details[open] > summary::before{ content:"▾ "; }
+
+/* ======================= The lesson body =======================
+   One continuous canvas. Elements stack in author order; a dropdown section is
+   an element in that same stack that happens to hold others. */
+.le-body{ display:flex; flex-direction:column; gap:10px; min-height:220px; }
+.le-body > .le-block{ margin:0; }
+
+/* The selected element — what the Format panel is pointing at. */
+.le-block.is-selected{ box-shadow:0 0 0 2px #0d6efd, 0 8px 24px rgba(13,110,253,.12); }
+.le-block .le-bhead .le-fmt{ border:0; background:transparent; color:#9aa3b7; width:30px; height:30px;
+  border-radius:8px; cursor:pointer; }
+.le-block .le-bhead .le-fmt:hover{ background:#e7f0ff; color:#0d6efd; }
+
+/* ======================= Dropdown sections ======================= */
+.le-sec{ border:1px solid #e6e8ee; border-radius:16px; background:#fff;
+  transition:box-shadow .15s, border-color .15s; }
+.le-sec > .le-sechead{ cursor:default; }
+.le-sec:hover{ box-shadow:0 6px 20px rgba(20,30,60,.06); }
+.le-sec.is-dragging{ opacity:.5; }
+.le-sec.drop-target{ border-color:#0d6efd; box-shadow:0 0 0 3px rgba(13,110,253,.15); }
+
+.le-sechead{ display:flex; align-items:center; gap:.5rem; padding:.7rem .85rem;
+  border-bottom:1px solid #f1f3f7; background:#fafbfe; border-radius:16px 16px 0 0; flex-wrap:wrap; }
+.le-sechead .le-grip{ cursor:grab; color:#aab2c5; touch-action:none; }
+.le-sechead .le-secnum{ width:24px; height:24px; flex:0 0 24px; border-radius:50%; background:#eef1f6;
+  color:#6b7690; font-size:.72rem; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.le-sechead .le-sectitle{ flex:1 1 190px; min-width:150px; border:1px solid transparent; background:transparent;
+  font-weight:600; color:#344767; font-size:.95rem; border-radius:8px; padding:.25rem .45rem; }
+.le-sechead .le-sectitle:hover{ border-color:#e6e8ee; }
+.le-sechead .le-sectitle:focus{ background:#fff; border-color:#0d6efd; outline:none; }
+.le-sechead select, .le-sechead .le-secdur{ font-size:.76rem; }
+.le-sechead .le-sectype{ flex:0 0 auto; width:auto; max-width:150px; }
+.le-sechead .le-secdur{ width:76px; flex:0 0 76px; }
+.le-secactions{ margin-left:auto; display:flex; gap:2px; }
+.le-secactions button{ border:0; background:transparent; color:#9aa3b7; width:30px; height:30px;
+  border-radius:8px; cursor:pointer; }
+.le-secactions button:hover{ background:#eef1f7; color:#39435a; }
+.le-secactions .le-secdel:hover{ background:#fdecee; color:#dc3545; }
+
+.le-secmeta{ display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+  padding:.45rem .95rem; border-bottom:1px solid #f1f3f7; background:#fdfdff; }
+.le-secmeta .form-check{ margin:0; }
+.le-secmeta .form-check-label{ font-size:.74rem; color:#6b7690; }
+.le-secsummary{ flex:1 1 220px; font-size:.76rem; border:1px solid #eef1f6; border-radius:8px; padding:.25rem .5rem; }
+.le-secsummary:focus{ border-color:#0d6efd; outline:none; }
+.le-secest{ font-size:.7rem; color:#8a93a8; white-space:nowrap; }
+
+.le-secbody{ padding:.85rem .95rem; }
+
+/* A block list that accepts drops from the palette or another section. */
+.le-drop{ min-height:56px; border-radius:12px; transition:background .12s, box-shadow .12s; }
+.le-drop.le-dragover{ background:#f2f8ff; box-shadow:inset 0 0 0 2px #9ec5fe; }
+.le-drop:empty::before{ content:attr(data-empty);
+  display:block; text-align:center; color:#aab2c5; font-size:.78rem; padding:18px 8px;
+  border:2px dashed #e6e8ee; border-radius:12px; }
+.le-body:empty::before{ content:"Start writing: pick an element from the toolkit, or drag one here";
+  padding:44px 8px; }
+
+/* Palette items are draggable. */
+.le-palette button{ user-select:none; }
+.le-palette button:active{ cursor:grabbing; }
+.le-palette button.is-dragging{ opacity:.45; }
+.le-palette .le-pal-section{ grid-column:1 / -1; border-style:dashed; }
+
+/* ======================= Format toolkit =======================
+   Sticky so it stays beside the body while the author scrolls a long lesson. */
+.le-fmtcard{ position:sticky; top:12px; z-index:2; }
+.le-fmtgroup{ padding:.55rem 0; border-top:1px solid #f1f3f7; }
+.le-fmtgroup:first-child{ border-top:0; padding-top:0; }
+.le-fmtlabel{ display:block; font-size:.68rem; font-weight:700; letter-spacing:.05em;
+  text-transform:uppercase; color:#8a93a8; margin-bottom:.4rem; }
+.le-fmtrow{ display:flex; align-items:center; gap:6px; }
+.le-fmtrow > .form-control, .le-fmtrow > .form-select{ flex:1 1 0; min-width:0; font-size:.76rem; }
+.le-fmtrow > .form-range{ flex:1 1 auto; }
+.le-fmtout{ font-size:.72rem; color:#6b7690; min-width:44px; text-align:right; }
+
+/* Segmented button groups (alignment, float). */
+.le-fmtseg{ display:flex; gap:4px; }
+.le-fmtseg button{ flex:1 1 0; border:1px solid #e6e8ee; background:#fff; border-radius:8px;
+  height:30px; color:#6b7690; cursor:pointer; font-size:.82rem; }
+.le-fmtseg button:hover{ border-color:#0d6efd; color:#0d6efd; }
+.le-fmtseg button.is-on{ background:#e7f0ff; border-color:#b9d2ff; color:#0d6efd; }
+
+/* Colour wells: the icon is the affordance, the input is the picker behind it. */
+.le-swatch{ position:relative; display:inline-flex; align-items:center; justify-content:center;
+  width:38px; height:30px; border:1px solid #e6e8ee; border-radius:8px; cursor:pointer; color:#4a5570; }
+.le-swatch:hover{ border-color:#0d6efd; color:#0d6efd; }
+.le-swatch input[type=color]{ position:absolute; inset:0; opacity:0; width:100%; height:100%;
+  border:0; padding:0; cursor:pointer; }
+
+/* ======================= Rich-text toolbar ======================= */
+.le-rt-toolbar{ display:flex; gap:2px; flex-wrap:wrap; margin-bottom:6px; align-items:center;
+  padding:4px; background:#fafbfe; border:1px solid #eef1f6; border-radius:9px; }
+.le-rt-toolbar button{ border:1px solid transparent; background:transparent; min-width:30px; height:28px;
+  border-radius:6px; cursor:pointer; color:#4a5570; font-size:.82rem; padding:0 5px; }
+.le-rt-toolbar button:hover{ background:#eef1f7; border-color:#dfe4ee; }
+.le-rt-toolbar button.is-on{ background:#e7f0ff; border-color:#b9d2ff; color:#0d6efd; }
+.le-rt-toolbar select{ height:28px; font-size:.74rem; border:1px solid #e6e8ee; border-radius:6px;
+  background:#fff; color:#4a5570; padding:0 4px; max-width:118px; }
+.le-rt-toolbar .le-rt-sep{ width:1px; height:20px; background:#e2e6ef; margin:0 3px; }
+.le-rt-toolbar input[type=color]{ width:28px; height:28px; padding:1px; border:1px solid #e6e8ee;
+  border-radius:6px; background:#fff; cursor:pointer; }
+
+/* ======================= Audience switch ======================= */
+.le-audience{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.le-audience button{ display:flex; flex-direction:column; align-items:center; gap:3px; padding:10px 4px;
+  border:1px solid #e6e8ee; border-radius:12px; background:#fff; cursor:pointer; color:#6b7690;
+  font-size:.72rem; font-weight:600; transition:.15s; }
+.le-audience button:hover{ border-color:#0d6efd; color:#0d6efd; }
+.le-audience button i{ font-size:1.1rem; }
+.le-audience button.active{ border-color:#0d6efd; background:#eef4ff; color:#0d6efd;
+  box-shadow:0 0 0 2px rgba(13,110,253,.12); }
+.le-audbody{ display:none; }
+.le-audbody.show{ display:block; }
+
+/* ======================= Attachments ======================= */
+.le-attachlist{ list-style:none; padding:0; margin:.6rem 0 0; }
+.le-attachlist li{ display:flex; align-items:center; gap:.45rem; padding:.4rem .1rem;
+  border-bottom:1px solid #f2f4f8; font-size:.79rem; }
+.le-attachlist li > i{ color:#5e72e4; }
+.le-attachlist a{ flex:1 1 auto; color:#344767; text-decoration:none; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; }
+.le-attachlist a:hover{ color:#0d6efd; }
+.le-attachlist em{ font-style:normal; font-size:.66rem; color:#8a93a8; }
+.le-attdel{ border:0; background:transparent; color:#c9cfdb; padding:2px 5px; border-radius:6px; cursor:pointer; }
+.le-attdel:hover{ background:#fdecee; color:#dc3545; }
+
+.le-aicard .card-header{ background:linear-gradient(135deg,#f3f0ff,#fbfaff); }

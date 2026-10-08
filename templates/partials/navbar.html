@@ -1,0 +1,239 @@
+{% load people %}{% load static %}
+<nav class="su-navbar navbar navbar-expand-lg">
+  <div class="container-fluid px-1">
+
+    {% if request.user.is_authenticated %}
+    <button class="su-icon-btn sidebar-start-toggle d-none d-lg-inline-flex me-1" type="button"
+            aria-label="Toggle sidebar" title="Toggle sidebar"><i class="bi bi-list fs-4"></i></button>
+    {% endif %}
+
+    <a class="su-brand-logo me-2" href="{% if request.user.is_authenticated %}/myhub/{% else %}{% url 'pages:landing' %}{% endif %}"
+       title="{{ brand.short_name|default:brand.name|default:'United Church School' }}">
+      <img class="su-avatar su-avatar-round" src="{% static brand.logo|default:'images/brand/ucs-mark.png' %}" alt="{{ brand.name|default:'logo' }}"
+           onerror="this.style.display='none'">
+    </a>
+
+    {% if request.user.is_authenticated %}
+    {% comment %}Dashboard moved here from the sidebar: it is the page people go
+    back to most, and the navbar is on every screen — including the ones (a
+    profile, a module feed) where the sidebar is collapsed or scrolled away.{% endcomment %}
+    <a class="su-pill su-pill--flat me-2" href="/myhub/" title="Dashboard">
+      <i class="bi bi-grid-1x2"></i><span class="d-none d-sm-inline">Dashboard</span>
+    </a>
+    {% endif %}
+
+    {% if request.user.is_authenticated and my_programmes_count and not is_parent %}
+    <a class="su-pill su-pill--flat me-2" href="{% url 'accounts:my-programmes' %}" title="{% if my_programmes_count > 1 %}My Grades{% else %}My Grade{% endif %}">
+      <i class="bi bi-mortarboard"></i><span class="d-none d-sm-inline">{% if my_programmes_count > 1 %}My Grades{% else %}My Grade{% endif %}</span>
+    </a>
+    {% endif %}
+
+    {% if is_parent and child_name %}
+    <a class="su-pill su-pill--flat me-2" href="/reports/progress/" title="{{ child_name }}’s progress">
+      <i class="bi bi-person-badge"></i><span class="d-none d-sm-inline">{{ child_name }}</span>
+    </a>
+    {% endif %}
+
+    <button class="navbar-toggler border-0 p-1" type="button" data-bs-toggle="collapse" data-bs-target="#suNav"
+            aria-controls="suNav" aria-expanded="false" aria-label="Toggle navigation">
+      <i class="bi bi-list fs-3"></i>
+    </button>
+
+    <div class="collapse navbar-collapse" id="suNav">
+      {% if request.user.is_authenticated %}
+      <div class="su-search mx-lg-auto my-2 my-lg-0" id="navSearchWrap">
+        <i class="bi bi-search su-search-ico"></i>
+        <form role="search" autocomplete="off" onsubmit="return false" hx-boost="false">
+          <input id="navSearchInput" class="form-control" type="search" autocomplete="off"
+                 placeholder="Search people, courses, lessons, tasks…" aria-label="Search">
+        </form>
+        <div id="navSearchResults" class="app-search-results shadow-lg d-none"></div>
+      </div>
+
+      <ul class="navbar-nav flex-row flex-wrap align-items-center ms-lg-2 gap-1">
+        <li class="nav-item">
+          <a class="su-icon-btn" href="{% url 'shop:cart' %}" title="Cart">
+            <i class="bi bi-cart"></i>
+            {% if shop_stats.cart_count %}<span class="su-count badge bg-primary rounded-pill">{{ shop_stats.cart_count }}</span>{% endif %}
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="su-icon-btn" href="/communication/chat/" title="Messages">
+            <i class="bi bi-chat-left-text"></i>
+            {% if comm_stats.unread_messages %}<span class="su-dot"></span>{% endif %}
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="su-icon-btn" href="/community/settings/" title="Settings"><i class="bi bi-gear"></i></a>
+        </li>
+        <li class="nav-item dropdown">
+          <a class="su-icon-btn" href="#" id="suNotif" role="button" data-bs-toggle="dropdown" aria-expanded="false"
+             title="Notifications &amp; messages">
+            <i class="bi bi-bell"></i>
+            {% if comm_stats.alerts_total %}<span class="su-dot"></span>{% endif %}
+          </a>
+          <div class="dropdown-menu dropdown-menu-end su-popout su-notif-menu p-2" aria-labelledby="suNotif">
+            <div class="d-flex justify-content-between align-items-center px-2 pb-2">
+              <h6 class="mb-0">Notifications &amp; messages</h6>
+              {% if comm_stats.alerts_total %}
+              <span class="badge bg-danger bg-opacity-10 text-danger">{{ comm_stats.alerts_total }} new</span>
+              {% endif %}
+            </div>
+
+            <div class="su-alert-list">
+              {% for a in comm_stats.alerts %}
+              <a class="su-alert-row{% if a.unread %} is-unread{% endif %}" href="{{ a.url }}">
+                <span class="su-alert-ico su-alert-ico--{{ a.kind }}"><i class="bi {{ a.icon }}"></i></span>
+                <span class="su-alert-main">
+                  <span class="su-alert-title">{{ a.title }}</span>
+                  <span class="su-alert-body">{{ a.body }}</span>
+                </span>
+                <span class="su-alert-when">{{ a.when|timesince|truncatewords:1 }}</span>
+              </a>
+              {% empty %}
+              <p class="text-center small text-muted my-3">Nothing new.</p>
+              {% endfor %}
+            </div>
+
+            <div class="d-flex gap-1 pt-2">
+              <a class="btn btn-sm btn-light flex-fill mb-0" href="/communication/notifications/">
+                <i class="bi bi-bell me-1"></i>Notifications</a>
+              <a class="btn btn-sm btn-light flex-fill mb-0" href="/communication/chat/">
+                <i class="bi bi-chat-left-text me-1"></i>Messages</a>
+            </div>
+          </div>
+        </li>
+        <li class="nav-item dropdown ms-1">
+          {% comment %}data-bs-display="static" is deliberately NOT set: it disables Popper,
+             which is what let this menu run off the right-hand edge. With Popper
+             on, `dropdown-menu-end` anchors it to the avatar's right edge and it
+             flips/shifts itself back into the viewport. .su-popout caps its width
+             and height so it can never overflow either axis.{% endcomment %}
+          <a class="d-inline-flex" href="#" id="suProfile" role="button" data-bs-toggle="dropdown"
+             data-bs-auto-close="outside" aria-expanded="false">
+            <img class="su-avatar-sm su-avatar-round" src="{% if account_stats.profile.avatar_url %}{{ account_stats.profile.avatar_url }}{% else %}{% static 'images/avatar/default-neutral.svg' %}{% endif %}" alt="profile">
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end su-popout pt-2 small" aria-labelledby="suProfile">
+            <li class="px-3 pb-2">
+              <div class="d-flex align-items-center">
+                <img class="su-avatar-sm su-avatar-round me-2" src="{% if account_stats.profile.avatar_url %}{{ account_stats.profile.avatar_url }}{% else %}{% static 'images/avatar/default-neutral.svg' %}{% endif %}" alt="avatar">
+                <div class="min-w-0">
+                  <a class="fw-bold text-truncate d-block text-reset" href="/community/profile/">{{ account_stats.profile.name|default:request.user|person_name|default:"Guest" }}</a>
+                  <span class="small text-muted">{{ account_stats.profile.title|default:"Member" }}</span>
+                </div>
+              </div>
+            </li>
+            {% comment %}Not a .dropdown-item: that is width:100%, and with mx-3 on top it
+               measured wider than the menu it sat in.{% endcomment %}
+            <li class="px-3 py-1"><a class="btn btn-sm btn-primary w-100 mb-0" href="/community/profile/">View profile</a></li>
+            <li><a class="dropdown-item" href="/community/settings/"><i class="bi bi-gear me-2"></i>Settings &amp; privacy</a></li>
+            {% if not is_parent %}{# the content index spans the whole platform #}
+            {% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              {% comment %}Same setting as Preferences → Theme on the settings page:
+              js/theme.js applies it here and POSTs it to accounts:set-theme, so
+              flipping it in the navbar is remembered on the next sign-in.{% endcomment %}
+              <div class="d-flex justify-content-center gap-2 px-3 pb-1">
+                <span class="small text-muted me-1">Mode:</span>
+                <button type="button" class="btn btn-sm btn-link p-0 text-reset" data-bs-theme-value="light" title="Light"><i class="bi bi-sun"></i></button>
+                <button type="button" class="btn btn-sm btn-link p-0 text-reset" data-bs-theme-value="dark" title="Dark"><i class="bi bi-moon-stars"></i></button>
+                <button type="button" class="btn btn-sm btn-link p-0 text-reset" data-bs-theme-value="auto" title="Auto"><i class="bi bi-circle-half"></i></button>
+              </div>
+            </li>
+            <li>
+              <div class="d-flex justify-content-center align-items-center gap-2 px-3 pb-1">
+                <span class="small text-muted me-1">Language:</span>
+                {% for code, label in LANGUAGES %}
+                <a class="btn btn-sm btn-link p-0 text-reset text-uppercase {% if ui_language == code %}fw-bold text-primary{% endif %}"
+                   href="{% url 'accounts:set-language' %}?lang={{ code }}" title="{{ label }}">{{ code }}</a>
+                {% endfor %}
+              </div>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <form method="post" action="/accounts/logout/" hx-boost="false">{% csrf_token %}
+                <button type="submit" class="dropdown-item text-danger"><i class="bi bi-power me-2"></i>Sign out</button>
+              </form>
+            </li>
+          </ul>
+        </li>
+      </ul>
+
+      <script>
+      (function(){
+        if (window.__navSearchInit) return; window.__navSearchInit = true;
+        var SUGGEST = "{% url 'myhub:search-suggest' %}";
+        var input = document.getElementById('navSearchInput');
+        var box = document.getElementById('navSearchResults');
+        if (!input || !box) return;
+        var timer, active = -1, items = [];
+        function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+        function close(){ box.classList.add('d-none'); box.innerHTML=''; active=-1; items=[]; }
+        function render(results, q){
+          if (!results.length){ box.innerHTML='<div class="app-search-empty">No matches for “'+esc(q)+'”</div>'; box.classList.remove('d-none'); return; }
+          var groups={}; results.forEach(function(r){ (groups[r.type]=groups[r.type]||[]).push(r); });
+          var html=''; items=[];
+          Object.keys(groups).forEach(function(type){
+            html+='<div class="app-search-group">'+esc(type)+'</div>';
+            groups[type].forEach(function(r){ var i=items.length; items.push(r);
+              html+='<a class="app-search-item" data-i="'+i+'" href="'+r.url+'">'+(r.avatar?'<img class="asi-avatar" src="'+esc(r.avatar)+'" alt="">':'<i class="bi '+(r.icon||'bi-dot')+'"></i>')+'<span class="asi-label">'+esc(r.label)+'</span><span class="asi-sub">'+esc(r.sub||'')+'</span></a>'; });
+          });
+          box.innerHTML=html; box.classList.remove('d-none');
+        }
+        function run(q){ fetch(SUGGEST+'?q='+encodeURIComponent(q), {credentials:'same-origin'})
+          .then(function(r){return r.json();}).then(function(d){ render(d.results||[], q); }).catch(close); }
+        input.addEventListener('input', function(){ var q=input.value.trim(); clearTimeout(timer); if(q.length<2){close();return;} timer=setTimeout(function(){run(q);},250); });
+        input.addEventListener('keydown', function(e){ var links=box.querySelectorAll('.app-search-item');
+          if(e.key==='ArrowDown'){e.preventDefault();active=Math.min(active+1,links.length-1);}
+          else if(e.key==='ArrowUp'){e.preventDefault();active=Math.max(active-1,0);}
+          else if(e.key==='Enter'){ if(active>=0&&links[active]) window.location=links[active].getAttribute('href'); return; }
+          else if(e.key==='Escape'){ close(); return; } else return;
+          links.forEach(function(l,i){ l.classList.toggle('active',i===active); }); if(links[active]) links[active].scrollIntoView({block:'nearest'}); });
+        document.addEventListener('click', function(e){ if(!e.target.closest('#navSearchWrap')) close(); });
+      })();
+      </script>
+
+      {% else %}
+      {% if landing and strings.landing.nav %}
+      <ul class="navbar-nav flex-row flex-wrap align-items-center me-lg-auto gap-1 mt-2 mt-lg-0">
+        {% for item in strings.landing.nav %}
+        <li class="nav-item"><a class="nav-link px-2 py-1" href="{{ item.href }}">{{ item.label }}</a></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      <ul class="navbar-nav flex-row flex-wrap align-items-center ms-auto gap-2 mt-2 mt-lg-0">
+        {% if landing %}
+          {% if brand.contact.whatsapp_url %}
+          <li class="nav-item">
+            <a class="btn btn-sm btn-outline-success rounded-pill px-3" href="{{ brand.contact.whatsapp_url }}"
+               target="_blank" rel="noopener"><i class="bi bi-whatsapp me-1"></i>WhatsApp</a>
+          </li>
+          {% endif %}
+          {% if brand.links.store %}
+          <li class="nav-item">
+            <a class="btn btn-sm btn-primary rounded-pill px-3" href="{{ brand.links.store }}"
+               target="_blank" rel="noopener">{{ brand.links.store_label|default:"School shop" }}</a>
+          </li>
+          {% endif %}
+        {% endif %}
+        {% comment %}Internal links — never target="_blank". Each auth page hides its
+        own button: the login page shows only Sign up, the sign-up page shows only
+        Login. Everywhere else logged-out (landing, password reset) shows both.{% endcomment %}
+        {% with cur_url=request.resolver_match.url_name %}
+        {% if cur_url != 'page-login' %}
+        <li class="nav-item"><a class="su-pill" href="{% url 'myhub:page-login' %}">{% if landing %}Learning platform{% else %}Login{% endif %}</a></li>
+        {% endif %}
+        {% if not landing and cur_url != 'page-register' %}
+        {% comment %}Same .su-pill as Login beside it: the pair reads as one control,
+        so they match in height, type and colour rather than one being a solid
+        accent and the other an outline.{% endcomment %}
+        <li class="nav-item"><a class="su-pill" href="{% url 'myhub:page-register' %}">Sign up</a></li>
+        {% endif %}
+        {% endwith %}
+      </ul>
+      {% endif %}
+    </div>
+  </div>
+</nav>

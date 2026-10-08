@@ -1,0 +1,219 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}
+Live-session launch page.
+
+Microsoft Teams meetings can't be iframe-embedded, so for Teams this is a launch
+page: session details + a "Join the Teams class" button (students join
+anonymously) and, afterwards, the recording / recap / attendance. For the Jitsi
+fallback it still embeds the room via the Jitsi External API — unbranded (no
+Jitsi watermark, no promo close page) and returning to whichever chat / module /
+class the call was started from the moment it ends.
+{% endcomment %}
+
+{% block additional_css %}
+<style>
+  #jitsi{height:calc(100vh - 200px);min-height:480px;border-radius:.5rem;overflow:hidden;background:#040404}
+  /* In its own tab the call *is* the page: fill the viewport, drop the chrome. */
+  {% if fullscreen %}
+  #jitsi{ position:fixed; inset:0; height:100vh; min-height:0; border-radius:0; z-index:1055; }
+  .meet-head, .content-body > .container-fluid > p{ display:none; }
+  {% endif %}
+  .meet-head{ gap:.75rem; }
+  .meet-actions .btn{ white-space:nowrap; }
+  /* Confirmation shown when the copy actually landed on the clipboard. */
+  .copied-flash{ animation:copied 1.6s ease; }
+  @keyframes copied{ 0%{ transform:scale(1) } 25%{ transform:scale(1.06) } 100%{ transform:scale(1) } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 meet-head">
+    <div class="min-w-0">
+      <h3 class="mb-0 text-truncate">{{ meeting.title }}</h3>
+      {% if meeting.scheduled_start %}
+        <small class="text-muted"><i class="bi bi-calendar-event me-1"></i>{{ meeting.scheduled_start|date:"D d M, H:i" }}</small>
+      {% endif %}
+    </div>
+    <div class="d-flex gap-2 meet-actions">
+      <button type="button" class="btn btn-outline-primary" id="shareBtn"
+              data-share-url="{{ share_url }}" data-share-message="{{ share_message }}">
+        <i class="bi bi-share-fill me-1"></i><span id="shareLabel">Share link</span>
+      </button>
+      {% if not meeting.is_teams %}
+      <a class="btn btn-primary" id="openTabBtn"
+         href="{% url 'communication:meeting-room' meeting.slug %}?fullscreen=1&return={{ return_url|urlencode }}{% if audio_only %}&kind=audio{% endif %}"
+         target="_blank" rel="noopener">
+        <i class="bi bi-box-arrow-up-right me-1"></i>Open meeting in a new tab</a>
+      {% endif %}
+      <a class="btn btn-light" href="{{ return_url }}"><i class="bi bi-arrow-left me-1"></i>Back</a>
+    </div>
+  </div>
+  {% if meeting.description %}<p class="text-muted">{{ meeting.description }}</p>{% endif %}
+
+  {% if meeting.is_teams %}
+    {# ---------------- Microsoft Teams launch card ---------------- #}
+    <div class="card">
+      <div class="card-body text-center py-5">
+        <div class="mb-3"><i class="bi bi-microsoft-teams" style="font-size:3rem;color:#5b5fc7"></i></div>
+        <h4 class="mb-1">{{ meeting.title }}</h4>
+        <p class="text-muted mb-1">
+          {% if meeting.module %}{{ meeting.module.name }} · {% endif %}
+          {% if meeting.scheduled_start %}{{ meeting.scheduled_start|date:"D d M, H:i" }}{% endif %}
+        </p>
+        {% if meeting.is_live_now %}<span class="badge bg-danger mb-3">● Live now</span>{% elif meeting.is_upcoming %}<span class="badge bg-primary mb-3">Upcoming</span>{% else %}<span class="badge bg-secondary mb-3">Ended</span>{% endif %}
+        <div>
+          {% if meeting.teams_join_url %}
+          {% comment %}Through the identified hand-off, not straight at Teams: the
+          redirect records who is going in while we still know, because Teams
+          itself will only ever report the name they type. See
+          apps.livesessions.views.session_join.{% endcomment %}
+          <a class="btn btn-primary btn-lg" href="{% url 'livesessions:session-join' meeting.pk %}">
+            <i class="bi bi-camera-video-fill me-2"></i>Join the Teams class</a>
+          {% else %}
+          <p class="text-muted small mb-0">The Teams link isn't ready yet — check back shortly.</p>
+          {% endif %}
+        </div>
+        <p class="text-muted small mt-3 mb-0">No Microsoft account needed — you'll join as a guest.
+          When Teams asks for your name, enter
+          <strong>{{ request.user.profile.first_name }} {{ request.user.profile.last_name }}</strong>
+          so the register matches you straight away.</p>
+      </div>
+    </div>
+
+    {# After-class artifacts, filled by apps.msteams after the session ends. #}
+    {% if meeting.recording_url or recap %}
+    <div class="card mt-3">
+      <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">After the class</h5></div>
+      <div class="card-body">
+        {% if meeting.recording_url %}
+        <a href="{{ meeting.recording_url }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm mb-3">
+          <i class="bi bi-play-circle me-1"></i>Watch the recording</a>
+        {% endif %}
+        {% if recap %}
+        <h6 class="mb-1">Recap</h6>
+        <div class="small">{{ recap.content|linebreaksbr }}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+  {% else %}
+    {# ---------------- Jitsi fallback (embedded, unbranded) ---------------- #}
+    <div id="jitsi"></div>
+  {% endif %}
+</div></div>
+
+{% comment %}Automatic attendance: while this page is open and visible the
+heartbeat accrues real time against the backing class session. Works for both
+engines — with Teams the student is off in the Teams client, but this launch tab
+stays open and is what we can actually measure.{% endcomment %}
+{% include 'partials/_presence.html' with presence_session=meeting.class_session %}
+{% endblock %}
+
+{% block additional_js %}
+<script>
+// ---- Share: copy the link plus a one-line invitation, together ----
+(function(){
+  const btn = document.getElementById('shareBtn');
+  if(!btn) return;
+  const label = document.getElementById('shareLabel');
+  btn.addEventListener('click', async function(){
+    const text = btn.dataset.shareMessage || btn.dataset.shareUrl;
+    let ok = false;
+    try{ await navigator.clipboard.writeText(text); ok = true; }
+    catch(e){
+      // Clipboard API needs a secure context; fall back to a hidden textarea.
+      try{
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta); ta.select();
+        ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+      }catch(e2){ ok = false; }
+    }
+    label.textContent = ok ? 'Link copied!' : 'Copy failed';
+    btn.classList.toggle('btn-success', ok);
+    btn.classList.toggle('btn-outline-primary', !ok);
+    btn.classList.add('copied-flash');
+    setTimeout(function(){
+      label.textContent = 'Share link';
+      btn.classList.remove('btn-success','copied-flash');
+      btn.classList.add('btn-outline-primary');
+    }, 2200);
+  });
+})();
+</script>
+
+{% if not meeting.is_teams %}
+<script src="https://{{ meeting.jitsi_domain }}/external_api.js"></script>
+<script>
+(function(){
+  const domain = "{{ meeting.jitsi_domain }}";
+  const RETURN_URL = "{{ return_url|escapejs }}";
+  // Opened via "Open meeting in a new tab": this tab is the call, so leaving it
+  // just closes it instead of navigating back to a chat it never came from.
+  const FULLSCREEN = new URLSearchParams(location.search).get('fullscreen') === '1';
+  const options = {
+    roomName: "{{ meeting.room_name }}",
+    parentNode: document.getElementById('jitsi'),
+    width: '100%', height: '100%',
+    userInfo: { displayName: "{{ request.user|person_name|escapejs }}",
+                email: "{{ request.user.email|escapejs }}" },
+    // No prejoin friction; no mobile deep-link/app promo.
+    configOverwrite: {
+      prejoinPageEnabled: false,
+      disableDeepLinking: true,
+      startWithVideoMuted: {% if audio_only %}true{% else %}false{% endif %},
+      disableThirdPartyRequests: true,   // no analytics / promo callouts
+      enableClosePage: false,            // never show the "thanks for using" advert
+      // The call is titled after who (or what) it is for, not the room slug.
+      module: "{{ meeting.title|escapejs }}",
+      hideConferenceSubject: false,
+      hideConferenceTimer: false,
+      disableProfile: true,
+      doNotStoreRoom: true,
+    },
+    // Strip the watermarks, "powered by", and mobile-app advert.
+    interfaceConfigOverwrite: {
+      MOBILE_APP_PROMO: false,
+      SHOW_JITSI_WATERMARK: false,
+      SHOW_WATERMARK_FOR_GUESTS: false,
+      SHOW_BRAND_WATERMARK: false,
+      SHOW_POWERED_BY: false,
+      HIDE_DEEP_LINKING_LOGO: true,
+      SHOW_PROMOTIONAL_CLOSE_PAGE: false,
+      DISABLE_VIDEO_BACKGROUND: false,
+      JITSI_WATERMARK_LINK: '',
+      BRAND_WATERMARK_LINK: '',
+      DEFAULT_LOGO_URL: '',
+      DEFAULT_WELCOME_PAGE_LOGO_URL: '',
+      DISPLAY_WELCOME_PAGE_CONTENT: false,
+      APP_NAME: "{{ brand.name|default:'United Church School'|escapejs }}",
+      NATIVE_APP_NAME: "{{ brand.name|default:'United Church School'|escapejs }}",
+      PROVIDER_NAME: "{{ brand.name|default:'United Church School'|escapejs }}",
+    },
+  };
+  /* eslint-disable no-new */
+  const api = new JitsiMeetExternalAPI(domain, options);
+
+  // Hanging up (and confirming it) lands the attendee back exactly where the
+  // call was started — the chat, module or class page — with no promo page in
+  // between. `videoConferenceLeft` fires on hang-up; `readyToClose` on the
+  // teardown that follows, so guard against leaving twice.
+  let leaving = false;
+  function leave(){
+    if(leaving) return;
+    leaving = true;
+    try{ api.dispose(); }catch(e){}
+    // A call opened in its own tab tries to close that tab; browsers that refuse
+    // to close a tab they did not script-open fall through to the same return.
+    if(FULLSCREEN){ try{ window.close(); }catch(e){} }
+    setTimeout(function(){ window.location.href = RETURN_URL; }, FULLSCREEN ? 250 : 0);
+  }
+  api.addListener('videoConferenceLeft', leave);
+  api.addListener('readyToClose', leave);
+})();
+</script>
+{% endif %}
+{% endblock %}

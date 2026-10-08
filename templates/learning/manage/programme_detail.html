@@ -1,0 +1,73 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}One programme — its modules (with per-month price) and its cohorts/intakes.
+Students pick a cohort at registration.{% endcomment %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <a href="{% url 'learning:manage-institution' programme.institution.pk %}" class="btn btn-link text-secondary p-0 mb-2"><i class="bi bi-arrow-left me-1"></i>{{ programme.institution.display_name }}</a>
+
+  <div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+      <h4 class="mb-0">{{ programme.display_name }}</h4>
+      <p class="text-sm text-muted mb-0">{{ programme.full_code }} · {{ programme.get_level_display }}{% if not programme.is_active %} · inactive{% endif %}</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'learning:manage-programme-edit' programme.pk %}" class="btn btn-sm btn-outline-secondary mb-0"><i class="bi bi-pencil me-1"></i>Edit</a>
+      <form method="post" action="{% url 'learning:manage-programme-delete' programme.pk %}" onsubmit="return confirm('Delete this programme and its modules and cohorts?');">{% csrf_token %}
+        <button class="btn btn-sm btn-outline-danger mb-0"><i class="bi bi-trash"></i></button></form>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center pb-0">
+          <h6 class="mb-0">Subjects</h6>
+          <a href="{% url 'learning:manage-module-add' programme.pk %}" class="btn btn-sm bg-gradient-info mb-0"><i class="bi bi-plus-circle me-1"></i>Add subject</a>
+        </div>
+        <div class="card-body">
+          <div class="list-group">
+            {% for m in modules %}
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <span class="fw-bold">{{ m.code }}</span> <span class="text-sm text-muted">— {{ m.display_name }}</span>
+                <div class="text-xs text-muted">{% if m.price_per_month %}R {{ m.price_per_month|floatformat:2 }} / month{% else %}Free{% endif %}{% if not m.is_active %} · inactive{% endif %}</div>
+              </div>
+              <div class="d-flex gap-1">
+                <a href="{% url 'learning:manage-module-edit' m.pk %}" class="btn btn-sm btn-outline-secondary mb-0"><i class="bi bi-pencil"></i></a>
+                <form method="post" action="{% url 'learning:manage-module-delete' m.pk %}" onsubmit="return confirm('Delete module {{ m.code }}?');">{% csrf_token %}<button class="btn btn-sm btn-outline-danger mb-0"><i class="bi bi-trash"></i></button></form>
+              </div>
+            </div>
+            {% empty %}<p class="text-sm text-muted mb-0">No subjects yet — add the first one.</p>{% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center pb-0">
+          <h6 class="mb-0">Classes <span class="text-xs text-muted fw-normal">(year groups)</span></h6>
+          <a href="{% url 'learning:manage-cohort-add' programme.pk %}" class="btn btn-sm bg-gradient-info mb-0"><i class="bi bi-plus-circle me-1"></i>Add class</a>
+        </div>
+        <div class="card-body">
+          <div class="list-group">
+            {% for c in cohorts %}
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <span class="fw-bold">{{ c.code }}</span>{% if c.name %} <span class="text-sm text-muted">— {{ c.name }}</span>{% endif %}
+                <div class="text-xs text-muted">{% if c.start_date %}{{ c.start_date|date:"M Y" }}{% if c.end_date %} – {{ c.end_date|date:"M Y" }}{% endif %}{% endif %}{% if not c.is_active %} · inactive{% endif %}</div>
+              </div>
+              <div class="d-flex gap-1">
+                <a href="{% url 'learning:manage-cohort-edit' c.pk %}" class="btn btn-sm btn-outline-secondary mb-0"><i class="bi bi-pencil"></i></a>
+                <form method="post" action="{% url 'learning:manage-cohort-delete' c.pk %}" onsubmit="return confirm('Delete cohort {{ c.code }}?');">{% csrf_token %}<button class="btn btn-sm btn-outline-danger mb-0"><i class="bi bi-trash"></i></button></form>
+              </div>
+            </div>
+            {% empty %}<p class="text-sm text-muted mb-0">No classes yet — students pick their class at registration.</p>{% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

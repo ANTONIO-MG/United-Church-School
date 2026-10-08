@@ -1,0 +1,1 @@
+{% if run.status == 'ok' %}<span class="tc-chip tc-chip--success">Finished</span>{% elif run.status == 'failed' %}<span class="tc-chip tc-chip--danger">Failed</span>{% else %}<span class="tc-chip tc-chip--primary"><span class="spinner-border spinner-border-sm"></span>{{ run.get_status_display }}</span>{% endif %}

@@ -1,0 +1,33 @@
+{% comment %}Lays out every field of ``form`` on the wizard's grid: radios as
+pills, check boxes as switches, text areas full width, everything else in two
+columns. Params: form (required), cols (grid class for ordinary fields,
+default col-md-6).{% endcomment %}
+{% for e in form.non_field_errors %}<div class="alert alert-danger py-2 text-sm">{{ e }}</div>{% endfor %}
+<div class="row g-2">
+  {% for field in form %}
+    {% if field.is_hidden %}{{ field }}
+    {% elif field.widget_type == 'radioselect' %}
+      <div class="rf col-md-6">
+        <label class="rf-label">{{ field.label }}{% if field.field.required %} <span class="req">*</span>{% endif %}</label>
+        {% include 'accounts/register/_pillradios.html' with field=field %}
+        {% if field.help_text %}<div class="rf-help">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}<div class="rf-err">{{ field.errors|striptags }}</div>{% endif %}
+      </div>
+    {% elif field.widget_type == 'checkbox' %}
+      <div class="col-12">
+        <label class="switch-row" for="{{ field.id_for_label }}">
+          <span class="form-check form-switch rf-switch mb-0">{{ field }}</span>
+          <span class="switch-meta">
+            <span class="switch-title">{{ field.label }}{% if field.field.required %} <span class="req">*</span>{% endif %}</span>
+            {% if field.help_text %}<span class="switch-desc">{{ field.help_text }}</span>{% endif %}
+            {% if field.errors %}<span class="rf-err">{{ field.errors|striptags }}</span>{% endif %}
+          </span>
+        </label>
+      </div>
+    {% elif field.widget_type == 'textarea' %}
+      {% include 'accounts/register/_field.html' with field=field col="col-12" %}
+    {% else %}
+      {% include 'accounts/register/_field.html' with field=field col=cols|default:"col-md-6" %}
+    {% endif %}
+  {% endfor %}
+</div>

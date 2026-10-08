@@ -1,0 +1,13 @@
+{% extends 'communication/email/base_email.html' %}{% load org_branding %}
+{% comment %}Welcome to a course. Context: recipient, course, modules (list), action_url.{% endcomment %}
+{% block heading %}Welcome aboard!{% endblock %}
+{% block content %}
+  <p style="margin:0 0 14px">Hi {{ recipient|greeting_name }},</p>
+  <p style="margin:0 0 14px">You've been enrolled. Here's where you'll be learning:</p>
+  <ul style="line-height:1.7;margin:0 0 14px;padding-left:20px">
+    {% if course %}<li>Course: <strong>{{ course }}</strong></li>{% endif %}
+    {% for s in modules %}<li>Subject: <strong>{{ s.name }}</strong></li>{% endfor %}
+  </ul>
+  <p style="margin:0 0 14px">Your lessons, assessments, group chat and calendar are ready in your dashboard.</p>
+{% endblock %}
+{% block cta %}{% include 'communication/email/_button.html' with url=action_url label="GO TO MY DASHBOARD" %}{% endblock %}

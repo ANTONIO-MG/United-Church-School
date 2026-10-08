@@ -1,0 +1,80 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static commerce %}
+{% comment %}Cart — every figure here comes from shop.pricing.price_cart, the same
+quote checkout freezes onto the invoice, so what is shown is what is charged.{% endcomment %}
+
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+
+  <div class="tc-steps" aria-label="Checkout progress">
+    <span class="is-now"><b>1</b>Cart</span><i class="bi bi-chevron-right"></i>
+    <span><b>2</b>Checkout</span><i class="bi bi-chevron-right"></i>
+    <span><b>3</b>Pay</span>
+  </div>
+  <div class="tc-head">
+    <div><h3>My cart</h3><p>{% if lines %}{{ cart.item_count }} item{{ cart.item_count|pluralize }}{% else %}Nothing in it yet{% endif %}</p></div>
+    <div class="tc-head__actions"><a href="{% url 'shop:storefront' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Continue shopping</a></div>
+  </div>
+
+  {% if lines %}
+  <div class="row g-4">
+    <div class="col-lg-8">
+      {% for problem in problems %}<div class="tc-alert tc-alert--danger mb-2"><i class="bi bi-exclamation-triangle"></i><span>{{ problem }}</span></div>{% endfor %}
+      <div class="tc-card"><div class="tc-card__body">
+        <div class="tc-lines">
+          {% for line in lines %}{% with item=line.item %}
+          <div class="tc-line">
+            <a class="tc-line__thumb" href="{% url 'shop:product-detail' item.product.pk %}" aria-hidden="true" tabindex="-1">
+              {% if item.product.image %}<img src="{{ item.product.image.url }}" alt="">{% else %}<i class="bi {{ item.product.fulfilment|fulfilment_icon }}"></i>{% endif %}
+            </a>
+            <div>
+              <a class="tc-line__name" href="{% url 'shop:product-detail' item.product.pk %}">{{ item.description }}</a>
+              <div class="tc-line__sub">
+                <span><i class="bi {{ item.product.fulfilment|fulfilment_icon }} me-1"></i>{{ item.product.get_fulfilment_display }}</span>
+                {% if item.booking %}<span class="tc-chip tc-chip--primary"><i class="bi bi-calendar2-check"></i>{{ item.booking.label }} · {{ item.booking.educator }}</span>
+                  {% if item.booking.status == 'held' %}<span>Held until {{ item.booking.hold_expires_at|time:"H:i" }}</span>{% endif %}
+                {% else %}<span class="num">{{ item.unit_price|rand }} each</span>{% endif %}
+                {% if line.label %}<span class="tc-chip tc-chip--success">{{ line.label }}</span>{% endif %}
+              </div>
+              <div class="tc-line__tools">
+                {% if not item.product.max_quantity %}
+                <form method="post" action="{% url 'shop:update-cart-item' item.pk %}" class="d-flex gap-1 align-items-center">
+                  {% csrf_token %}
+                  <label class="visually-hidden" for="qty{{ item.pk }}">Quantity of {{ item.description }}</label>
+                  <input id="qty{{ item.pk }}" type="number" name="quantity" value="{{ item.quantity }}" min="1" class="form-control form-control-sm">
+                  <button class="btn btn-sm btn-outline-secondary">Update</button>
+                </form>
+                {% else %}<span class="small text-muted">Qty 1</span>{% endif %}
+                <form method="post" action="{% url 'shop:update-cart-item' item.pk %}">
+                  {% csrf_token %}<input type="hidden" name="action" value="remove">
+                  <button class="btn btn-sm btn-link text-danger px-1"><i class="bi bi-trash me-1"></i>Remove</button>
+                </form>
+              </div>
+            </div>
+            <div class="tc-line__amt">
+              <b>{{ line.payable|rand }}</b>
+              {% if line.discount %}<s>{{ line.gross|rand }}</s><div class="tc-line__saving">You save {{ line.discount|rand }}</div>{% endif %}
+            </div>
+          </div>
+          {% endwith %}{% endfor %}
+        </div>
+      </div></div>
+    </div>
+
+    <div class="col-lg-4">
+      {% include 'shop/_summary.html' with show_coupon=True %}
+      <a href="{% url 'finance:checkout' %}" class="btn btn-primary btn-lg w-100 mt-3 {% if problems %}disabled{% endif %}" {% if problems %}aria-disabled="true"{% endif %}><i class="bi bi-lock me-1"></i>Checkout</a>
+      <div class="tc-trust"><i class="bi bi-shield-lock"></i>Secure payment by PayFast — card, Instant EFT and more</div>
+    </div>
+  </div>
+  {% else %}
+  <div class="tc-card"><div class="tc-empty">
+    <i class="bi bi-cart3"></i><h5>Your cart is empty</h5>
+    <p class="mb-3">School uniform, supplies, study packs and 1-on-1 lessons are waiting in the shop.</p>
+    <a class="btn btn-primary" href="{% url 'shop:storefront' %}">Browse the shop</a>
+  </div></div>
+  {% endif %}
+</div></div>
+{% endblock %}

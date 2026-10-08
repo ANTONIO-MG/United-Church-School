@@ -1,0 +1,48 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Unlock a locked module — pay its monthly fee now via PayFast, or have an
+EFT invoice e-mailed to pay later. Payment unlocks the module instantly.{% endcomment %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <div class="card shadow-lg">
+        <div class="card-body p-4 text-center">
+          <div class="icon-shape bg-gradient-info text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width:56px;height:56px">
+            <i class="bi bi-lock-fill" style="font-size:1.4rem"></i>
+          </div>
+          <h4 class="mb-1">Unlock {{ module.code }}</h4>
+          <p class="text-sm text-muted mb-1">{{ module.display_name }}</p>
+          <p class="text-sm text-muted">{{ module.programme.institution.display_name }} · {{ module.programme.display_name }}</p>
+
+          <div class="d-inline-block bg-gray-100 rounded-3 px-4 py-3 my-3">
+            <span class="text-lg fw-bold">R {{ price|floatformat:2 }}</span>
+            <span class="text-sm text-muted">/ month</span>
+          </div>
+          {% if school_fees %}
+          <p class="text-xs text-muted">This is the month's {{ module.programme.display_name }} school fees — paying it
+            unlocks <strong>every subject</strong> in the grade until the next month is due.</p>
+          {% endif %}
+
+          <form method="post">
+            {% csrf_token %}
+            <div class="d-grid gap-2">
+              <button type="submit" name="action" value="pay" class="btn bg-gradient-info btn-lg mb-0">
+                <i class="bi bi-credit-card-2-front me-1"></i> Pay now — R {{ price|floatformat:2 }}
+              </button>
+              <p class="text-xs text-muted mb-2">Card / instant EFT via PayFast — unlocks straight away</p>
+
+              <button type="submit" name="action" value="eft" class="btn btn-outline-secondary mb-0">
+                <i class="bi bi-bank me-1"></i> E-mail me an invoice to pay by EFT
+              </button>
+              <p class="text-xs text-muted mb-0">Subject unlocks the moment your EFT clears</p>
+            </div>
+          </form>
+
+          <a href="{% url 'learning:my-modules' %}" class="btn btn-link text-secondary mt-3">← Back to my subjects</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

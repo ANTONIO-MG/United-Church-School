@@ -1,0 +1,125 @@
+{% load people %}{% comment %}One conversation: header (who is in it + call buttons), the message
+scroll, the typing bar and the composer — or the connect gate when direct
+messaging is not open yet.
+
+Context: ``active_group`` (a ChatGroup) and optionally ``dm_gate``. Pair it with
+communication/_chat_styles.html and communication/_chat_script.html, and make
+sure a {% csrf_token %} exists somewhere on the page.{% endcomment %}
+    <div class="msgr-thread">
+      {% if active_group %}
+        <div class="head d-flex align-items-center gap-2">
+          <div class="thread-who">
+            <span class="ava ava-36">
+              {% if request.user.profile %}<img src="{{ request.user.profile.avatar_url }}" alt="You">
+              {% else %}{{ request.user|person_name|slice:":1" }}{% endif %}
+            </span>
+            <span class="min-w-0 d-none d-md-block">
+              <span class="name d-block text-truncate">{{ request.user|person_name }}</span>
+              <span class="sub">You</span>
+            </span>
+          </div>
+          <i class="bi bi-chat-dots-fill thread-link mx-1" title="in conversation with"></i>
+          <div class="thread-who min-w-0">
+            <span class="peer-stack">
+              {% for p in active_group.peers|slice:":3" %}
+                <span class="ava ava-36">
+                  {% if p.profile %}<img src="{{ p.profile.avatar_url }}" alt="{{ p.get_full_name }}">
+                  {% else %}{{ p|person_name|slice:":1" }}{% endif %}
+                </span>
+              {% empty %}
+                <span class="ava ava-36 ava-group"><i class="bi bi-people-fill"></i></span>
+              {% endfor %}
+            </span>
+            <span class="min-w-0">
+              <span class="name d-block text-truncate">
+                {% if active_group.is_direct %}{{ active_group.chat_title }}
+                {% else %}{{ active_group.display_name }}{% endif %}
+              </span>
+              <span class="sub d-block text-truncate">
+                {% if active_group.is_direct %}{{ active_group.get_kind_display }}
+                {% else %}{{ active_group.peer_names|join:", "|truncatechars:60 }}{% endif %}
+              </span>
+            </span>
+          </div>
+          <div class="ms-auto d-flex gap-2">
+            <button type="button" class="btn btn-success-soft call-btn" id="voiceCallBtn" title="Voice call {{ active_group.chat_title }}"><i class="bi bi-telephone-fill"></i></button>
+            <button type="button" class="btn btn-primary-soft call-btn" id="videoCallBtn" title="Video call {{ active_group.chat_title }}"><i class="bi bi-camera-video-fill"></i></button>
+            <div class="dropdown">
+              <button type="button" class="btn btn-light call-btn" data-bs-toggle="dropdown" title="More"><i class="bi bi-three-dots-vertical"></i></button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{% url 'communication:meetings' %}"><i class="bi bi-camera-video me-2"></i>Open meetings</a></li>
+                <li><a class="dropdown-item" href="#" id="markReadBtn"><i class="bi bi-check2-all me-2"></i>Mark as read</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+      <div class="msgr-msgs" id="msgs">
+        {% if not active_group %}<div class="d-flex align-items-center justify-content-center h-100 text-muted">Pick a conversation to start messaging.</div>{% endif %}
+      </div>
+      {% if active_group %}
+      <div class="typing-bar" id="typingBar">
+        <span class="typing-dots"><span></span><span></span><span></span></span>
+        <span id="typingWho">Someone is typing…</span>
+      </div>
+      {% if dm_gate and dm_gate.state != 'connected' %}
+      {% with other=dm_gate.other %}
+      <div class="dm-gate p-3 border-top">
+        {% if dm_gate.state == 'incoming' %}
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="me-auto"><i class="bi bi-person-plus-fill text-primary me-1"></i>
+              <strong>{{ other|person_name }}</strong> wants to connect with you.</span>
+            <form method="post" action="{% url 'communication:connection-respond' dm_gate.conn.id %}" class="d-inline">
+              {% csrf_token %}<input type="hidden" name="action" value="accept">
+              <button class="btn btn-success btn-sm"><i class="bi bi-check-lg me-1"></i>Approve</button>
+            </form>
+            <form method="post" action="{% url 'communication:connection-respond' dm_gate.conn.id %}" class="d-inline">
+              {% csrf_token %}<input type="hidden" name="action" value="decline">
+              <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-lg me-1"></i>Decline</button>
+            </form>
+          </div>
+          <small class="text-muted d-block mt-2">You can only exchange direct messages once you approve.</small>
+        {% elif dm_gate.state == 'sent' %}
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-warning-subtle text-warning-emphasis"><i class="bi bi-hourglass-split me-1"></i>Request sent</span>
+            <span class="text-muted small">Waiting for {{ other|person_name }} to accept before you can chat.</span>
+          </div>
+        {% else %}{# none / declined #}
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="me-auto text-muted small">
+              <i class="bi bi-lock-fill me-1"></i>Connect with <strong>{{ other|person_name }}</strong> to start messaging.
+              {% if dm_gate.state == 'declined' %}<span class="d-block">Your previous request was declined — you can ask again.</span>{% endif %}
+            </span>
+            <form method="post" action="{% url 'communication:connection-request' other.id %}" class="d-inline">
+              {% csrf_token %}
+              <button class="btn btn-primary btn-sm"><i class="bi bi-person-plus me-1"></i>Request to connect</button>
+            </form>
+          </div>
+        {% endif %}
+      </div>
+      {% endwith %}
+      {% else %}
+      <form class="msgr-compose mediazone mz-chat" id="composeForm" enctype="multipart/form-data" data-mz-manual>
+        <input type="file" name="files" multiple hidden>
+        <div id="replyBar">
+          <i class="bi bi-reply-fill text-primary"></i>
+          <span class="flex-grow-1 min-w-0">
+            <strong id="replyWho"></strong>
+            <span class="r-body d-block" id="replyBody"></span>
+          </span>
+          <button type="button" class="btn btn-sm btn-link text-muted p-0" id="replyCancel" title="Cancel reply"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="mediazone-preview"></div>
+        <div class="mz-chat-row">
+          <div class="mz-chat-actions">
+            <button type="button" class="btn btn-light mz-act" data-mz-open="image" title="Send a photo"><i class="bi bi-image-fill text-success"></i></button>
+            <button type="button" class="btn btn-light mz-act" data-mz-open="video" title="Send a video"><i class="bi bi-camera-reels-fill text-info"></i></button>
+            <button type="button" class="btn btn-light mz-act" data-mz-open="file" title="Attach a document"><i class="bi bi-paperclip text-secondary"></i></button>
+          </div>
+          <textarea name="body" rows="1" class="form-control" placeholder="Write a message…  (@mention someone)"></textarea>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i></button>
+        </div>
+      </form>
+      {% endif %}
+      {% endif %}
+    </div>

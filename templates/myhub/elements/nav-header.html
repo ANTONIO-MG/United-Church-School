@@ -1,0 +1,13 @@
+{% load static %}
+<div class="nav-header">
+    <a href="{% url 'myhub:index' %}" class="brand-logo">
+        <img class="logo-abbr" src="{% static brand.logo|default:'images/brand/ucs-mark.png' %}" alt="{{ brand.name|default:'United Church School' }}" width="56" height="56" style="width:auto; height:56px; object-fit:contain;">
+        <span class="brand-title fw-bold" style="font-size:1.05rem; line-height:1.15; white-space:nowrap;">{{ brand.short_name|default:"UCS" }}</span>
+    </a>
+
+    <div class="nav-control">
+        <div class="hamburger">
+            <span class="line"></span><span class="line"></span><span class="line"></span>
+        </div>
+    </div>
+</div>

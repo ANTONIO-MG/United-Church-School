@@ -1,0 +1,11 @@
+{% comment %}Horizontal segmented "pill" radio group.
+  Param: field (a BoundField whose widget is a RadioSelect).
+  Renders each choice as an inline pill; the actual radio input is visually
+  hidden and the label is the clickable target.{% endcomment %}
+<div class="pill-radios">
+  {% for radio in field %}
+  <label class="pill" for="{{ radio.id_for_label }}">
+    {{ radio.tag }}<span>{{ radio.choice_label }}</span>
+  </label>
+  {% endfor %}
+</div>

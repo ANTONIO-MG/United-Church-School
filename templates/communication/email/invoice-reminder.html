@@ -1,0 +1,15 @@
+{% extends 'communication/email/base_email.html' %}{% load org_branding %}
+{% comment %}Unpaid-invoice reminder. Context: invoice, pay_url, stage (before_3 | due | after_7 | manual).{% endcomment %}
+{% block heading %}{% if stage == 'after_7' %}Invoice {{ invoice.number }} is overdue{% elif stage == 'due' %}Invoice {{ invoice.number }} is due today{% else %}A friendly reminder{% endif %}{% endblock %}
+{% block content %}
+  <p style="margin:0 0 14px">Hi {{ invoice.customer|greeting_name }},</p>
+  <p style="margin:0 0 14px">{% if stage == 'after_7' %}Our records show invoice <strong>{{ invoice.number }}</strong> is still unpaid, {{ invoice.days_overdue }} days after it was due. If you've already paid, thank you — please reply with your proof of payment and we'll match it.{% elif stage == 'due' %}Invoice <strong>{{ invoice.number }}</strong> is due today.{% else %}Invoice <strong>{{ invoice.number }}</strong> is due on {{ invoice.due_date|date:"j F Y" }}.{% endif %}</p>
+  <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
+    {% if invoice.summary %}<tr><td style="padding:6px 0;color:#97a2da">For</td><td style="text-align:right">{{ invoice.summary }}</td></tr>{% endif %}
+    <tr><td style="padding:6px 0;color:#97a2da">Due</td><td style="text-align:right">{{ invoice.due_date|date:"j F Y" }}</td></tr>
+    <tr><td style="padding:6px 0;color:#97a2da">Amount due</td><td style="text-align:right"><strong style="font-size:18px;color:#506bec">R{{ invoice.balance|floatformat:2 }}</strong></td></tr>
+    <tr><td style="padding:6px 0;color:#97a2da">EFT reference</td><td style="text-align:right">{{ invoice.payment_reference }}</td></tr>
+  </table>
+  {% if brand.banking.account_number %}<p style="margin:14px 0 0;font-size:14px">Paying by EFT? {{ brand.banking.account_name }}, {{ brand.banking.bank }}, account {{ brand.banking.account_number }}, branch code {{ brand.banking.branch_code }}.{% if brand.banking.reference_hint %} {{ brand.banking.reference_hint }}{% endif %}</p>{% endif %}
+{% endblock %}
+{% block cta %}{% include 'communication/email/_button.html' with url=pay_url label="PAY NOW" %}{% endblock %}

@@ -1,0 +1,35 @@
+{% comment %}What's coming up — the aggregated calendar feed (events, reminders,
+holidays, task deadlines, lessons, assessment closings, meetings) rendered as a
+timeline. Items are dicts built by myhub.views._calendar_items.{% endcomment %}
+
+<div class="dash-card h-100">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--primary"><i class="bi bi-calendar-week"></i></span>
+    <h6>What's coming up</h6>
+    <a class="dash-link" href="{% url 'myhub:events' %}">Calendar</a>
+  </div>
+
+  <div class="dash-card__body">
+    {% if upcoming_events %}
+    <div class="dash-timeline">
+      {% for item in upcoming_events %}
+      <div class="dash-tl" style="--tone: {{ item.color|default:'#17c1e8' }};">
+        <a class="dash-tl__title" href="{{ item.detail_url|default:item.url|default:'#' }}">
+          <i class="bi bi-{{ item.icon|default:'calendar-event' }} me-1"></i>{{ item.title }}
+        </a>
+        <span class="dash-tl__meta">
+          {{ item.when|date:"D d M" }} · {{ item.when|date:"H:i" }}
+          · {{ item.category }}{% if item.location %} · {{ item.location|truncatechars:24 }}{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="dash-empty">
+      <i class="bi bi-calendar-check"></i>
+      Nothing scheduled in the days ahead.
+      <div class="mt-2"><a class="dash-link" href="{% url 'myhub:add-reminder' %}">Add a reminder</a></div>
+    </div>
+    {% endif %}
+  </div>
+</div>

@@ -1,0 +1,35 @@
+{% load people %}{% comment %}Right-rail tile: latest notifications, unread ones tinted and dotted.
+Same rows the navbar bell renders, kept in view on the dashboard.{% endcomment %}
+
+<div class="dash-card">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--warning"><i class="bi bi-bell"></i></span>
+    <h6>Notifications</h6>
+    {% if unread.notifications %}<span class="dash-chip dash-chip--danger">{{ unread.notifications }} new</span>{% endif %}
+    <a class="dash-link" href="{% url 'communication:notifications' %}">See all</a>
+  </div>
+
+  <div class="dash-card__body dash-card__body--flush pt-1">
+    {% for note in recent_notifications %}
+    <a class="dash-row {% if not note.is_read %}dash-row--unread{% endif %}"
+       href="{% url 'communication:notification-detail' note.pk %}">
+      <span class="dash-row__initials dash-glyph--{% if note.level == 'error' %}danger{% elif note.level == 'warning' %}warning{% elif note.level == 'success' %}success{% else %}info{% endif %}">
+        <i class="bi bi-{% if note.level == 'error' %}exclamation-triangle{% elif note.level == 'warning' %}exclamation-circle{% elif note.level == 'success' %}check-circle{% else %}info-circle{% endif %}"></i>
+      </span>
+      <div class="dash-row__main">
+        <p class="dash-row__name">{{ note.title|default:note.verb|truncatechars:38 }}</p>
+        <p class="dash-row__text">
+          {% if note.actor %}{{ note.actor|person_name }} {{ note.verb }}
+          {% else %}{{ note.body|striptags|truncatechars:52 }}{% endif %}
+        </p>
+      </div>
+      <span class="dash-row__time">{{ note.created_at|timesince|truncatewords:1 }}</span>
+    </a>
+    {% empty %}
+    <div class="dash-empty">
+      <i class="bi bi-bell-slash"></i>
+      You're all caught up.
+    </div>
+    {% endfor %}
+  </div>
+</div>

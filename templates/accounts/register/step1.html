@@ -1,0 +1,147 @@
+{% extends 'soft_ui/auth_base.html' %}
+{% load static %}
+{% block title %}Application · {{ brand.name|default:"United Church School" }}{% endblock %}
+{% block card_col %}col-xl-9 col-lg-11{% endblock %}
+{% block oblique %}{% endblock %}
+
+{% block auth_card %}
+<div class="card mt-7 mb-4 shadow-lg">
+  <div class="card-body p-4">
+    {% include 'accounts/register/_steps.html' with step=1 %}
+
+    <div class="text-center mb-4">
+      {% if staff %}
+      <h4 class="font-weight-bolder text-info text-gradient mb-1">Tell us about you</h4>
+      <p class="text-sm text-muted mb-0">
+        Fields marked <span class="text-danger">*</span> are required. Your progress is saved as you go.
+      </p>
+      {% else %}
+      <h4 class="font-weight-bolder text-info text-gradient mb-1">Apply to {{ brand.name|default:"United Church School" }}</h4>
+      <p class="text-sm text-muted mb-1">
+        This online application replaces the paper <em>UCS Application Form {{ strings.school.terms.year|default:"2026" }}</em>.
+        A parent or guardian should complete it with the learner. Start with the learner's details —
+        fields marked <span class="text-danger">*</span> are required and your progress is saved as you go.
+      </p>
+      {% if brand.links.application_form %}<p class="text-xs mb-0"><a href="{% static brand.links.application_form %}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf me-1"></i>View the paper application form (PDF)</a></p>{% endif %}
+      {% endif %}
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="regForm" novalidate>
+      {% csrf_token %}
+      <div class="accordion wz-accordion" id="regAcc">
+        {% for section in sections %}
+        <div class="accordion-item rf-sec border rounded-3 mb-2 overflow-hidden" data-sec="{{ section.key }}">
+          <h2 class="accordion-header">
+            <button class="accordion-button {% if not section.open %}collapsed{% endif %} py-3" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#sec-{{ section.key }}"
+                    aria-expanded="{{ section.open|yesno:'true,false' }}">
+              <span class="sec-chev" aria-hidden="true"></span>
+              <span class="sec-title">{{ section.title }}</span>
+              <span class="sec-check" title="Complete when required fields are filled"></span>
+            </button>
+          </h2>
+          <div id="sec-{{ section.key }}" class="accordion-collapse collapse {% if section.open %}show{% endif %}"
+               data-bs-parent="#regAcc">
+            <div class="accordion-body rf-body">
+
+              {# ---------------- ABOUT THE LEARNER ---------------- #}
+              {% if section.key == 'basics' %}
+              <div class="pfp-wrap mb-3">
+                <div class="pfp-preview" id="pfpPreview">
+                  <img id="pfpImg" alt="Profile preview">
+                  <img class="pfp-ph" src="{% static 'images/reg/about.png' %}" alt="">
+                </div>
+                <div class="flex-grow-1">
+                  <label class="rf-label">{% if staff %}Profile picture{% else %}Learner photo{% endif %}</label>
+                  {{ section.form.profile_picture }}
+                  <div class="rf-help" id="pfpName">No file selected — a round preview appears here.</div>
+                </div>
+              </div>
+              <div class="row g-2">
+                {% include 'accounts/register/_field.html' with field=section.form.title col="col-md-2" %}
+                {% include 'accounts/register/_field.html' with field=section.form.first_name col="col-md-5" %}
+                {% include 'accounts/register/_field.html' with field=section.form.last_name col="col-md-5" %}
+                {% include 'accounts/register/_field.html' with field=section.form.gender col="col-md-6" %}
+                {% include 'accounts/register/_field.html' with field=section.form.date_of_birth col="col-md-6" %}
+              </div>
+              {# ---------------- CONTACT & ADDRESS ---------------- #}
+              {% elif section.key == 'contact' %}
+              <div class="row g-2">
+                {% include 'accounts/register/_phonefield.html' with field=section.form.primary_phone country=section.form.phone_country col="col-md-6" %}
+                {% include 'accounts/register/_field.html' with field=section.form.city col="col-md-6" %}
+                {% include 'accounts/register/_field.html' with field=section.form.suburb col="col-md-6" %}
+                {% include 'accounts/register/_field.html' with field=section.form.province col="col-md-6" %}
+              </div>
+
+              {# ---------------- CONSENT (POPIA) ---------------- #}
+              {% elif section.key == 'consent' %}
+              <p class="text-sm text-muted mb-3">
+                In line with the Protection of Personal Information Act (POPIA), please confirm how
+                United Church School may use your information. The first two are required to run the
+                learning account; the rest are optional — toggle green for yes, red for no.
+              </p>
+              {% for e in section.form.non_field_errors %}<div class="alert alert-danger py-2 text-sm">{{ e }}</div>{% endfor %}
+              <div class="switch-list">
+                {% for field in section.form %}
+                <label class="switch-row" for="{{ field.id_for_label }}">
+                  <span class="form-check form-switch rf-switch mb-0">{{ field }}</span>
+                  <span class="switch-meta">
+                    <span class="switch-title">{{ field.label }}{% if field.field.required %} <span class="req">*</span>{% endif %}</span>
+                    {% if field.help_text %}<span class="switch-desc">{{ field.help_text }}</span>{% endif %}
+                    {% if field.errors %}<span class="rf-err">{{ field.errors|striptags }}</span>{% endif %}
+                  </span>
+                </label>
+                {% endfor %}
+              </div>
+              {% endif %}
+
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mt-4">
+        <a href="{% url 'myhub:page-login' %}" class="btn btn-link text-secondary mb-0">Cancel</a>
+        <button type="submit" class="btn bg-gradient-info mb-0">
+          {% if staff %}Finish<i class="bi bi-check2-circle ms-2"></i>{% else %}Continue<i class="bi bi-arrow-right-circle ms-2"></i>{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+  {% include 'accounts/register/_reg_styles.html' %}
+{% endblock %}
+
+{% block extra_js %}
+{% include 'accounts/register/_reg_scripts.html' %}
+<script>
+(function () {
+  // --- Round profile-picture preview ---
+  var pfp = document.getElementById('id_basics-profile_picture');
+  if (pfp) {
+    pfp.addEventListener('change', function () {
+      var f = pfp.files && pfp.files[0];
+      var box = document.getElementById('pfpPreview');
+      var img = document.getElementById('pfpImg');
+      var name = document.getElementById('pfpName');
+      if (f) {
+        img.src = URL.createObjectURL(f);
+        box.classList.add('has-img');
+        name.textContent = f.name;
+      } else {
+        box.classList.remove('has-img');
+        img.removeAttribute('src');
+        name.textContent = 'No file selected — a round preview appears here.';
+      }
+    });
+  }
+  // (The OpenStreetMap address autocomplete that used to sit here was dead —
+  //  it drove #addrSearch and street_address / postal_code / lat / long inputs,
+  //  none of which exist on this form. The address is three plain fields now.)
+})();
+</script>
+{% endblock %}

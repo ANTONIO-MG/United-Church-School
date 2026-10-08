@@ -1,0 +1,36 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+
+{% block content %}
+<div class="content-body">
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text"><h4>{{ page_title }}</h4></div>
+            </div>
+            <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex align-items-center">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'orgtasks:all-tasks' %}">Tasks</a></li>
+                    <li class="breadcrumb-item active"><a href="javascript:void(0);">{{ page_title }}</a></li>
+                </ol>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header"><h5 class="card-title">{{ page_title }}</h5></div>
+                    <div class="card-body">
+                        <p class="text-muted mb-1">Choose how to assign this task. On save, an individual task copy is created for every targeted user.</p>
+                        <p class="text-muted small">
+                          A task can also <strong>be</strong> a piece of content. Link a
+                          <em>lesson</em> or an <em>assessment</em> below and opening the
+                          task opens that straight away — progress and marks flow back
+                          here on their own. Leave both empty for a plain to-do.</p>
+                        {% include 'myhub/elements/_form.html' with form=form cancel_url='orgtasks:all-tasks' submit_label='Save & Assign' %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

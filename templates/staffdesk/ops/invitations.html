@@ -1,0 +1,59 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}Invitations: parent and educator invites, with resend and revoke.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/ops/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk</span><h3>Invitations</h3>
+      <p>Single-use sign-up links for parents and educators. A link stays valid until it is used or revoked.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'staffdesk:ops-parent-links' %}"><i class="bi bi-people me-1"></i>Parent links</a>
+      <a class="btn btn-sm btn-primary" href="{% url 'accounts:add-educator' %}"><i class="bi bi-envelope-plus me-1"></i>Invite an educator</a>
+    </div>
+  </div>
+
+  <nav class="tc-aisles" aria-label="Invitation status">
+    <a class="tc-aisle {% if tab == 'pending' %}is-active{% endif %}" href="?tab=pending">Pending<span class="tc-count">{{ counts.pending }}</span></a>
+    <a class="tc-aisle {% if tab == 'accepted' %}is-active{% endif %}" href="?tab=accepted">Accepted<span class="tc-count">{{ counts.accepted }}</span></a>
+    <a class="tc-aisle {% if tab == 'revoked' %}is-active{% endif %}" href="?tab=revoked">Revoked<span class="tc-count">{{ counts.revoked }}</span></a>
+    <a class="tc-aisle {% if tab == 'all' %}is-active{% endif %}" href="?tab=all">All<span class="tc-count">{{ counts.all }}</span></a>
+  </nav>
+
+  <form method="get" class="tc-toolbar"><input type="hidden" name="tab" value="{{ tab }}">
+    <label class="visually-hidden" for="invSearch">Search</label>
+    <input id="invSearch" class="form-control form-control-sm tc-search" type="search" name="q" value="{{ search }}" placeholder="E-mail, student or grade">
+    <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i><span class="visually-hidden">Search</span></button>
+  </form>
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>Invitee</th><th>Role</th><th>For</th><th>Status</th><th>Sent</th><th class="r"></th></tr></thead>
+      <tbody>
+      {% for inv in page %}
+        <tr>
+          <td><span class="fw-semibold">{{ inv.email }}</span>{% if inv.invited_by %}<div class="small text-muted">by {{ inv.invited_by|person_name }}</div>{% endif %}</td>
+          <td><span class="tc-chip {% if inv.role == 'educator' %}tc-chip--primary{% else %}tc-chip--cyan{% endif %}">{% if inv.role == 'educator' %}Educator{% else %}Parent{% endif %}</span></td>
+          <td class="small">{% if inv.student %}{{ inv.student.first_name }} {{ inv.student.last_name }}{% if inv.student.user %}<div class="text-muted">{{ inv.student.user.email }}</div>{% endif %}{% elif inv.programme %}{{ inv.programme.name }}{% else %}—{% endif %}</td>
+          <td class="text-nowrap">
+            {% if inv.status == 'accepted' %}<span class="tc-chip tc-chip--success">Accepted</span>{% if inv.accepted_at %}<div class="small text-muted mt-1">{{ inv.accepted_at|date:"j M Y" }}</div>{% endif %}
+            {% elif inv.status == 'revoked' %}<span class="tc-chip">Revoked</span>
+            {% elif inv.created_at < stale_before %}<span class="tc-chip tc-chip--warning" title="Unused for over {{ stale_days }} days">Pending · stale</span>
+            {% else %}<span class="tc-chip tc-chip--primary">Pending</span>{% endif %}
+          </td>
+          <td class="small text-nowrap">{{ inv.created_at|date:"j M Y" }}<div class="text-muted">{{ inv.created_at|timesince }} ago</div></td>
+          <td class="r">{% if inv.status == 'pending' %}
+            <form method="post" action="{% url 'staffdesk:ops-invitation-action' inv.pk %}" class="sd-actions">{% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button class="btn btn-sm tc-btn-soft" name="action" value="resend"><i class="bi bi-send me-1"></i>Resend</button>
+              <button class="btn btn-sm btn-outline-danger" name="action" value="revoke" onclick="return confirm('Revoke this invite? The link will stop working.');"><i class="bi bi-x-circle me-1"></i>Revoke</button>
+            </form>{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6"><div class="tc-empty"><i class="bi bi-envelope-open"></i><h5>No invitations here</h5></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% include 'staffdesk/ops/_pager.html' %}
+</div></div>
+{% endblock %}

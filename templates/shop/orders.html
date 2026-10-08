@@ -1,0 +1,43 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static commerce %}
+
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Shop</span><h3>{{ page_title }}</h3><p>{% if request.user.is_staff %}Every order placed in the shop.{% else %}Everything you've bought, with your downloads and receipts.{% endif %}</p></div>
+    <div class="tc-head__actions">
+      <form method="get" class="d-flex gap-2">
+        <label class="visually-hidden" for="orderStatus">Status</label>
+        <select id="orderStatus" name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">All statuses</option>
+          {% for value, label in ORDER_STATUS %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </form>
+      <a href="{% url 'shop:storefront' %}" class="btn btn-sm btn-primary"><i class="bi bi-bag me-1"></i>Shop</a>
+    </div>
+  </div>
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>Order</th>{% if request.user.is_staff %}<th>Buyer</th>{% endif %}<th>Items</th><th>Date</th><th>Status</th><th class="r">Total</th><th></th></tr></thead>
+      <tbody>
+      {% for order in orders %}
+        <tr>
+          <td><a class="fw-semibold" href="{% url 'shop:order-detail' order.pk %}">{{ order.order_no }}</a></td>
+          {% if request.user.is_staff %}<td>{{ order.buyer|person_name }}</td>{% endif %}
+          <td class="small">{% for item in order.items.all|slice:":2" %}{{ item.product.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if order.items.all|length > 2 %} +{{ order.items.all|length|add:"-2" }} more{% endif %}</td>
+          <td class="small text-muted">{{ order.created_at|date:"d M Y" }}</td>
+          <td>{% if order.status == 'paid' %}<span class="tc-chip tc-chip--success">Paid</span>{% elif order.status == 'pending' %}<span class="tc-chip tc-chip--warning">Awaiting payment</span>{% else %}<span class="tc-chip">{{ order.get_status_display }}</span>{% endif %}</td>
+          <td class="r fw-semibold">{{ order.total|rand }}</td>
+          <td class="r"><a class="btn btn-sm tc-btn-soft" href="{% url 'shop:order-detail' order.pk %}">Open</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7"><div class="tc-empty"><i class="bi bi-bag-check"></i><h5>No orders yet</h5><p class="mb-0"><a href="{% url 'shop:storefront' %}">Browse the shop</a></p></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div></div>
+{% endblock %}

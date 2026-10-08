@@ -1,0 +1,79 @@
+{% load commerce %}
+{% comment %}1-on-1 picker: educator → length → day → time. All state is in the query
+string (educator, minutes, week, day), so each choice is a boosted GET; only the
+final "Book" is a POST, which holds the slot (shop.booking.hold_slot).{% endcomment %}
+<div class="tc-card" id="book">
+  <div class="tc-card__head">
+    <h5>{% if picker.moving %}Move your session{% else %}Book a session{% endif %}</h5>
+    <span class="tc-chip tc-chip--success ms-auto"><i class="bi bi-calendar2-check"></i>Checked against the school calendar</span>
+  </div>
+  <div class="tc-card__body" hx-boost="true" hx-target="#appContentCol" hx-select="#appContentCol" hx-swap="innerHTML show:#book:top">
+    {% if picker.moving %}<div class="tc-alert tc-alert--info mb-3"><i class="bi bi-arrow-left-right"></i><span>Currently {{ picker.moving.label }} with {{ picker.moving.educator }}. Pick a new time below.</span></div>{% endif %}
+
+    {% if not picker.moving %}
+    <div class="form-label">1. Educator</div>
+    <div class="tc-educators mb-3">
+      {% for r in picker.rates %}
+        <a class="tc-educator {% if r == picker.rate %}is-active{% endif %}" href="?educator={{ r.pk }}&minutes={{ picker.minutes }}#book">
+          <span class="tc-avatar">{{ r.educator.user.first_name|slice:":1" }}{{ r.educator.user.last_name|slice:":1" }}</span>
+          <span><b>{{ r.educator }}</b><small>{{ r.hourly_rate|rand }} / hour</small></span>
+        </a>
+      {% endfor %}
+    </div>
+
+    <div class="form-label">2. Length</div>
+    <div class="tc-variants mb-3">
+      {% for m in picker.lengths %}
+        <a class="tc-pill {% if m == picker.minutes %}is-active{% endif %}" href="?educator={{ picker.rate.pk }}&minutes={{ m }}&week={{ picker.week }}#book">{{ m }} min</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <div class="form-label mb-0">{% if picker.moving %}Day{% else %}3. Day{% endif %}</div>
+      <div class="d-flex gap-1">
+        {% if picker.can_prev %}<a class="btn btn-sm btn-outline-secondary" href="?educator={{ picker.rate.pk }}&minutes={{ picker.minutes }}&week={{ picker.week|add:'-1' }}{% if picker.moving %}&reschedule={{ picker.moving.pk }}{% endif %}#book" aria-label="Previous week"><i class="bi bi-chevron-left"></i></a>{% endif %}
+        {% if picker.can_next %}<a class="btn btn-sm btn-outline-secondary" href="?educator={{ picker.rate.pk }}&minutes={{ picker.minutes }}&week={{ picker.week|add:'1' }}{% if picker.moving %}&reschedule={{ picker.moving.pk }}{% endif %}#book" aria-label="Next week"><i class="bi bi-chevron-right"></i></a>{% endif %}
+      </div>
+    </div>
+    <div class="tc-days mb-3">
+      {% for d in picker.days %}
+        <a class="tc-day {% if d == picker.selected %}is-active{% endif %} {% if not d.slots %}is-full{% endif %}"
+           href="?educator={{ picker.rate.pk }}&minutes={{ picker.minutes }}&week={{ picker.week }}&day={{ d.day|date:'Y-m-d' }}{% if picker.moving %}&reschedule={{ picker.moving.pk }}{% endif %}#book">
+          <small>{{ d.day|date:"D" }}</small><b>{{ d.day|date:"j" }}</b><small>{% if d.slots %}{{ d.slots|length }} free{% else %}Full{% endif %}</small>
+        </a>
+      {% endfor %}
+    </div>
+
+    <form method="post" hx-boost="false">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="{% if picker.moving %}reschedule{% else %}book{% endif %}">
+      <input type="hidden" name="rate" value="{{ picker.rate.pk }}">
+      <input type="hidden" name="minutes" value="{{ picker.minutes }}">
+      {% if picker.moving %}<input type="hidden" name="reschedule" value="{{ picker.moving.pk }}">{% endif %}
+      <fieldset>
+        <legend class="form-label">{% if picker.moving %}Time{% else %}4. Time{% endif %}{% if picker.selected %} · {{ picker.selected.day|date:"l j F" }}{% endif %}</legend>
+        {% if picker.selected and picker.selected.slots %}
+          <div class="tc-variants mb-3">
+            {% for slot in picker.selected.slots %}
+              <input type="radio" name="start" id="slot{{ forloop.counter }}" value="{{ slot|date:'c' }}" {% if forloop.first %}checked{% endif %}>
+              <label for="slot{{ forloop.counter }}">{{ slot|time:"H:i" }}</label>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted small">No free times this day — try another day or week.</p>
+        {% endif %}
+      </fieldset>
+      {% if not picker.moving %}
+        <label class="form-label" for="bookNote">What would you like to cover? <span class="text-muted fw-normal">(optional)</span></label>
+        <textarea id="bookNote" name="note" rows="2" class="form-control mb-3" placeholder="e.g. Deferred tax on the 2024 paper, question 3"></textarea>
+      {% endif %}
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <span class="tc-price">{% if not picker.moving %}<b>{{ picker.price|rand }}</b><small>{{ picker.minutes }} min with {{ picker.rate.educator }}</small>{% endif %}</span>
+        <button class="btn btn-primary" {% if not picker.selected.slots %}disabled{% endif %}>
+          {% if picker.moving %}<i class="bi bi-arrow-left-right me-1"></i>Move session{% else %}<i class="bi bi-cart-plus me-1"></i>Hold &amp; add to cart{% endif %}</button>
+      </div>
+      {% if not picker.moving %}<p class="small text-muted mt-2 mb-0">The time is held for you for 15 minutes while you check out. You can reschedule up to {{ product.reschedule_cutoff_hours }} hours before; sessions are not refundable.</p>{% endif %}
+    </form>
+  </div>
+</div>

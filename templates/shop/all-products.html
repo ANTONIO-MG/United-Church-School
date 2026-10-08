@@ -1,0 +1,72 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static commerce %}
+
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Shop · staff</span><h3>{{ page_title }}</h3><p>Everything on sale, what it has earned, and what needs restocking.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'shop:categories' %}"><i class="bi bi-tags me-1"></i>Categories</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'shop:discounts' %}"><i class="bi bi-percent me-1"></i>Discounts</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'shop:my-orders' %}"><i class="bi bi-bag-check me-1"></i>Orders</a>
+      <a class="btn btn-sm btn-primary" href="{% url 'shop:add-product' %}"><i class="bi bi-plus-lg me-1"></i>Add item</a>
+    </div>
+  </div>
+
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Items</span><b>{{ counts.all }}</b><em>{{ counts.active }} on sale</em></div>
+    <div class="tc-kpi"><span>Discounted</span><b>{{ counts.on_sale }}</b><em>with a discount %</em></div>
+    <div class="tc-kpi"><span>Sold out</span><b>{{ counts.low_stock }}</b><em>tracked items at zero</em></div>
+  </div>
+
+  <form method="get" class="tc-toolbar">
+    <label class="visually-hidden" for="prodSearch">Search</label>
+    <input id="prodSearch" type="search" name="q" value="{{ sel.q }}" class="form-control form-control-sm tc-search" placeholder="Search by name or SKU">
+    <label class="visually-hidden" for="prodType">Type</label>
+    <select id="prodType" name="type" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">All types</option>
+      {% for value, label in FULFILMENT_CHOICES %}<option value="{{ value }}" {% if sel.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <label class="visually-hidden" for="prodStatus">Status</label>
+    <select id="prodStatus" name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">Any status</option><option value="active" {% if sel.status == 'active' %}selected{% endif %}>Active</option><option value="inactive" {% if sel.status == 'inactive' %}selected{% endif %}>Hidden</option>
+    </select>
+    <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i><span class="visually-hidden">Search</span></button>
+  </form>
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>Item</th><th>Type</th><th>For</th><th class="r">Price</th><th class="r">Stock</th><th class="r">Earned</th><th>Status</th><th class="r"><span class="visually-hidden">Actions</span></th></tr></thead>
+      <tbody>
+      {% for row in rows %}{% with p=row.product %}
+        <tr>
+          <td>
+            <div class="d-flex gap-2 align-items-center">
+              <span class="tc-thumb">{% if p.image %}<img src="{{ p.image.url }}" alt="">{% else %}<i class="bi {{ p.fulfilment|fulfilment_icon }}"></i>{% endif %}</span>
+              <div><a class="fw-semibold" href="{% url 'shop:edit-product' p.pk %}">{{ p.name }}</a><div class="small text-muted">{{ p.sku }}{% if p.category %} · {{ p.category.name }}{% endif %}</div></div>
+            </div>
+          </td>
+          <td><span class="tc-chip"><i class="bi {{ p.fulfilment|fulfilment_icon }}"></i>{{ p.get_fulfilment_display }}</span>
+            {% if p.is_digital %}<div class="small text-muted mt-1">{{ p.deliverables|length }} file{{ p.deliverables|length|pluralize }}</div>{% endif %}</td>
+          <td class="small">{% if p.institution %}{{ p.institution.code }}{% else %}Everyone{% endif %}</td>
+          <td class="r"><b>{{ p.sale_price|rand }}</b>{% if p.has_discount %}<div class="small text-muted"><s>{{ p.price|rand }}</s> −{{ p.discount_percent|pct }}</div>{% endif %}</td>
+          <td class="r">{% if p.track_stock %}{% if p.active_variants %}{% for v in p.active_variants %}<span class="small {% if v.stock < 1 %}text-danger{% endif %}">{{ v.name }}:{{ v.stock }}</span>{% if not forloop.last %} · {% endif %}{% endfor %}{% else %}<span class="{% if p.stock < 1 %}text-danger fw-semibold{% endif %}">{{ p.stock }}</span>{% endif %}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          <td class="r">{{ row.revenue|rand }}</td>
+          <td>{% if p.status == 'active' %}<span class="tc-chip tc-chip--success">On sale</span>{% else %}<span class="tc-chip">Hidden</span>{% endif %}</td>
+          <td class="r text-nowrap">
+            <a class="btn btn-sm btn-link px-1" href="{% url 'shop:product-detail' p.pk %}" title="View"><i class="bi bi-eye"></i><span class="visually-hidden">View</span></a>
+            <a class="btn btn-sm btn-link px-1" href="{% url 'shop:edit-product' p.pk %}" title="Edit"><i class="bi bi-pencil"></i><span class="visually-hidden">Edit</span></a>
+            <form method="post" action="{% url 'shop:delete-product' p.pk %}" class="d-inline" onsubmit="return confirm('Delete “{{ p.name|escapejs }}”? Items with sales are hidden instead.');">{% csrf_token %}
+              <button class="btn btn-sm btn-link px-1 text-danger" title="Delete"><i class="bi bi-trash"></i><span class="visually-hidden">Delete</span></button></form>
+          </td>
+        </tr>
+      {% endwith %}{% empty %}
+        <tr><td colspan="8"><div class="tc-empty"><i class="bi bi-box-seam"></i><h5>No items yet</h5><p class="mb-3">Add a uniform item, stationery, a study pack or a 1-on-1 lesson to get the shop going.</p><a class="btn btn-sm btn-primary" href="{% url 'shop:add-product' %}">Add an item</a></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div></div>
+{% endblock %}

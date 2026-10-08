@@ -1,0 +1,388 @@
+{
+  "_about": "SINGLE CONTROL DOCUMENT for the whole platform. Edit this one file to re-brand it, set your school's details (name, logo, contact, social links), change standard wording (welcome messages, footer, errors), or toggle which dynamic widgets/badges appear. Loaded by core.branding; exposed to every template as `brand` / `org` / `dynamic` / `site` / `strings` (see core.context_processors.branding) and to Python via `from core.branding import t, BRAND, ORG`. Placeholders like {name} are filled with str.format() — keep them.",
+  "_sections": "ORGANISATION (your details + logo + contact + social) → see `brand`.  STANDARD WORDING → `brand.welcome`, `meta`, `auth`, `messages`, `errors`, `footer`.  DYNAMIC ELEMENTS (badges/widgets/banner you can turn on/off) → `dynamic`.  CUSTOM SITE-WIDE VALUES injected into every page → `site`.",
+  "brand": {
+    "_about": "Your organisation's identity. Everything here flows into the navbar, sidebar, footer, e-mails and auth pages automatically.",
+    "name": "United Church School",
+    "short_name": "UCS",
+    "legal_name": "United Church Schools (a division of United Church Preparatory School)",
+    "company": "United Church Schools",
+    "tagline": "United We Stand",
+    "description": "An independent, non-denominational, multi-cultural, co-educational school in Yeoville, Johannesburg — quality education for Grade 1 to Grade 12 learners, with affordable fees and “private school” standards.",
+    "locale": "en",
+    "year": "2026",
+    "logo": "images/brand/ucs-mark.png",
+    "logo_dark": "images/brand/ucs-mark.png",
+    "_favicon_note": "Leave `favicon` EMPTY to use the generated set in static/images/icons/ (favicon-16/32/180) — browsers then pick the right size per context, which is why the tab icon stays sharp. Set it to a single path only if you want to override all of them with one file.",
+    "favicon": "",
+    "website": "https://www.ucs.org.za",
+    "company_url": "https://www.ucs.org.za",
+    "support_email": "uchs@unitedcs.co.za",
+    "_invoice_name_note": "How the school signs financial documents (invoices, statements, receipts).",
+    "invoice_name": "United Church Schools",
+    "contact": {
+      "_about": "`whatsapp` is what is DISPLAYED; `whatsapp_url` is what is LINKED (wa.me + digits only). The school has no published WhatsApp line yet, so both are empty and every WhatsApp button stays hidden until one is added.",
+      "email": "uchs@unitedcs.co.za",
+      "support_email": "uchs@unitedcs.co.za",
+      "phone": "011 648 4727",
+      "phone_international": "+27 11 648 4727",
+      "fax": "086 649 9080",
+      "whatsapp": "",
+      "whatsapp_url": "",
+      "address": "44 Frances Street, Yeoville, Johannesburg 2198, South Africa",
+      "address_lines": [
+        "44 Frances Street, Yeoville",
+        "Johannesburg 2198",
+        "South Africa"
+      ],
+      "postal_address": "PO Box 93016, Yeoville, 2143"
+    },
+    "banking": {
+      "_about": "Printed under Notes / Terms on every invoice PDF. Parents use the learner's name and grade as the reference (prospectus, Fees 2026). Branch code is Standard Bank's universal branch code.",
+      "account_name": "United Church Schools",
+      "bank": "Standard Bank (Killarney branch)",
+      "account_number": "002181282",
+      "branch_code": "051001",
+      "reference_hint": "Use the learner's name and grade as the reference, and e-mail the deposit slip to uchs@unitedcs.co.za."
+    },
+    "links": {
+      "_about": "Outbound destinations used by call-to-action buttons. Leave a value empty to hide that button.",
+      "store": "",
+      "store_label": "",
+      "application_form": "documents/United-Church-School-Application-Form-2026.pdf",
+      "fees_pdf": "documents/United-Church-School-Fees-2026.pdf",
+      "website_enrolment": "https://www.ucs.org.za/enrolment/",
+      "website_stories": "https://www.ucs.org.za/info-hub/"
+    },
+    "social": {
+      "facebook": "",
+      "twitter": "",
+      "instagram": "",
+      "linkedin": "",
+      "youtube": "",
+      "whatsapp": ""
+    },
+    "welcome": {
+      "title": "Welcome back!",
+      "subtitle": "Sign in to continue to your classes.",
+      "signup_title": "Create your account",
+      "signup_subtitle": "Join United Church School's learning platform in a few clicks."
+    },
+    "copyright": "Copyright © 2026 United Church School. All rights reserved.",
+    "powered_by": "United Church School",
+    "powered_by_url": "https://www.ucs.org.za",
+    "logo_wide": "images/brand/ucs-logo.png",
+    "logo_wide_white": "images/brand/ucs-logo-white.png",
+    "crest": "images/brand/ucs-crest.png"
+  },
+  "dynamic": {
+    "_about": "Turn the live, data-driven elements of the UI on/off from here. `badges` control the unread/pending counters; `widgets` control floating/quick tools; `announcement` shows a site-wide banner. Read in templates as `dynamic.badges.*` etc.",
+    "badges": {
+      "unread_messages": true,
+      "unread_notifications": true,
+      "pending_tasks": true,
+      "pending_ai_actions": true,
+      "finance_due": true
+    },
+    "widgets": {
+      "ai_assistant_widget": false,
+      "calendar_quick_add": true
+    },
+    "announcement": {
+      "enabled": false,
+      "text": "",
+      "level": "info"
+    }
+  },
+  "landing": {
+    "_about": "The public landing page (templates/pages/landing.html). `nav` is the in-page jump list shown in the floating navbar — each `href` MUST match an id= on a section of that page. `footer_programmes` is the left footer column.",
+    "nav": [
+      {
+        "label": "About UCS",
+        "href": "#about"
+      },
+      {
+        "label": "Primary School",
+        "href": "#primary"
+      },
+      {
+        "label": "High School",
+        "href": "#high-school"
+      },
+      {
+        "label": "Fees 2026",
+        "href": "#fees"
+      },
+      {
+        "label": "Enrolment",
+        "href": "#enrolment"
+      }
+    ],
+    "footer_programmes": [
+      {
+        "label": "Primary School (Grade 1 – 6)",
+        "href": "#primary"
+      },
+      {
+        "label": "High School (Grade 7 – 12)",
+        "href": "#high-school"
+      },
+      {
+        "label": "Fees 2026",
+        "href": "#fees"
+      },
+      {
+        "label": "How to enrol",
+        "href": "#enrolment"
+      },
+      {
+        "label": "Term dates",
+        "href": "#terms"
+      }
+    ]
+  },
+  "site": {
+    "_about": "Arbitrary site-wide values injected into EVERY template context (as `site.<key>`). Add anything you want available everywhere — a promo line, a phone for the header, a banner image — without touching code.",
+    "header_tagline": "",
+    "footer_note": ""
+  },
+  "meta": {
+    "page_title": "United Church School — Learning Platform",
+    "description": "United Church School, Yeoville — the online learning platform for our Grade 1 to Grade 12 learners, parents and educators: classes, homework, results, fees and school news in one place.",
+    "keywords": "United Church School, UCS, Yeoville, Johannesburg, independent school, primary school, high school, CAPS, Grade 1 to 12, learning platform",
+    "author": "United Church School",
+    "og_title": "United Church School — United We Stand",
+    "og_description": "Quality education for primary and high school learners in Yeoville, Johannesburg.",
+    "og_image": "images/school/high-school-learners.jpg",
+    "favicon": "images/brand/ucs-mark.png"
+  },
+  "nav": {
+    "search_placeholder": "Search",
+    "profile": "Profile",
+    "inbox": "Inbox",
+    "logout": "Logout",
+    "messages": "Messages",
+    "notifications": "Notifications"
+  },
+  "common": {
+    "save": "Save",
+    "save_changes": "Save changes",
+    "add": "Add",
+    "create": "Create",
+    "edit": "Edit",
+    "update": "Update",
+    "delete": "Delete",
+    "remove": "Remove",
+    "cancel": "Cancel",
+    "close": "Close",
+    "back": "Back",
+    "search": "Search",
+    "submit": "Submit",
+    "yes": "Yes",
+    "no": "No",
+    "confirm": "Confirm",
+    "actions": "Actions",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "loading": "Loading…",
+    "no_records": "No records found.",
+    "required_field": "This field is required."
+  },
+  "auth": {
+    "sign_in": "Sign in",
+    "sign_in_heading": "Sign in to your account",
+    "sign_up": "Sign up",
+    "sign_up_heading": "Create your account",
+    "sign_out": "Sign out",
+    "username_or_email": "Username or e-mail",
+    "username": "Username",
+    "email": "E-mail",
+    "password": "Password",
+    "confirm_password": "Confirm password",
+    "first_name": "First name",
+    "last_name": "Last name",
+    "remember_me": "Remember me",
+    "forgot_password": "Forgot password?",
+    "forgot_password_heading": "Reset your password",
+    "forgot_password_help": "Enter your e-mail and we'll send you a link to reset your password.",
+    "send_reset_link": "Send reset link",
+    "back_to_login": "Back to sign in",
+    "no_account": "Don't have an account?",
+    "have_account": "Already have an account?",
+    "lock_screen": "Locked",
+    "unlock": "Unlock"
+  },
+  "messages": {
+    "saved": "{name} saved successfully.",
+    "deleted": "{name} deleted.",
+    "created": "{name} created.",
+    "updated": "{name} updated.",
+    "form_errors": "Please correct the errors highlighted below.",
+    "welcome_back": "Welcome back, {name}.",
+    "account_created": "Account created. Welcome!",
+    "verify_email_sent": "Account created. We've e-mailed a verification link to {email} — confirm it, then sign in.",
+    "verify_email_required": "Please verify your e-mail before signing in. We've sent a fresh link to {email}.",
+    "signed_out": "You have been signed out.",
+    "reset_link_sent": "If that e-mail exists, a reset link has been sent.",
+    "invalid_credentials": "Invalid e-mail or password.",
+    "email_password_required": "E-mail and password are required.",
+    "user_already_exists": "An account with that e-mail address already exists."
+  },
+  "errors": {
+    "back_home": "Back to home",
+    "400": {
+      "title": "Bad request",
+      "message": "The request could not be understood by the server."
+    },
+    "403": {
+      "title": "Forbidden",
+      "message": "You don't have permission to access this page."
+    },
+    "404": {
+      "title": "Page not found",
+      "message": "The page you are looking for doesn't exist or has moved."
+    },
+    "500": {
+      "title": "Server error",
+      "message": "Something went wrong on our end. Please try again later."
+    },
+    "503": {
+      "title": "Service unavailable",
+      "message": "We're temporarily offline for maintenance. Please check back soon."
+    }
+  },
+  "footer": {
+    "copyright": "Copyright © 2026 United Church School. All rights reserved."
+  },
+  "school": {
+    "_about": "Facts about the school, from www.ucs.org.za and the 2026 application pack. Shown on the landing page, the registration wizard and e-mails.",
+    "motto": "United We Stand",
+    "founded": "1990",
+    "values": [
+      "Pride",
+      "Passion",
+      "Excellence",
+      "Commitment",
+      "Confidence",
+      "Discipline"
+    ],
+    "intro": "We are United Church School, an independent, non-denominational, multi-cultural, co-educational school with affordable fees and “private school” standards.",
+    "stands_for": [
+      "We stand for pride, passion, excellence, commitment, confidence and discipline.",
+      "We stand for a positive attitude and willingness to learn.",
+      "We stand for a quality education that nurtures and develops our children to the best of their abilities."
+    ],
+    "registration": "Section 21 Company No. 1990/006400/08 · NPO 052-107 · PBO No. 930000599",
+    "memberships": "Member of ISASA (Independent Schools Association of Southern Africa) · Registered with the Gauteng Department of Education",
+    "curriculum": "The school follows the GDE / CAPS curriculum with English as the medium of instruction and an emphasis on continuous assessment.",
+    "chairman": "Elvis Fokala",
+    "principal": "Helenne Ulster",
+    "deputy_principal": "Mr Daniel Mathew (Deputy Principal & Academic Head, High School)",
+    "board": "E Fokala (Chairperson), H Ulster (Principal), G Johnson, J Mwase, B Matlebe, Z Dube, E Steenkamp, N Hoza",
+    "stats": {
+      "matric_pass_rate": "100%",
+      "high_school_learners": "250",
+      "class_ratio": "25 learners per teacher",
+      "years": "30+"
+    },
+    "campuses": [
+      {
+        "phase": "Grade 1 – 3",
+        "address": "10 Hunters Street, Yeoville"
+      },
+      {
+        "phase": "Grade 4 – 6",
+        "address": "38 Fortesque Road, Yeoville"
+      },
+      {
+        "phase": "Grade 7 – 12",
+        "address": "44 Frances Street, Yeoville"
+      }
+    ],
+    "terms": {
+      "year": "2026",
+      "list": [
+        {
+          "term": "Term 1",
+          "dates": "14 January – 27 March 2026"
+        },
+        {
+          "term": "Term 2",
+          "dates": "8 April – 26 June 2026"
+        },
+        {
+          "term": "Term 3",
+          "dates": "21 July – 23 September 2026"
+        },
+        {
+          "term": "Term 4",
+          "dates": "6 October – 11 December 2026"
+        }
+      ]
+    },
+    "school_times": [
+      {
+        "grades": "Grade 1 & 2",
+        "times": "Mon 07h45–14h00 · Tue–Fri 07h45–13h30 · Tutorials Mon–Wed 14h00–15h00"
+      },
+      {
+        "grades": "Grade 3",
+        "times": "Mon–Thu 07h45–14h00 · Fri 07h45–13h30 · Tutorials Mon–Wed 14h00–15h00"
+      },
+      {
+        "grades": "Grade 4 – 6",
+        "times": "Mon–Thu 07h45–14h00 · Fri 07h45–13h30 · Extra lessons 14h00–15h15"
+      },
+      {
+        "grades": "Grade 7 – 9",
+        "times": "Mon, Tue, Wed & Fri 07h45–14h00 · Thu 07h45–13h30 · Extra lessons 14h00–15h00 · Extra murals Thu 13h30–15h00"
+      },
+      {
+        "grades": "Grade 10 & 11",
+        "times": "Mon, Tue, Wed & Fri 07h45–14h00 · Thu 07h45–13h30 · Extra lessons Mon–Wed 14h00–15h00 · Extra murals Thu 13h30–15h00"
+      },
+      {
+        "grades": "Grade 12",
+        "times": "Mon–Fri 07h45–14h00 · Extra lessons Mon–Fri 14h00–15h00"
+      }
+    ],
+    "fees_policy": [
+      "Fees are paid strictly in advance on the first of each month, over 12 months — including during school holidays. Monthly payments are a payment structure, not based on attendance.",
+      "Registration (new learners), the annual levy and the first month's fees are due on enrolment. The levy must be settled in full by 25 January.",
+      "Pay the full annual fees on or before 31 January and receive a 5% discount on the annual school fees.",
+      "Sibling discount: 5% on school fees (not levy or registration) from the second child onwards.",
+      "Registration is non-refundable. Refunds otherwise incur a 5% charge.",
+      "The school does not accept cash. Pay at any Standard Bank (Killarney branch, account 002181282) using the learner's name and grade as the reference, or use the card machine at the school office.",
+      "One full term's notice is required when a learner leaves the school."
+    ],
+    "levy_covers": [
+      "ISASA membership",
+      "Guest speakers and visits",
+      "Computer coding, robotics and AI resources and classes",
+      "Mobile science labs and curriculum resources",
+      "All writing books, pencils, crayons and basic stationery",
+      "Printing paper and printing costs for worksheets and workbooks",
+      "Badges, trophies and certificates (not blazer badges)",
+      "SMSWEB communication to parents (sms and e-mail)",
+      "School photos",
+      "Extra-mural activities with outside facilitators",
+      "Competition entries (Conquesta, Battle of the Books, Story Skirmish, Olympiads, benchmark tests)",
+      "Leadership workshops",
+      "Hygiene supplies",
+      "Excursions, transport and sports days"
+    ],
+    "paper_note": "All learners must bring one ream of Typek paper in January and one in July.",
+    "required_documents": [
+      "Learner ID photo",
+      "Birth certificate (up to Grade 9) or ID / passport / asylum document (Grade 10 – 12)",
+      "Clinic card (Grade 1 – 3)",
+      "Study permit (non-South African learners)",
+      "Most recent report card",
+      "Transfer card — SA-SAMS report (South African learners) or transfer card (non-South African learners)",
+      "Copy of parent ID / passport",
+      "Copy of parent payslip (confidential — supports fee responsibility)"
+    ],
+    "enrolment_note": "The application is pending until payment is received. Final registration is only completed once UCS receives a copy of the transfer card and final report directly from the previous school."
+  }
+}

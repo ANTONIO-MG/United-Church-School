@@ -1,0 +1,149 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static commerce %}
+{% comment %}One order: what was bought, what it cost (the frozen quote), the invoice
+and receipt, and — once paid — the downloads. The download buttons are a
+convenience; the real gate is shop.entitlements.can_download on the request.{% endcomment %}
+
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div>
+      <a class="small" href="{% url 'shop:my-orders' %}"><i class="bi bi-arrow-left me-1"></i>{% if request.user.is_staff %}All orders{% else %}My orders{% endif %}</a>
+      <h3 class="mt-1">Order {{ order.order_no }}</h3>
+      <p>Placed {{ order.created_at|date:"j F Y, H:i" }}{% if request.user.is_staff %} by {{ order.buyer|person_name }}{% endif %}</p>
+    </div>
+    <div class="tc-head__actions">
+      {% if invoice %}
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:invoice-pdf' invoice.pk %}"><i class="bi bi-file-earmark-pdf me-1"></i>Invoice PDF</a>
+        {% if is_paid %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:receipt-pdf' invoice.pk %}"><i class="bi bi-receipt me-1"></i>Receipt PDF</a>{% endif %}
+        {% if not is_paid and invoice.balance > 0 %}<a class="btn btn-sm btn-primary" href="{% url 'finance:pay' invoice.public_id %}"><i class="bi bi-credit-card me-1"></i>Pay {{ invoice.balance|rand }}</a>{% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tc-card mb-3"><div class="tc-card__body pt-3">
+    <div class="tc-track">
+      <div class="tc-track__step is-done"><b><i class="bi bi-check"></i></b>Order placed</div>
+      <div class="tc-track__step {% if is_paid %}is-done{% endif %}"><b>{% if is_paid %}<i class="bi bi-check"></i>{% else %}2{% endif %}</b>{% if is_paid %}Paid{% else %}Awaiting payment{% endif %}</div>
+      <div class="tc-track__step {% if is_paid %}is-done{% endif %}"><b>{% if is_paid %}<i class="bi bi-check"></i>{% else %}3{% endif %}</b>Ready</div>
+    </div>
+  </div></div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Items</h5></div>
+        <div class="tc-card__body">
+          <div class="tc-lines">
+            {% for item in items %}
+            <div class="tc-line">
+              <span class="tc-line__thumb">{% if item.product.image %}<img src="{{ item.product.image.url }}" alt="">{% else %}<i class="bi {{ item.product.fulfilment|fulfilment_icon }}"></i>{% endif %}</span>
+              <div>
+                <a class="tc-line__name" href="{% url 'shop:product-detail' item.product.pk %}">{{ item.description }}</a>
+                <div class="tc-line__sub">
+                  <span>Qty {{ item.quantity }} × {{ item.unit_price|rand }}</span>
+                  {% if item.discount_label %}<span class="tc-chip tc-chip--success">{{ item.discount_label }}</span>{% endif %}
+                  {% if item.expiry_date %}<span class="{% if item.is_expired %}text-danger{% endif %}">Access until {{ item.expiry_date|date:"j M Y" }}</span>{% endif %}
+                </div>
+                {% if item.product.is_digital %}
+                  {% if is_paid %}
+                    <ul class="tc-files mt-2">
+                      {% for label, fieldfile, file_id in item.product.deliverables %}
+                      <li class="tc-file">
+                        <span class="tc-file__icon"><i class="bi {{ fieldfile.name|file_icon }}"></i></span>
+                        <span class="tc-file__name">{{ label }}</span>
+                        <a class="btn btn-sm btn-primary" href="{% if file_id %}{% url 'shop:download-file' item.product.pk file_id %}{% else %}{% url 'shop:download-product' item.product.pk %}{% endif %}"><i class="bi bi-download me-1"></i>Download</a>
+                      </li>
+                      {% endfor %}
+                    </ul>
+                  {% else %}<div class="small text-muted mt-1"><i class="bi bi-lock me-1"></i>Downloads unlock once the order is paid.</div>{% endif %}
+                {% endif %}
+                {% if item.product.is_shipped and not is_paid %}<div class="small text-muted mt-1"><i class="bi bi-truck me-1"></i>Ships once the order is paid.</div>{% endif %}
+              </div>
+              <div class="tc-line__amt"><b>{{ item.line_total|rand }}</b>{% if item.discount_amount %}<s>{{ item.gross_total|rand }}</s>{% endif %}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      {% if shipment %}
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Delivery</h5><span class="ms-auto tc-chip {% if shipment.status == 'delivered' %}tc-chip--success{% elif shipment.status == 'failed' %}tc-chip--danger{% else %}tc-chip--primary{% endif %}">{{ shipment.get_status_display }}</span></div>
+        <div class="tc-card__body">
+          <div class="tc-track mb-3">
+            {% with st=shipment.status %}
+            <div class="tc-track__step {% if st != 'awaiting_payment' %}is-done{% endif %}"><b><i class="bi bi-check"></i></b>Paid</div>
+            <div class="tc-track__step {% if st == 'booked' or st == 'in_transit' or st == 'delivered' %}is-done{% endif %}"><b><i class="bi bi-box-seam"></i></b>Shipped</div>
+            <div class="tc-track__step {% if st == 'in_transit' or st == 'delivered' %}is-done{% endif %}"><b><i class="bi bi-truck"></i></b>On its way</div>
+            <div class="tc-track__step {% if st == 'delivered' %}is-done{% endif %}"><b><i class="bi bi-house-check"></i></b>Delivered</div>
+            {% endwith %}
+          </div>
+          <div class="row g-3 small">
+            <div class="col-sm-6"><div class="text-muted">{% if shipment.method == 'locker' %}Pudo locker{% else %}Delivering to{% endif %}</div>
+              {% if shipment.method == 'locker' %}<b>{{ shipment.locker_name|default:shipment.locker_code }}</b>
+              {% else %}<b>{{ order.ship_to.recipient }}</b><br>{% if order.ship_to.complex %}{{ order.ship_to.complex }}, {% endif %}{{ order.ship_to.street_address }}, {{ order.ship_to.suburb }}, {{ order.ship_to.city }} {{ order.ship_to.postal_code }}{% endif %}</div>
+            <div class="col-sm-6"><div class="text-muted">Courier</div><b>{{ shipment.courier_name|default:order.delivery_label }}</b>
+              {% if shipment.tracking_reference %}<br>Waybill {{ shipment.tracking_reference }}{% if shipment.tracking_url %} · <a href="{{ shipment.tracking_url }}" target="_blank" rel="noopener">Track parcel</a>{% endif %}{% endif %}</div>
+          </div>
+          {% if shipment.events %}
+            <ul class="list-unstyled small mt-3 mb-0">{% for e in shipment.events reversed %}<li class="py-1 border-top"><span class="text-muted">{{ e.at|when }}</span> · {{ e.message }}</li>{% endfor %}</ul>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if invoice and invoice.payments.all %}
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Payments</h5></div>
+        <div class="tc-table-wrap"><table class="tc-table">
+          <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th class="r">Amount</th></tr></thead>
+          <tbody>{% for p in invoice.payments.all %}<tr><td>{{ p.paid_at|date:"j M Y H:i" }}</td><td>{{ p.get_method_display }}</td><td class="small text-muted">{{ p.reference|default:"—" }}</td><td class="r">{{ p.amount|rand }}</td></tr>{% endfor %}</tbody>
+        </table></div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Summary</h5>{% if is_paid %}<span class="tc-chip tc-chip--success ms-auto">Paid</span>{% else %}<span class="tc-chip tc-chip--warning ms-auto">{{ order.get_status_display }}</span>{% endif %}</div>
+        <div class="tc-card__body">
+          <div class="tc-totals">
+            {% if order.subtotal %}<div><span>Subtotal</span><span>{{ order.subtotal|rand }}</span></div>{% endif %}
+            {% if order.discount_total %}<div class="is-saving"><span>Discounts{% if order.coupon %} · {{ order.coupon.code }}{% endif %}</span><span>−{{ order.discount_total|rand }}</span></div>{% endif %}
+            {% if order.shipping_total %}<div><span>Delivery</span><span>{{ order.shipping_total|rand }}</span></div>{% endif %}
+            <div class="is-total"><span>Total</span><span>{{ order.total|rand }}</span></div>
+            {% if order.tax_total %}<div class="is-muted"><span>Includes VAT</span><span>{{ order.tax_total|rand }}</span></div>{% endif %}
+            {% if invoice %}
+              <div class="is-muted"><span>Paid</span><span>{{ invoice.amount_paid|rand }}</span></div>
+              {% if invoice.balance > 0 %}<div class="fw-semibold text-danger"><span>Still to pay</span><span>{{ invoice.balance|rand }}</span></div>{% endif %}
+            {% endif %}
+          </div>
+          {% if invoice %}<a class="btn btn-sm btn-link px-0 mt-2" href="{% url 'finance:invoice-detail' invoice.pk %}">Invoice {{ invoice.number }} <i class="bi bi-arrow-right"></i></a>{% endif %}
+        </div>
+      </div>
+
+      {% if request.user.is_staff and invoice and invoice.balance > 0 %}
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Record a payment</h5></div>
+        <div class="tc-card__body">
+          <form method="post">
+            {% csrf_token %}<input type="hidden" name="action" value="pay">
+            <div class="mb-2"><label class="form-label" for="payAmount">Amount (R)</label>
+              <input id="payAmount" type="number" step="0.01" name="amount" value="{{ invoice.balance|stringformat:'.2f' }}" class="form-control"></div>
+            <div class="mb-2"><label class="form-label" for="payMethod">Method</label>
+              <select id="payMethod" name="method" class="form-select">{% for value, label in payment_methods %}<option value="{{ value }}" {% if value == 'bank' %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+            <div class="mb-3"><label class="form-label" for="payRef">Reference</label>
+              <input id="payRef" type="text" name="reference" class="form-control" placeholder="Bank reference"></div>
+            <button class="btn btn-primary w-100"><i class="bi bi-check2-circle me-1"></i>Record payment</button>
+          </form>
+          <p class="small text-muted mt-2 mb-0">Recording the full amount marks the order paid, unlocks downloads and sends the buyer their receipt.</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div></div>
+{% endblock %}

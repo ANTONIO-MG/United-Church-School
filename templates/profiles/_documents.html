@@ -1,0 +1,55 @@
+{% comment %}
+The Documents tab body — shared by the person, course and module profiles.
+`documents` comes from core.profiles.documents_for(): lesson materials + wall
+media + chat files, scoped to this profile. Each row carries `kind`, so images
+and videos show a thumbnail and everything opens in the lightbox (data-media)
+instead of a new tab. `data-media-group` lets the lightbox page ←/→ through them.
+{% endcomment %}
+<div class="card">
+  <div class="card-header border-0 pb-0 d-flex align-items-center justify-content-between">
+    <h5 class="card-title mb-0">Documents &amp; media</h5>
+    {% if documents %}<span class="badge bg-primary bg-opacity-10 text-primary">{{ documents|length }}</span>{% endif %}
+  </div>
+  <div class="card-body">
+    {% if documents %}
+    <div class="doc-list" data-media-group>
+      {% for f in documents %}
+        {% if f.kind == 'image' or f.kind == 'video' %}
+        <div class="doc-row d-flex align-items-center py-2 border-bottom" role="button"
+             data-media="{{ f.url }}" data-kind="{{ f.kind }}" data-name="{{ f.name }}">
+          <span class="doc-thumb me-3">
+            {% if f.kind == 'image' %}<img src="{{ f.url }}" alt="" loading="lazy">
+            {% else %}<video src="{{ f.url }}" muted preload="metadata"></video><i class="bi bi-play-circle-fill doc-thumb-play"></i>{% endif %}
+          </span>
+          <span class="flex-grow-1 min-w-0">
+            <span class="d-block text-truncate">{{ f.name }}</span>
+            <small class="text-muted">{{ f.meta }}</small>
+          </span>
+          <i class="bi bi-arrows-fullscreen text-muted"></i>
+        </div>
+        {% else %}
+        <div class="doc-row d-flex align-items-center py-2 border-bottom" role="button"
+             data-media="{{ f.url }}" data-kind="file" data-name="{{ f.name }}">
+          <i class="bi {{ f.icon }} fs-4 text-primary me-3"></i>
+          <span class="flex-grow-1 min-w-0">
+            <span class="d-block text-truncate">{{ f.name }}</span>
+            <small class="text-muted">{{ f.meta }}</small>
+          </span>
+          <a href="{{ f.url }}" target="_blank" rel="noopener" class="text-muted ms-2" title="Download"
+             onclick="event.stopPropagation();"><i class="bi bi-download"></i></a>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted small mb-0">No documents or media here yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+  .doc-row{ cursor:pointer; } .doc-row:hover{ background:#f8f9fb; }
+  .doc-thumb{ width:46px;height:46px;border-radius:8px;overflow:hidden;position:relative;flex:0 0 46px;background:#0b1220;display:block; }
+  .doc-thumb img,.doc-thumb video{ width:100%;height:100%;object-fit:cover;display:block; }
+  .doc-thumb-play{ position:absolute;inset:0;margin:auto;width:1.2rem;height:1.2rem;color:#fff;display:flex;align-items:center;justify-content:center; }
+</style>

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% load static %}
+{% comment %}Onboarding step 2 — profile completion. Required before the dashboard
+is reachable (OnboardingMiddleware).{% endcomment %}
+
+{% block content %}
+<main>
+  <div class="container my-5">
+    <div class="row justify-content-center">
+      <div class="col-lg-8 col-xl-7">
+        <div class="card">
+          <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+              <h4 class="mb-0">Complete your profile</h4>
+              <span class="badge bg-primary bg-opacity-10 text-primary">Step 2 of 2</span>
+            </div>
+            <p class="small text-muted mb-0 mt-1">Almost there — finish your profile to enter the hub.</p>
+          </div>
+          <div class="card-body">
+            {# Flash messages render in the global alert stack (partials/_alerts.html). #}
+            <form method="post" enctype="multipart/form-data" novalidate>
+              {% csrf_token %}
+              {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+              <div class="row g-3">
+                {% for field in form %}
+                <div class="col-md-6">
+                  <label class="form-label">{{ field.label }}</label>
+                  {{ field }}
+                  {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                  {% for e in field.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                </div>
+                {% endfor %}
+              </div>
+              <div class="d-flex justify-content-between mt-4">
+                <a href="{% url 'accounts:register' %}" class="btn btn-link text-muted"><i class="bi bi-arrow-left me-1"></i>Back</a>
+                <button type="submit" class="btn btn-success">Finish &amp; enter <i class="bi bi-check2 ms-1"></i></button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}

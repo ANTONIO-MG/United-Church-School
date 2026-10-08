@@ -1,0 +1,8 @@
+{% extends 'communication/email/base_email.html' %}{% load org_branding %}
+{% comment %}Scheduled class / live session. Context: recipient, session_title, session_when, join_url.{% endcomment %}
+{% block heading %}{{ session_title }}{% endblock %}
+{% block content %}
+  {% if recipient %}<p style="margin:0 0 14px">Hi {{ recipient|greeting_name }},</p>{% endif %}
+  <p style="margin:0 0 14px">A class / live session has been scheduled{% if session_when %} for <strong>{{ session_when }}</strong>{% endif %}.</p>
+{% endblock %}
+{% block cta %}{% include 'communication/email/_button.html' with url=join_url label="JOIN THE SESSION" %}{% endblock %}

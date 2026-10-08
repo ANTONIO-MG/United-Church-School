@@ -1,0 +1,54 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}AI route: upload an exam/quiz PDF (+ memo) → Claude drafts the assessment → review in the builder.{% endcomment %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <div class="row justify-content-center"><div class="col-lg-7">
+    <div class="card app-form-focus"><div class="card-body p-4">
+      <h4 class="mb-1"><i class="bi bi-stars text-primary me-2"></i>Create an assessment with AI</h4>
+      <p class="text-muted small mb-4">Upload a past paper, mock exam or quiz — include the memo/solutions in the same
+        PDF and Claude will capture the questions, mark allocations and answer keys. You review the draft in the
+        question builder and publish it — nothing goes live automatically.</p>
+
+      {% if not ai_enabled %}
+      <div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1"></i>
+        AI authoring is not enabled on this server. Set <code>ADMIN_AI_ENABLED=true</code> and
+        <code>ANTHROPIC_API_KEY</code>, then reload.</div>
+      {% endif %}
+
+      <form method="post" enctype="multipart/form-data" class="app-form">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Subject</label>
+          <select name="module" class="form-select" required>
+            {% for s in modules %}<option value="{{ s.id }}">{{ s }}</option>
+            {% empty %}<option value="">No subjects you teach yet</option>{% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Type</label>
+          <select name="kind" class="form-select">
+            {% for val, label in kinds %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Question paper (PDF)</label>
+          <input name="pdf" type="file" accept="application/pdf,.pdf" class="form-control" required>
+          <div class="form-text">The exam / test / quiz paper. Max ~28 MB total.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Memo / solution <span class="text-muted">(optional)</span></label>
+          <input name="memo" type="file" accept=".pdf,.xlsx,.docx,.txt,.csv,.md" class="form-control">
+          <div class="form-text">PDF, Excel workbook (.xlsx), Word (.docx) or text. Without a memo, Claude drafts
+            model answers itself and flags them for you to verify.</div>
+        </div>
+        <div class="d-flex gap-2 mt-2">
+          <button class="btn btn-primary" data-loading {% if not ai_enabled %}disabled{% endif %}>
+            <i class="bi bi-magic me-1"></i>Generate draft</button>
+          <a href="{% url 'assessments:manage' %}" class="btn btn-light">Cancel</a>
+        </div>
+        <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>Generation can take up to a minute for long papers.</div>
+      </form>
+    </div></div>
+  </div></div>
+</div></div>
+{% endblock %}

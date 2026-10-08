@@ -1,0 +1,17 @@
+{% load org_branding %}{% org_brand as brand %}Hi,
+
+Someone — possibly you — tried to create a {{ brand.name|default:"United Church School" }} account using {{ email }}.
+An account with that address already exists, so we didn't create a second one.
+
+If that was you and you've forgotten your password, set a new one here:
+
+{{ password_reset_url }}
+
+Wasn't you? You can safely ignore this e-mail — nothing has changed.
+
+Kind regards,
+The {{ brand.name|default:"United Church School" }} team
+{% if brand.support_email %}Questions? E-mail {{ brand.support_email }}
+{% endif %}
+--
+{{ brand.copyright|default:"United Church School" }}

@@ -1,0 +1,57 @@
+{% extends 'soft_ui/auth_base.html' %}
+{% load static %}
+{% block title %}Parent registration · {{ brand.name|default:"United Church School" }}{% endblock %}
+{% block card_col %}col-xl-6 col-lg-8 col-md-10{% endblock %}
+{% block oblique %}{% endblock %}
+
+{% block auth_card %}
+<div class="card mt-7 mb-4 shadow-lg">
+  <div class="card-body p-4">
+    <div class="rf-icon-head mb-4">
+      <img class="rf-icon" src="{% static 'images/reg/about.png' %}" alt="">
+      <div>
+        <h4 class="font-weight-bolder text-info text-gradient mb-1">Parent / guardian / sponsor</h4>
+        <p class="text-sm text-muted mb-0">Just a few details to finish setting up your account.</p>
+      </div>
+    </div>
+
+    {% if student %}
+    <div class="alert bg-gradient-info text-white py-2 text-sm">
+      You are registering as parent / guardian / sponsor of
+      <strong>{{ student.first_name }} {{ student.last_name }}</strong>.
+    </div>
+    {% else %}
+    <div class="alert alert-warning py-2 text-sm">We couldn't find the linked student — please contact support.</div>
+    {% endif %}
+
+    <form method="post" id="regForm" novalidate>
+      {% csrf_token %}
+      <div class="rf-sec" data-sec="parent">
+        <div class="rf-body">
+          {% for e in form.non_field_errors %}<div class="alert alert-danger py-2 text-sm">{{ e }}</div>{% endfor %}
+          <div class="row g-2">
+            {% include 'accounts/register/_field.html' with field=form.first_name col="col-md-6" %}
+            {% include 'accounts/register/_field.html' with field=form.last_name col="col-md-6" %}
+            {% include 'accounts/register/_field.html' with field=form.phone col="col-md-6" %}
+            {% include 'accounts/register/_field.html' with field=form.relationship col="col-md-6" %}
+          </div>
+          <div class="form-check mt-3">
+            {{ form.confirm_student }}
+            <label class="form-check-label text-sm" for="{{ form.confirm_student.id_for_label }}">
+              {{ form.confirm_student.label }}{% if form.confirm_student.field.required %} <span class="req">*</span>{% endif %}
+            </label>
+            {% for e in form.confirm_student.errors %}<div class="rf-err d-block">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="text-end mt-4">
+        <button type="submit" class="btn bg-gradient-info mb-0">Complete registration<i class="bi bi-check2-circle ms-2"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}{% include 'accounts/register/_reg_styles.html' %}{% endblock %}
+{% block extra_js %}{% include 'accounts/register/_reg_scripts.html' %}{% endblock %}

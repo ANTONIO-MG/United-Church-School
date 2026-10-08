@@ -1,0 +1,96 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static humanize %}
+{% comment %}My application — the family's view of each UCS application on the
+account (a parent sees each linked child's): its status, the document
+checklist with upload for anything outstanding, and the enrolment invoice.{% endcomment %}
+
+{% block content %}
+{% for card in cards %}
+{% with app=card.application %}
+<div class="card mb-4">
+  <div class="card-header border-0 pb-0 d-flex flex-wrap justify-content-between align-items-start gap-2">
+    <div>
+      <h1 class="h4 card-title mb-1">Application — {{ app.learner_name }}</h1>
+      <p class="text-sm text-muted mb-0">{{ app.programme.display_name|default:"Grade not chosen yet" }} · {{ app.year }}
+        {% if app.submitted_at %}· submitted {{ app.submitted_at|date:"j F Y" }}{% endif %}</p>
+    </div>
+    <span class="badge {% if app.status == 'admitted' %}bg-gradient-success{% elif app.status == 'declined' or app.status == 'withdrawn' %}bg-gradient-secondary{% elif app.status == 'documents' %}bg-gradient-warning{% else %}bg-gradient-info{% endif %} fs-6">{{ app.get_status_display }}</span>
+  </div>
+  <div class="card-body">
+    {% if app.status == 'draft' %}
+      <div class="alert alert-info text-sm">This application has not been submitted yet.
+        <a class="alert-link" href="{% url 'accounts:register' %}">Continue the application</a>.</div>
+    {% elif app.status == 'submitted' %}
+      <div class="alert alert-info text-sm">The application is <strong>pending until payment is received</strong>.
+        {% if card.invoice %}<a class="alert-link" href="{% url 'finance:pay' public_id=card.invoice.public_id %}">Pay the invoice online</a>, or pay at Standard Bank using the learner's name and grade as the reference and e-mail the slip to {{ brand.support_email }}.{% endif %}</div>
+    {% elif app.status == 'documents' %}
+      <div class="alert alert-warning text-sm">Some documents are still outstanding — please upload them below. Your child's application
+        will only be processed once they are included.</div>
+    {% elif app.status == 'review' %}
+      <div class="alert alert-info text-sm">Thank you — the school office is reviewing the application. Final registration is only completed once
+        UCS receives the transfer card and final report directly from the previous school.</div>
+    {% elif app.status == 'admitted' %}
+      <div class="alert alert-success text-sm">Welcome to {{ brand.name }}! {{ app.learner_name }} has been admitted to {{ app.programme.display_name }}.</div>
+    {% endif %}
+
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <h6 class="mb-2">Document checklist</h6>
+        <ul class="list-group mb-3">
+          {% for row in card.checklist %}
+          <li class="list-group-item d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <span class="text-sm">{{ row.label }}</span>
+              {% for doc in row.held %}
+                <div class="text-xs"><a href="{% url 'admissions:document-file' pk=doc.pk %}" target="_blank" rel="noopener">{{ doc.original_name|default:"View" }}</a>{% if doc.verified %} · <span class="text-success">verified</span>{% endif %}</div>
+              {% endfor %}
+            </div>
+            {% if row.held %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<span class="badge bg-light text-dark">Outstanding</span>{% endif %}
+          </li>
+          {% endfor %}
+          {% for doc in card.extra %}
+          <li class="list-group-item d-flex justify-content-between"><span class="text-sm">{{ doc.get_kind_display }} — <a href="{% url 'admissions:document-file' pk=doc.pk %}" target="_blank" rel="noopener">{{ doc.original_name|default:"View" }}</a></span><i class="bi bi-check-circle-fill text-success"></i></li>
+          {% endfor %}
+        </ul>
+
+        {% if app.is_open %}
+        <form method="post" enctype="multipart/form-data" class="border rounded-3 p-3">
+          {% csrf_token %}
+          <input type="hidden" name="application" value="{{ app.pk }}">
+          <label class="form-label text-sm fw-bold" for="kind{{ app.pk }}">Upload a document</label>
+          <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+              <select class="form-control form-select" id="kind{{ app.pk }}" onchange="this.form.querySelector('.doc-file').name='doc_'+this.value">
+                {% for kind, label in upload_kinds %}<option value="{{ kind }}" {% if card.missing and card.missing.0.0 == kind %}selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-5"><input type="file" class="form-control doc-file" name="doc_{% if card.missing %}{{ card.missing.0.0 }}{% else %}photo{% endif %}" accept="image/*,.pdf,.doc,.docx" required></div>
+            <div class="col-md-2"><button class="btn bg-gradient-info w-100 mb-0" type="submit">Upload</button></div>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+
+      <div class="col-lg-5">
+        <h6 class="mb-2">Fees</h6>
+        {% if card.invoice %}
+          <div class="border rounded-3 p-3 mb-3">
+            <div class="d-flex justify-content-between"><span class="text-sm">Invoice {{ card.invoice.number }}</span>
+              <span class="badge {% if card.invoice.status == 'paid' %}bg-gradient-success{% else %}bg-gradient-warning{% endif %}">{{ card.invoice.get_status_display }}</span></div>
+            <div class="h5 mt-2 mb-0">R {{ card.invoice.total|floatformat:2|intcomma }}</div>
+            {% if card.invoice.status != 'paid' %}<a class="btn btn-sm bg-gradient-info mt-2 mb-0" href="{% url 'finance:pay' public_id=card.invoice.public_id %}">Pay online</a>{% endif %}
+          </div>
+        {% else %}<p class="text-sm text-muted">No enrolment invoice yet.</p>{% endif %}
+        <div class="text-xs text-muted">
+          <p class="mb-1"><strong>Banking details:</strong> {{ brand.banking.bank }}, {{ brand.banking.account_name }}, account {{ brand.banking.account_number }}, branch code {{ brand.banking.branch_code }}.</p>
+          <p class="mb-0">{{ brand.banking.reference_hint }}</p>
+        </div>
+        <h6 class="mt-4 mb-2">Questions?</h6>
+        <p class="text-sm mb-0">Contact the school office: {{ brand.contact.phone }} · <a href="mailto:{{ brand.support_email }}">{{ brand.support_email }}</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endwith %}
+{% endfor %}
+{% endblock %}

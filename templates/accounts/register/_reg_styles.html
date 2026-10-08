@@ -1,0 +1,118 @@
+{% comment %}Shared look & feel for every registration / enrolment page
+  (step1-3, parent, educator, checkout). Include inside {% block extra_css %}.{% endcomment %}
+<style>
+  /* --- Section header: chevron + title + completion check (no icon font) --- */
+  .rf-sec .accordion-button{ gap:.6rem; font-weight:600; color:#344767; }
+  .rf-sec .accordion-button:not(.collapsed){ background:rgba(23,193,232,.06); color:#344767; box-shadow:none; }
+  .rf-sec .sec-title{ flex:1; }
+  /* CSS chevron: points down when collapsed (click to open), up when expanded */
+  .rf-sec .sec-chev{ width:10px; height:10px; flex:0 0 10px; border-right:2px solid #8392ab;
+    border-bottom:2px solid #8392ab; transform:rotate(45deg); transition:transform .2s; margin-top:-4px; }
+  .rf-sec .accordion-button:not(.collapsed) .sec-chev{ transform:rotate(-135deg); margin-top:2px; border-color:#17c1e8; }
+  /* Completion check — a green circle with a CSS-drawn tick when the section is done */
+  .rf-sec .sec-check{ width:22px; height:22px; border-radius:50%; position:relative; flex:0 0 22px;
+    border:2px solid #cfd6e4; transition:.2s; margin-right:.4rem; }
+  .rf-sec.sec-done .sec-check{ background:#2dce89; border-color:#2dce89; }
+  .rf-sec.sec-done .sec-check::after{ content:""; position:absolute; left:6px; top:2px; width:5px; height:10px;
+    border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg); }
+  .rf-sec.sec-optional .sec-check{ border-style:dashed; }
+  /* Hide Bootstrap's default accordion chevron — we draw our own on the left. */
+  .rf-sec .accordion-button::after{ display:none; }
+  /* Round section icon for non-accordion pages (parent / educator / checkout). */
+  .rf-sec .sec-ic{ object-fit:contain; flex:0 0 26px; }
+
+  /* --- Section icon header (non-accordion pages: parent / educator / checkout) --- */
+  .rf-icon-head{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:.4rem; }
+  .rf-icon-head .rf-icon{ width:56px; height:56px; border-radius:50%; padding:11px; object-fit:contain;
+    background:linear-gradient(135deg,#e7f0ff,#dbe7ff); border:2px solid #e3e6ee; }
+
+  /* --- Fields --- */
+  .rf-label{ font-size:.72rem; font-weight:600; color:#67748e; margin-bottom:.2rem; display:block; }
+  .rf .req, .req{ color:#f5365c; font-weight:700; }
+  .rf-help{ font-size:.68rem; color:#8392ab; margin-top:.15rem; }
+  .rf-err{ font-size:.7rem; color:#f5365c; margin-top:.15rem; }
+  #regForm .form-control, #regForm .form-select{ font-size:.85rem; }
+  .rf-subhead{ font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em;
+    color:#8392ab; margin:1rem 0 .35rem; border-top:1px dashed #e3e6ee; padding-top:.7rem; }
+
+  /* Green tick styling for a valid required input */
+  #regForm .wz-ok, .wz-ok{ border-color:#2dce89 !important; box-shadow:0 0 0 2px rgba(45,206,137,.12) !important; }
+
+  /* --- Phone number with country-code picker --- */
+  .phone-field{ position:relative; display:flex; align-items:stretch; }
+  .phone-field .phone-country{ display:flex; align-items:center; gap:.35rem; flex:0 0 auto;
+    background:#f8f9fe; border:1px solid #d2d6da; border-right:0; border-radius:.5rem 0 0 .5rem;
+    padding:.4rem .55rem; font-size:.85rem; color:#344767; cursor:pointer; line-height:1.4; }
+  .phone-field .phone-country:hover{ background:#eef1f8; }
+  .phone-field .phone-country:focus-visible{ outline:2px solid #17c1e8; outline-offset:-2px; }
+  .phone-field .phone-flag{ font-size:1.05rem; line-height:1; }
+  .phone-field .phone-dial{ font-weight:600; letter-spacing:.01em; }
+  .phone-field .phone-caret{ width:6px; height:6px; border-right:2px solid #8392ab;
+    border-bottom:2px solid #8392ab; transform:rotate(45deg); margin:-3px .1rem 0 .1rem; }
+  .phone-field input[type="tel"]{ border-radius:0 .5rem .5rem 0 !important; flex:1 1 auto; min-width:0; }
+
+  /* The dropdown: a search box over a scrolling list of every country.
+
+     position:FIXED, and the script moves it to <body> while it is open. The
+     accordion section it lives in is `overflow-hidden` (for its rounded
+     corners), which would otherwise crop the list at the fold — and an absolute
+     menu would also be trapped by any transformed ancestor. Out in the body it
+     is clipped by nothing, so all ten rows show wherever the field sits. */
+  .phone-menu{ position:fixed; z-index:1080; width:21rem; max-width:calc(100vw - 1.5rem);
+    background:#fff; border:1px solid #e3e6ee; border-radius:.6rem; box-shadow:0 8px 26px rgba(20,20,43,.12);
+    overflow:hidden; }
+  .phone-menu .phone-search{ padding:.5rem; border-bottom:1px solid #eef1f6; }
+  .phone-menu .phone-search .form-control{ font-size:.82rem; }
+  /* Ten rows before it starts scrolling — .phone-opt is pinned to 2.2rem so the
+     count is exact rather than an approximation of the natural line height. */
+  .phone-menu .phone-list{ max-height:22rem; overflow-y:auto; overscroll-behavior:contain; }
+  .phone-menu .phone-opt{ display:flex; align-items:center; gap:.55rem; width:100%; text-align:left;
+    background:none; border:0; padding:.45rem .7rem; font-size:.83rem; color:#344767; cursor:pointer;
+    height:2.2rem; }
+  .phone-menu .phone-opt:hover{ background:#f2f7fd; }
+  .phone-menu .phone-opt.is-active{ background:rgba(23,193,232,.12); font-weight:600; }
+  .phone-menu .opt-flag{ font-size:1.05rem; line-height:1; flex:0 0 1.2rem; }
+  .phone-menu .opt-name{ flex:1 1 auto; }
+  .phone-menu .opt-dial{ color:#8392ab; font-variant-numeric:tabular-nums; }
+  .phone-menu .phone-empty{ padding:.7rem; font-size:.78rem; color:#8392ab; text-align:center; }
+
+  /* --- Round profile-picture preview --- */
+  .pfp-wrap{ display:flex; gap:1rem; align-items:center; }
+  .pfp-preview{ width:84px; height:84px; border-radius:50%; overflow:hidden; flex:0 0 84px; position:relative;
+    background:linear-gradient(135deg,#e7f0ff,#dbe7ff); border:2px solid #e3e6ee; }
+  .pfp-preview img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .pfp-preview #pfpImg{ display:none; }
+  .pfp-preview.has-img #pfpImg{ display:block; }
+  .pfp-preview.has-img .pfp-ph{ display:none; }
+  .pfp-preview .pfp-ph{ object-fit:contain; padding:18px; opacity:.7; }
+
+  /* --- Horizontal pill radios (guardian relationship, mode of study) --- */
+  .pill-radios{ display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; }
+  .pill-radios .pill{ display:inline-flex; align-items:center; font-size:.8rem; color:#344767;
+    border:1px solid #e3e6ee; border-radius:2rem; padding:.32rem .9rem; cursor:pointer; margin:0;
+    white-space:nowrap; transition:.15s; user-select:none; }
+  .pill-radios .pill:hover{ border-color:#17c1e8; }
+  /* The real radio is visually hidden; the pill label is the control. */
+  .pill-radios .pill input{ position:absolute; opacity:0; width:0; height:0; margin:0; pointer-events:none; }
+  .pill-radios .pill:has(input:checked){ border-color:#17c1e8; background:rgba(23,193,232,.12);
+    color:#0b5e6e; font-weight:600; }
+
+  /* --- Toggle switches (green on / red off) --- */
+  .switch-list{ display:flex; flex-direction:column; gap:.15rem; }
+  .switch-row{ display:flex; gap:.75rem; align-items:flex-start; padding:.55rem .35rem; border-radius:.6rem;
+    cursor:pointer; }
+  .switch-row:hover{ background:#f7f9fc; }
+  .rf-switch{ padding-left:2.6rem; flex:0 0 auto; }
+  .rf-switch .form-check-input{ width:2.1rem; height:1.1rem; margin-left:-2.6rem; cursor:pointer;
+    background-color:#f5365c; border-color:#f5365c; }  /* off = red */
+  .rf-switch .form-check-input:checked{ background-color:#2dce89; border-color:#2dce89; }
+  .switch-meta{ display:flex; flex-direction:column; }
+  .switch-title{ font-size:.82rem; font-weight:600; color:#344767; }
+  .switch-desc{ font-size:.72rem; color:#8392ab; }
+
+  /* --- Summary card (checkout / review) --- */
+  .rf-summary{ background:#f8f9fe; border:1px solid #eef1f6; border-radius:.75rem; padding:1rem 1.1rem; }
+  .rf-summary .sum-row{ display:flex; justify-content:space-between; padding:.35rem 0; font-size:.85rem; }
+  .rf-summary .sum-row + .sum-row{ border-top:1px solid #eef1f6; }
+  .rf-summary .sum-total{ font-weight:700; color:#344767; }
+</style>

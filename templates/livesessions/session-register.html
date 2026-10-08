@@ -1,0 +1,120 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}
+The register for one session, and the place unnamed attendees get resolved.
+
+Students join Teams anonymously, so Graph reports whatever they typed into its
+name box. Most resolve automatically against the session roster (e-mail, UPN, a
+remembered alias, or their name). The stragglers land in "Not yet matched" —
+attaching one here also remembers it, so the same person matches by themselves
+from the next session onwards.
+{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+      <h3 class="mb-0">Register</h3>
+      <small class="text-muted">{{ meeting.title }}
+        {% if meeting.scheduled_start %} · {{ meeting.scheduled_start|date:"D j M Y, H:i" }}{% endif %}
+        {% if meeting.module %} · {{ meeting.module.label }}{% endif %}</small>
+    </div>
+    <a class="btn btn-light" href="{{ meeting.get_absolute_url }}"><i class="bi bi-arrow-left me-1"></i>Back to the session</a>
+  </div>
+
+  {% if unresolved %}
+  <div class="card border-warning mb-3">
+    <div class="card-header bg-transparent border-0 pb-0">
+      <h6 class="mb-1"><i class="bi bi-question-circle me-1 text-warning"></i>Not yet matched
+        <span class="badge bg-warning text-dark ms-1">{{ unresolved|length }}</span></h6>
+      <p class="text-muted small mb-0">Teams reported these attendees under a name or address we do not
+        recognise. Attach each one to a learner — we will remember it, and they will match
+        automatically in every future session.</p>
+    </div>
+    <div class="card-body">
+      {% for row in unresolved %}
+      <form method="post" action="{% url 'livesessions:resolve-attendee' meeting.pk %}"
+            class="row g-2 align-items-center mb-2">
+        {% csrf_token %}
+        <input type="hidden" name="label" value="{{ row.label }}">
+        <input type="hidden" name="seconds" value="{{ row.seconds }}">
+        {% for key in row.keys %}<input type="hidden" name="keys" value="{{ key }}">{% endfor %}
+        <div class="col-md-4">
+          <span class="fw-semibold">{{ row.label }}</span>
+          <br><small class="text-muted">{{ row.seconds|floatformat:0 }}s in the call</small>
+        </div>
+        <div class="col-md-5">
+          <select name="user" class="form-control form-select form-select-sm" required>
+            <option value="">— this is …… —</option>
+            {% for u in candidates %}
+              <option value="{{ u.pk }}">{{ u|person_name }}{% if u.email %} · {{ u.email }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-sm btn-primary w-100" type="submit">Attach &amp; remember</button>
+        </div>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="card"><div class="card-body">
+        <h6 class="mb-3">Attendance</h6>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Learner</th><th>Email</th><th>Time</th><th>%</th><th>Status</th><th>Source</th></tr></thead>
+            <tbody>
+            {% for r in records %}
+              <tr>
+                <td>{{ r.student|person_name }}</td>
+                <td class="small text-muted">{{ r.student.email }}</td>
+                <td>{{ r.minutes_attended }} min</td>
+                <td>{{ r.attended_pct }}%</td>
+                <td><span class="badge bg-{% if r.status == 'present' %}success{% elif r.status == 'late' %}warning{% elif r.status == 'excused' %}info{% else %}secondary{% endif %}">{{ r.get_status_display }}</span></td>
+                <td class="small text-muted">{{ r.get_source_display }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6" class="text-muted">
+                {% if session %}Nobody on the register yet.{% else %}This session has no register — only subject sessions take one.{% endif %}
+              </td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card"><div class="card-body">
+        <h6 class="mb-1">Joined from the learning platform</h6>
+        <p class="text-muted small">Recorded when each person clicked through — this is who we
+          <em>know</em> went in, independent of what they typed into Teams.</p>
+        <div class="list-group list-group-flush">
+          {% for j in joins %}
+            <div class="list-group-item d-flex justify-content-between align-items-start gap-2">
+              <span>
+                {{ j.display_name }}<br>
+                <small class="text-muted">{{ j.email }}{% if j.click_count > 1 %} · joined {{ j.click_count }}×{% endif %}</small>
+              </span>
+              <span class="text-nowrap">
+                {% if j.is_matched %}
+                  <span class="badge bg-success" title="Matched to the Teams report as “{{ j.matched_identity }}”">Matched</span>
+                {% else %}
+                  <span class="badge bg-secondary" title="Clicked through, but no Teams attendance record matched">Clicked only</span>
+                {% endif %}
+              </span>
+            </div>
+          {% empty %}
+            <p class="text-muted mb-0">Nobody has joined through the learning platform yet.</p>
+          {% endfor %}
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+</div></div>
+{% endblock %}

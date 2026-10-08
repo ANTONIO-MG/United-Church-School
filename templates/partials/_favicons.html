@@ -1,0 +1,11 @@
+{% load static %}
+{# ?v cache-busts favicons cached by browsers (bumped to v3 for the UCS crest); bump on change. #}
+{% if brand.favicon %}
+<link rel="icon" href="{% static brand.favicon %}?v=3">
+{% else %}
+<link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/icons/favicon-16.png' %}?v=3">
+<link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/icons/favicon-32.png' %}?v=3">
+<link rel="icon" type="image/png" sizes="192x192" href="{% static 'images/icons/favicon-192.png' %}?v=3">
+<link rel="icon" type="image/png" sizes="512x512" href="{% static 'images/icons/favicon-512.png' %}?v=3">
+{% endif %}
+<link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/icons/favicon-180.png' %}?v=3">

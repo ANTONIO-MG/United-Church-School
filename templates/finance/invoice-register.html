@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h3 class="mb-0">{{ page_title }}</h3>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:money-overview' %}"><i class="bi bi-graph-up me-1"></i>Financial overview</a>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-sm-4"><div class="card card-body"><div class="text-muted small">Billed</div><h4 class="mb-0">R{{ billed|floatformat:2 }}</h4></div></div>
+    <div class="col-sm-4"><div class="card card-body"><div class="text-muted small">Collected</div><h4 class="mb-0 text-success">R{{ collected|floatformat:2 }}</h4></div></div>
+    <div class="col-sm-4"><div class="card card-body"><div class="text-muted small">Outstanding</div><h4 class="mb-0 text-danger">R{{ outstanding|floatformat:2 }}</h4></div></div>
+  </div>
+
+  <form method="get" class="card card-body mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-3"><label class="form-label small mb-1">Search</label>
+        <input class="form-control form-control-sm" type="search" name="q" value="{{ sel.q }}" placeholder="Invoice no. or buyer"></div>
+      <div class="col-md-2"><label class="form-label small mb-1">Status</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">Any</option>
+          {% for value, label in STATUS_CHOICES %}<option value="{{ value }}" {% if sel.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select></div>
+      <div class="col-md-2"><label class="form-label small mb-1">School</label>
+        <select name="institution" class="form-select form-select-sm">
+          <option value="">All</option>
+          {% for i in institutions %}<option value="{{ i.pk }}" {% if sel.institution == i.pk|stringformat:"s" %}selected{% endif %}>{{ i.code }}</option>{% endfor %}
+        </select></div>
+      <div class="col-md-2"><label class="form-label small mb-1">Grade</label>
+        <select name="programme" class="form-select form-select-sm">
+          <option value="">All</option>
+          {% for p in programmes %}<option value="{{ p.pk }}" {% if sel.programme == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.institution.code }} · {{ p.name }}</option>{% endfor %}
+        </select></div>
+      <div class="col-md-2"><label class="form-label small mb-1">Subject</label>
+        <select name="module" class="form-select form-select-sm">
+          <option value="">All</option>
+          {% for m in modules %}<option value="{{ m.pk }}" {% if sel.module == m.pk|stringformat:"s" %}selected{% endif %}>{{ m.code }}</option>{% endfor %}
+        </select></div>
+      <div class="col-md-1"><button class="btn btn-sm btn-primary w-100">Filter</button></div>
+    </div>
+  </form>
+
+  <div class="card"><div class="card-body table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Invoice</th><th>Buyer</th><th>Items</th><th class="text-end">Total</th><th class="text-end">Paid</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td><a href="{% url 'finance:invoice-detail' row.invoice.pk %}"><strong>{{ row.invoice.number }}</strong></a>
+              <br><span class="text-muted small">{{ row.invoice.issue_date|date:"d M Y" }}</span></td>
+          <td>{{ row.invoice.bill_to_name }}<br><span class="text-muted small">{{ row.invoice.customer.email }}</span></td>
+          <td class="small">
+            {% comment %}A line need not have a product — a module fee is billed
+            straight onto the invoice — so never reach through it blindly.{% endcomment %}
+            {% for it in row.items %}{% if it.description %}{{ it.description }}{% elif it.product %}{{ it.product.name }}{% else %}Item{% endif %}{% if not forloop.last %}<br>{% endif %}{% empty %}<span class="text-muted">—</span>{% endfor %}
+          </td>
+          <td class="text-end">R{{ row.invoice.total|floatformat:2 }}</td>
+          <td class="text-end">R{{ row.paid|floatformat:2 }}</td>
+          <td><span class="badge bg-{% if row.invoice.status == 'paid' %}success{% elif row.invoice.status == 'overdue' %}danger{% else %}secondary{% endif %}">{{ row.invoice.get_status_display }}</span></td>
+          <td class="text-end text-nowrap">
+            {% comment %}Opening the PDF, marking it paid and attaching the proof are
+            the three things accounts actually do here, so they are one click each.{% endcomment %}
+            <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:invoice-detail' row.invoice.pk %}"><i class="bi bi-file-earmark-pdf"></i></a>
+            {% if row.invoice.status != 'paid' %}
+              <a class="btn btn-sm btn-outline-success" href="{% url 'finance:invoice-detail' row.invoice.pk %}#pay">Mark paid</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="text-muted">No invoices match those filters.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div>
+{% endblock %}

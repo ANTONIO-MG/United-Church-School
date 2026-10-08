@@ -1,0 +1,55 @@
+{% comment %}
+   Terms & Conditions — the single source of the wording.
+
+   Included by the sign-up modal (myhub/pages/page-register.html) and intended
+   for the full Terms page too, so the text a user agrees to at sign-up and the
+   text published on the site can never drift apart.
+
+   ⚠️  PLACEHOLDER — replace the sections below with your organisation's real
+   legal text before going live. When the wording changes materially, bump
+   TERMS_VERSION in apps/accounts/forms.py so existing consent records stay
+   attributable to the version that was actually accepted.
+
+   Brand strings come from .strings.json — see core.branding.
+{% endcomment %}
+<h6 class="mt-0">1. Who we are</h6>
+<p>These terms govern your use of {{ brand.name }}{% if brand.legal_name %} operated by {{ brand.legal_name }}{% endif %}
+   (“we”, “us”). By creating an account you agree to them. If you do not agree, do not create an account.</p>
+
+<h6>2. Your account</h6>
+<p>You must give accurate details and keep your password confidential. You are responsible for activity
+   under your account. You must verify your e-mail address before your account can be used. Tell us at
+   {{ brand.contact.email|default:brand.support_email }} if you believe your account has been accessed
+   without your permission.</p>
+
+<h6>3. Acceptable use</h6>
+<p>Do not misuse the service: no unlawful content, no attempts to gain unauthorised access, no disruption
+   of the platform or other users, and no sharing of class material you are not licensed to share.</p>
+
+<h6>4. School fees, payments and refunds</h6>
+<p>School fees, levies and any other charges, and the refund terms that apply to them, are set out in the
+   school's fee schedule and shown before you pay. Access to paid material may be withheld until payment clears.</p>
+
+<h6>5. Your data</h6>
+<p>We collect the details you give us at sign-up and registration, and use them to operate your account,
+   deliver the grades and subjects your learner is enrolled in, and contact you about them. We do not sell your personal
+   information. You may request access to, correction of, or deletion of your data at any time by
+   contacting {{ brand.contact.email|default:brand.support_email }}.</p>
+
+<h6>6. Intellectual property</h6>
+<p>Lesson materials, worksheets and other content remain our property or that of our licensors and are provided
+   for your personal study only.</p>
+
+<h6>7. Availability and liability</h6>
+<p>We aim to keep the service available but do not guarantee uninterrupted access. To the extent permitted
+   by law, our liability is limited to the fees you have paid us.</p>
+
+<h6>8. Ending your account</h6>
+<p>You may close your account from your settings at any time. We may suspend or close an account that
+   breaches these terms.</p>
+
+<h6>9. Changes</h6>
+<p>We may update these terms. Material changes will be notified and will require fresh acceptance.</p>
+
+<h6>10. Contact</h6>
+<p>Questions? {{ brand.contact.email|default:brand.support_email }}{% if brand.contact.phone %} · {{ brand.contact.phone }}{% endif %}</p>

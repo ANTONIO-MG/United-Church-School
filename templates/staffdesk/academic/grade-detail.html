@@ -1,0 +1,72 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}One grade: how it was computed, the override (if any), and the actions on it.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow"><a href="{% url 'staffdesk:grades' %}">Grades</a> · {{ grade.module.reference|default:"No subject" }}</span>
+      <h3>{{ grade.student|person_name }}</h3>
+      <p>{{ grade.student.email }} · updated {{ grade.computed_at|timesince }} ago</p></div>
+    <div class="tc-head__actions">
+      <form method="post" action="{% url 'staffdesk:grade-recompute' grade.pk %}">{% csrf_token %}
+        <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Recompute</button></form>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'reports:my-progress' %}?student={{ grade.student_id }}"><i class="bi bi-graph-up me-1"></i>Progress</a>
+      {% if certificate %}
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'reports:certificate' certificate.pk %}"><i class="bi bi-award me-1"></i>Certificate {{ certificate.number }}</a>
+      {% elif grade.passed and grade.module_id %}
+        <a class="btn btn-sm btn-primary" href="{% url 'staffdesk:certificate-issue' %}?student={{ grade.student_id }}&amp;module={{ grade.module_id }}"><i class="bi bi-award me-1"></i>Issue certificate</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if grade.is_overridden %}
+  <div class="tc-alert tc-alert--info mb-3"><i class="bi bi-pencil-square"></i>
+    <div><b>Overridden</b> to {{ grade.override_pct|floatformat:2 }}% by {{ grade.overridden_by|person_name|default:"a former user" }} on {{ grade.overridden_at|date:"j M Y, H:i" }}.
+      The marks compute to {{ grade.computed_pct|floatformat:2 }}%.<br><span class="small">Reason: {{ grade.override_reason }}</span></div></div>
+  {% endif %}
+
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Final mark</span><b>{{ grade.final_pct|floatformat:1 }}%</b><em>{% if grade.is_overridden %}override{% else %}computed{% endif %}</em></div>
+    <div class="tc-kpi"><span>Grade</span><b class="{% if grade.passed %}text-success{% else %}text-danger{% endif %}">{{ grade.letter|default:"—" }}</b><em>{% if grade.passed %}pass{% else %}not passed{% endif %}{% if weighting %} · pass mark {{ weighting.pass_mark_pct }}%{% endif %}</em></div>
+    <div class="tc-kpi"><span>Class position</span><b>{% if grade.class_position %}{{ grade.class_position }} / {{ grade.cohort_size }}{% else %}—{% endif %}</b><em>{% if grade.cohort_size %}average {{ grade.cohort_average|floatformat:1 }}%{% else %}not ranked{% endif %}</em></div>
+    <div class="tc-kpi"><span>Study hours</span><b>{{ grade.study_hours|floatformat:1 }}</b><em>in this subject</em></div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="tc-card h-100">
+        <div class="tc-card__head"><h6>How it was computed</h6>
+          {% if grade.module_id %}<a class="tc-link" href="{% url 'staffdesk:weighting-edit' grade.module_id %}">Weighting</a>{% endif %}</div>
+        <div class="tc-card__body">
+          {% for name, pct in components %}
+            <div class="sda-bar"><span>{{ name|capfirst }}</span><div class="sda-bar__track"><i style="width:{{ pct|floatformat:0 }}%"></i></div><b>{{ pct|floatformat:1 }}%</b></div>
+          {% empty %}<p class="text-muted small mb-0">No marked work yet — every component is empty.</p>{% endfor %}
+          {% if grade.extra_credit_pct %}<p class="small text-muted mt-2 mb-0">Includes {{ grade.extra_credit_pct }}% extra credit.</p>{% endif %}
+          {% if weighting %}<p class="small text-muted mt-2 mb-0">Weights: assignments {{ weighting.assignments_pct }}% · quizzes {{ weighting.quizzes_pct }}% · tests {{ weighting.tests_pct }}% · exams {{ weighting.exams_pct }}% · tasks {{ weighting.tasks_pct }}%. Empty components are left out and the rest re-weighted.</p>
+          {% else %}<p class="small text-muted mt-2 mb-0">This subject uses the default weighting.</p>{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="tc-card h-100">
+        <div class="tc-card__head"><h6>{% if grade.is_overridden %}Change the override{% else %}Override the final mark{% endif %}</h6></div>
+        <div class="tc-card__body">
+          <form method="post" action="{% url 'staffdesk:grade-override' grade.pk %}">{% csrf_token %}
+            <div class="mb-2"><label class="form-label" for="id_value">{{ form.value.label }}</label>
+              <input id="id_value" class="form-control" type="number" name="value" step="0.01" min="0" max="100" required value="{{ form.value.value|default_if_none:''|stringformat:'s' }}"></div>
+            <div class="mb-2"><label class="form-label" for="id_reason">{{ form.reason.label }}</label>
+              <textarea id="id_reason" class="form-control" name="reason" rows="3" required>{{ form.reason.value|default_if_none:'' }}</textarea>
+              <div class="form-text">{{ form.reason.help_text }} Recomputing keeps the override until you clear it.</div></div>
+            <button class="btn btn-primary btn-sm"><i class="bi bi-check2 me-1"></i>Save override</button>
+          </form>
+          {% if grade.is_overridden %}
+          <form method="post" action="{% url 'staffdesk:grade-override-clear' grade.pk %}" class="mt-2">{% csrf_token %}
+            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-x-lg me-1"></i>Clear override — use the computed {{ grade.computed_pct|floatformat:1 }}%</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

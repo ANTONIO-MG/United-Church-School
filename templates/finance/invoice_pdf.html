@@ -1,0 +1,237 @@
+{% load static humanize org_branding %}{% org_string "school.registration" "" as school_registration %}{% org_string "school.memberships" "" as school_memberships %}
+{% comment %}Invoice PDF — a reproduction of the original invoice template PDF.
+
+Measurements come from that file's content stream; keep them if you edit.
+  page          612 x 792pt (US Letter), text margin 21.5pt
+  logo          left 21.5pt, top 25pt — the wide UCS crest + wordmark (801x240), 230pt x 69pt
+  full rules    y 635.76 and y 439.44, edge to edge, #DEE1E2
+  items band    y 515.24, 26.36pt tall, full bleed, #34CAFB
+  columns       Items 0-263.34 | Quantity -379.56 | Price -495.78 | Amount -612
+  amount due    #F4F5F5 band, body 10pt on ~12.5pt leading
+
+Rendered by apps.finance.pdf through xhtml2pdf, which supports a narrow slice of
+CSS — no flexbox, no grid, no real positioning, and block elements arrive with
+margins that wreck a tight stack. Hence the reset below and the tables: use
+those before anything cleverer, or it will quietly render wrong.
+
+Page margin is 0 so the items band and the two rules can run edge to edge;
+every other block carries its own 21.5pt side padding.{% endcomment %}<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page {
+    size: letter;
+    margin: 0;
+    @frame content_frame { left: 0pt; top: 25pt; width: 612pt; height: 695pt; }
+    @frame footer_frame  { -pdf-frame-content: footerContent;
+                           left: 0pt; top: 730pt; width: 612pt; height: 50pt; }
+  }
+  body { font-family: Helvetica, Arial, sans-serif; color: #000; font-size: 10pt; }
+  div, p, h1, table { margin: 0; padding: 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { vertical-align: top; padding: 0; }
+
+  .pad  { padding-left: 21.5pt; padding-right: 21.5pt; }
+  .r    { text-align: right; }
+  .c    { text-align: center; }
+  .b    { font-weight: bold; }
+  .line { line-height: 12.5pt; }
+
+  .title { font-size: 30pt; line-height: 30pt; }
+  .muted { color: #67748e; }
+  .rule  { background-color: #DEE1E2; height: 1pt; font-size: 1pt; line-height: 1pt; }
+
+  .items th { background-color: #34CAFB; font-weight: bold; font-size: 10pt;
+              padding-top: 8pt; padding-bottom: 8pt; }
+  .items td { padding-top: 7pt; line-height: 12.5pt; }
+
+  .totals td  { padding-top: 5pt; padding-bottom: 5pt; line-height: 12.5pt; }
+  .shade      { background-color: #F4F5F5; }
+  .footer     { text-align: center; color: #67748e; font-size: 8pt; line-height: 11pt; }
+</style>
+</head>
+<body>
+
+  {# ---- Header: logo left; INVOICE and who we are, right-aligned ---- #}
+  <table>
+    <tr>
+      <td style="width:280pt; padding-left:21.5pt;">
+        <img src="{% static brand.logo_wide|default:'images/brand/ucs-logo.png' %}"
+             style="width:230pt; height:69pt;" alt="">
+      </td>
+      <td class="r line" style="padding-right:21.5pt;">
+        <div class="title">{% if kind == 'estimate' %}ESTIMATE{% elif invoice.is_tax_invoice %}TAX INVOICE{% else %}INVOICE{% endif %}</div>
+        {% if invoice.summary %}<div class="muted" style="padding-top:4pt;">{{ invoice.summary }}</div>{% endif %}
+        <div class="b" style="padding-top:14pt;">{{ brand.invoice_name|default:brand.name }}</div>
+        {% if invoice.is_tax_invoice and vat_number %}<div>VAT No. {{ vat_number }}</div>{% endif %}
+        <div>{{ brand.contact.email }}</div>
+        {% for addr in brand.contact.address_lines %}<div>{{ addr }}</div>{% endfor %}
+      </td>
+    </tr>
+  </table>
+
+  <div class="rule" style="margin-top:20pt;">&nbsp;</div>
+
+  {# ---- Who is being billed, and the invoice's own facts ---- #}
+  <table style="margin-top:12pt;">
+    <tr>
+      <td style="width:300pt; padding-left:21.5pt;" class="line">
+        <div class="muted">BILL TO</div>
+        <div class="b">{{ invoice.bill_to_name }}</div>
+        {% if phone %}<div style="padding-top:12pt;">{{ phone }}</div>{% endif %}
+        <div>{{ invoice.customer.email }}</div>
+      </td>
+      <td style="padding-right:21.5pt;">
+        <table>
+          <tr>
+            <td class="b r" style="width:57%; padding-bottom:3pt;">{% if kind == 'estimate' %}Estimate{% else %}Invoice{% endif %} Number:&nbsp;</td>
+            <td style="padding-bottom:3pt;">{{ invoice.number }}</td>
+          </tr>
+          <tr>
+            <td class="b r" style="padding-bottom:3pt;">{% if kind == 'estimate' %}Estimate{% else %}Invoice{% endif %} Date:&nbsp;</td>
+            <td style="padding-bottom:3pt;">{{ invoice.issue_date|date:"F j, Y" }}</td>
+          </tr>
+          {% if invoice.po_number %}
+          <tr>
+            <td class="b r" style="padding-bottom:3pt;">P.O./S.O. Number:&nbsp;</td>
+            <td style="padding-bottom:3pt;">{{ invoice.po_number }}</td>
+          </tr>
+          {% endif %}
+          {% if kind == 'estimate' %}
+          {% if invoice.valid_until %}
+          <tr>
+            <td class="b r" style="padding-bottom:3pt;">Valid Until:&nbsp;</td>
+            <td style="padding-bottom:3pt;">{{ invoice.valid_until|date:"F j, Y" }}</td>
+          </tr>
+          {% endif %}
+          <tr class="shade">
+            <td class="b r" style="padding-top:4pt; padding-bottom:4pt;">Grand Total (ZAR):&nbsp;</td>
+            <td class="b" style="padding-top:4pt; padding-bottom:4pt;">R{{ invoice.total|floatformat:2|intcomma }}</td>
+          </tr>
+          {% else %}
+          {% if invoice.due_date %}
+          <tr>
+            <td class="b r" style="padding-bottom:3pt;">Payment Due:&nbsp;</td>
+            <td style="padding-bottom:3pt;">{{ invoice.due_date|date:"F j, Y" }}</td>
+          </tr>
+          {% endif %}
+          <tr class="shade">
+            <td class="b r" style="padding-top:4pt; padding-bottom:4pt;">Amount Due (ZAR):&nbsp;</td>
+            <td class="b" style="padding-top:4pt; padding-bottom:4pt;">R{{ invoice.balance|floatformat:2|intcomma }}</td>
+          </tr>
+          {% endif %}
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  {# ---- Items: one row per subject or product, never rolled up ---- #}
+  <table class="items" style="margin-top:24pt;">
+    <thead>
+      <tr>
+        <th class="b"   style="width:263pt; padding-left:21.5pt; text-align:left;">Items</th>
+        <th class="c b" style="width:116pt;">Quantity</th>
+        <th class="r b" style="width:116pt;">Price</th>
+        <th class="r b" style="width:117pt; padding-right:21.5pt;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for it in items %}
+      <tr>
+        <td style="padding-left:21.5pt;"><span class="b">{{ it.description }}</span>{% if it.detail %}<br><span class="muted">{{ it.detail }}{% if it.discount_amount %} (−R{{ it.discount_amount|floatformat:2|intcomma }}){% endif %}</span>{% endif %}</td>
+        <td class="c">{{ it.quantity }}</td>
+        <td class="r">R{{ it.unit_price|floatformat:2|intcomma }}</td>
+        <td class="r" style="padding-right:21.5pt;">R{{ it.amount|floatformat:2|intcomma }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" style="padding-left:21.5pt;">No items.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="rule" style="margin-top:16pt;">&nbsp;</div>
+
+  {# ---- Totals ---- #}
+  <table class="totals" style="margin-top:8pt;">
+    {% if invoice.discount_total %}
+    <tr>
+      <td style="width:62%; padding-left:21.5pt;"></td>
+      <td class="b r" style="width:16%;">Subtotal:&nbsp;</td>
+      <td class="r" style="width:16%; padding-right:21.5pt;">R{{ gross_subtotal|floatformat:2|intcomma }}</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td class="b r">Discount:&nbsp;</td>
+      <td class="r" style="padding-right:21.5pt;">−R{{ invoice.discount_total|floatformat:2|intcomma }}</td>
+    </tr>
+    {% endif %}
+    <tr>
+      <td style="width:62%; padding-left:21.5pt;"></td>
+      <td class="b r" style="width:16%;">Total:&nbsp;</td>
+      <td class="r" style="width:16%; padding-right:21.5pt;">R{{ invoice.total|floatformat:2|intcomma }}</td>
+    </tr>
+    {% if invoice.is_tax_invoice %}
+    <tr>
+      <td></td>
+      <td class="r muted">{% if invoice.tax_inclusive %}Incl. VAT{% else %}VAT{% endif %} {{ invoice.tax_rate|floatformat:"-2" }}%:&nbsp;</td>
+      <td class="r muted" style="padding-right:21.5pt;">R{{ invoice.tax_amount|floatformat:2|intcomma }}</td>
+    </tr>
+    {% endif %}
+    {% if kind != 'estimate' and invoice.amount_paid %}
+    <tr>
+      <td></td>
+      <td class="b r">Paid:&nbsp;</td>
+      <td class="r" style="padding-right:21.5pt;">R{{ invoice.amount_paid|floatformat:2|intcomma }}</td>
+    </tr>
+    {% endif %}
+    {% if kind == 'estimate' %}<tr>
+      <td></td>
+      <td class="b r" style="border-top:1pt solid #DEE1E2;">Grand Total (ZAR):&nbsp;</td>
+      <td class="b r" style="border-top:1pt solid #DEE1E2; padding-right:21.5pt;">R{{ invoice.total|floatformat:2|intcomma }}</td>
+    </tr>{% else %}<tr>
+      <td></td>
+      <td class="b r" style="border-top:1pt solid #DEE1E2;">Amount Due (ZAR):&nbsp;</td>
+      <td class="b r" style="border-top:1pt solid #DEE1E2; padding-right:21.5pt;">R{{ invoice.balance|floatformat:2|intcomma }}</td>
+    </tr>{% endif %}
+  </table>
+
+  {# ---- Notes / Terms: how to pay, and what to put in the reference ---- #}
+  {# padding on a bare <div> is ignored here, so the inset comes from a cell. #}
+  <table style="margin-top:34pt;">
+    <tr><td class="line" style="padding-left:21.5pt; padding-right:21.5pt;">
+    <div class="b">Notes / Terms</div>
+    {% if invoice.notes %}<div style="padding-top:5pt;">{{ invoice.notes|linebreaksbr }}</div>{% endif %}
+    {% if kind != 'estimate' %}
+    <div class="muted" style="padding-top:5pt;">
+      Bank Details: {{ brand.banking.account_name }}, {{ brand.banking.bank }},
+      Acc Number {{ brand.banking.account_number }},
+      Branch Code {{ brand.banking.branch_code }}
+    </div>
+    {% comment %}An EFT reaches the bank as an amount and one free-text string.
+    Unless the payer's name and the invoice number travel together in it, matching
+    the deposit back to a student is manual work — so we spell out the reference.
+    {% endcomment %}
+    <div style="padding-top:8pt;">
+      <span class="b">Payment reference:</span> {{ invoice.payment_reference }}
+    </div>
+    <div class="muted" style="padding-top:3pt;">
+      Please use exactly this reference so your payment is matched to your account.
+    </div>
+    {% if brand.banking.reference_hint %}<div class="muted" style="padding-top:3pt;">{{ brand.banking.reference_hint }}</div>{% endif %}
+    {% else %}<div class="muted" style="padding-top:5pt;">This estimate is valid until {{ invoice.valid_until|date:"F j, Y" }}. Prices include VAT where shown.</div>{% endif %}
+    {% if invoice.footer %}<div class="muted" style="padding-top:8pt;">{{ invoice.footer }}</div>{% endif %}
+    </td></tr>
+  </table>
+
+  {# ---- Footer, pinned by its own frame ---- #}
+  <div id="footerContent" class="footer">
+    <img src="{% static brand.logo|default:'images/brand/ucs-mark.png' %}"
+         style="width:16pt; height:16pt;" alt="">
+    <div>{{ brand.legal_name|default:brand.invoice_name|default:brand.name }}</div>
+    {% if school_registration %}<div>{{ school_registration }}</div>{% endif %}
+    {% if school_memberships %}<div>{{ school_memberships }}</div>{% endif %}
+  </div>
+
+</body>
+</html>

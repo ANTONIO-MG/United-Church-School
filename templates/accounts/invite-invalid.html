@@ -1,0 +1,33 @@
+{% extends 'soft_ui/auth_base.html' %}
+{% block title %}Invite · {{ brand.name|default:"United Church School" }}{% endblock %}
+{% block card_col %}col-xl-5 col-lg-7 col-md-9{% endblock %}
+{% block oblique %}{% endblock %}
+
+{% block auth_card %}
+<div class="card mt-7 mb-4 shadow-lg">
+  <div class="card-body p-4 text-center">
+    {% if email_taken %}
+      {# The invited address already signs somebody in. One address, one account — #}
+      {# usually the student typed their own address, or a second parent re-used the first's. #}
+      <div style="font-size:2.6rem; line-height:1">📧</div>
+      <h4 class="font-weight-bolder text-dark mb-2">That e-mail address is already in use</h4>
+      <p class="text-sm text-muted mb-3">
+        <strong>{{ invite.email }}</strong> already signs in to {{ brand.name|default:"United Church School" }} as
+        {{ existing_role|lower }}. Every account needs its own e-mail address, so this invite
+        cannot create a second one.
+      </p>
+      <p class="text-sm text-muted mb-3">
+        If you are the parent or guardian, ask your student to send the invite to
+        <em>your own</em> address. If this <em>is</em> your address and you already have an
+        account, just sign in — your link to the student will be waiting.
+      </p>
+      <a href="{% url 'myhub:page-login' %}" class="btn bg-gradient-info mb-0">Sign in instead</a>
+    {% else %}
+      <div style="font-size:2.6rem; line-height:1">⚠️</div>
+      <h4 class="font-weight-bolder text-dark mb-2">This invite link is no longer valid</h4>
+      <p class="text-sm text-muted mb-3">It may have already been used, or been revoked. If you think this is a mistake, ask whoever invited you to send a fresh link.</p>
+      <a href="{% url 'myhub:page-login' %}" class="btn bg-gradient-info mb-0">Go to sign in</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

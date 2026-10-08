@@ -1,0 +1,33 @@
+{% load commerce %}
+{% comment %}Order summary card shared by cart and checkout. Context: quote, typed_coupon; show_coupon toggles the code box.{% endcomment %}
+<div class="tc-card tc-summary">
+  <div class="tc-card__head"><h5>Order summary</h5></div>
+  <div class="tc-card__body">
+    {% if show_coupon %}
+      {% if quote.coupon %}
+        <form method="post" action="{% url 'shop:apply-coupon' %}" class="tc-applied mb-3">
+          {% csrf_token %}<input type="hidden" name="action" value="remove"><input type="hidden" name="next" value="{{ request.path }}">
+          <span><i class="bi bi-ticket-perforated me-1"></i>{{ quote.coupon.code }} · {{ quote.coupon.name }}</span>
+          <button class="btn btn-sm btn-link p-0 text-reset" aria-label="Remove coupon"><i class="bi bi-x-lg"></i></button>
+        </form>
+      {% else %}
+        <form method="post" action="{% url 'shop:apply-coupon' %}" class="mb-3">
+          {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+          <label class="form-label" for="couponCode">Coupon code</label>
+          <div class="tc-coupon">
+            <input id="couponCode" name="code" class="form-control form-control-sm" value="{{ typed_coupon }}" autocomplete="off" placeholder="e.g. UCS10">
+            <button class="btn btn-sm btn-outline-primary">Apply</button>
+          </div>
+          {% if typed_coupon and quote.coupon_error %}<div class="tc-field-error">{{ quote.coupon_error }}</div>{% endif %}
+        </form>
+      {% endif %}
+    {% endif %}
+    <div class="tc-totals">
+      <div><span>Subtotal</span><span>{{ quote.subtotal|rand }}</span></div>
+      {% if quote.discount %}<div class="is-saving"><span>Discounts</span><span>−{{ quote.discount|rand }}</span></div>{% endif %}
+      {% if quote.shipping %}<div><span>Delivery</span><span>{{ quote.shipping|rand }}</span></div>{% elif has_shipped %}<div class="is-muted"><span>Delivery</span><span>Chosen at checkout</span></div>{% endif %}
+      <div class="is-total"><span>Total</span><span>{{ quote.total|rand }}</span></div>
+      {% if quote.vat %}<div class="is-muted"><span>Includes VAT</span><span>{{ quote.vat|rand }}</span></div>{% endif %}
+    </div>
+  </div>
+</div>

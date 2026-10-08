@@ -1,0 +1,35 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Meetings list — video/audio calls & class sessions (A/V via embedded Jitsi).{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">{{ page_title }}</h3>
+    <a href="{% url 'communication:meeting-create' %}" class="btn btn-primary">+ Schedule a meeting</a>
+  </div>
+
+  <div class="card"><div class="card-body table-responsive">
+    <table class="table">
+      <thead><tr><th>Title</th><th>When</th><th>Group</th><th>Host</th><th>Share link</th><th></th></tr></thead>
+      <tbody>
+      {% for m in meetings %}
+        <tr>
+          <td>
+            <strong>{{ m.title }}</strong>
+            {% if m.is_live_now %}<span class="badge bg-success ms-1">Live</span>{% elif m.is_upcoming %}<span class="badge bg-info ms-1">Upcoming</span>{% endif %}
+            {% if m.is_recurring %}<span class="badge bg-secondary ms-1">{{ m.get_recurrence_display }}</span>{% endif %}
+          </td>
+          <td>{{ m.scheduled_start|default:"—" }}{% if m.scheduled_end %} → {{ m.scheduled_end|time }}{% endif %}</td>
+          <td>{{ m.group.display_name|default:"—" }}</td>
+          <td>{{ m.host.get_username|default:"—" }}</td>
+          <td><input class="form-control form-control-sm" readonly onclick="this.select()" value="{{ request.scheme }}://{{ request.get_host }}{{ m.get_join_url }}"></td>
+          <td><a class="btn btn-sm btn-primary" href="{{ m.get_join_url }}">Join</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-muted">No meetings scheduled yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div></div>
+{% endblock %}

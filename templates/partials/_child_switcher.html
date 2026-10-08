@@ -1,0 +1,24 @@
+{% load people %}{% comment %}
+Child switcher for parent pages.
+
+Renders nothing unless the signed-in user is a parent with more than one linked
+student — a guardian with a single child never sees a control asking them to pick
+the only option there is. Every page that shows a child's data reads the same
+``?student=`` parameter, resolved through core.scoping.viewing_child, so the
+selection is enforced server-side and carries across pages.
+
+Context: ``children`` (User queryset) and ``child`` (the one being viewed), both
+supplied to every template by the ``user_roles`` context processor.
+{% endcomment %}
+{% if is_parent and children and children|length > 1 %}
+<form method="get" class="d-flex align-items-center gap-2">
+  <label for="childPick" class="small text-muted mb-0">Viewing</label>
+  <select id="childPick" name="student" class="form-select form-select-sm" style="width:auto"
+          onchange="this.form.submit()">
+    {% for c in children %}
+    <option value="{{ c.id }}" {% if child and c.id == child.id %}selected{% endif %}>
+      {{ c|person_name }}</option>
+    {% endfor %}
+  </select>
+</form>
+{% endif %}

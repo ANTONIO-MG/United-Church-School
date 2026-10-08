@@ -1,0 +1,83 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static commerce %}
+{% comment %}1-on-1 sessions. Students: theirs, with join + reschedule. Educators:
+the ones they teach, with cancel (the student is credited). Staff: everything.{% endcomment %}
+
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Shop</span><h3>1-on-1 sessions</h3>
+      <p>{% if view == 'teaching' %}Sessions students have booked with you.{% elif view == 'all' %}Every booked session.{% else %}Your booked sessions with educators.{% endif %}</p></div>
+    <div class="tc-head__actions">
+      {% if is_educator or is_staff %}
+        <div class="btn-group btn-group-sm" role="group" aria-label="Whose sessions">
+          {% if is_educator %}<a class="btn {% if view == 'teaching' %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="?view=teaching">Teaching</a>{% endif %}
+          <a class="btn {% if view == 'mine' %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="?view=mine">Booked by me</a>
+          {% if is_staff %}<a class="btn {% if view == 'all' %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="?view=all">All</a>{% endif %}
+        </div>
+      {% endif %}
+      <a class="btn btn-sm btn-primary" href="{% url 'shop:storefront' %}?aisle=sessions"><i class="bi bi-plus-lg me-1"></i>Book a session</a>
+    </div>
+  </div>
+
+  {% if credit %}
+  <div class="tc-applied mb-3"><span><i class="bi bi-wallet2 me-1"></i>You have {{ credit|rand }} account credit — it's offered at checkout on your next purchase.</span></div>
+  {% endif %}
+
+  <div class="tc-card">
+    <div class="tc-card__head"><h5>Upcoming</h5></div>
+    <div class="tc-card__body">
+      {% for b in upcoming %}
+        <div class="tc-line" style="grid-template-columns:auto 1fr auto">
+          <span class="tc-when"><small>{{ b.start|date:"M" }}</small><b>{{ b.start|date:"j" }}</b><small>{{ b.start|date:"D" }}</small></span>
+          <div>
+            <div class="tc-line__name">{{ b.product.name }}</div>
+            <div class="tc-line__sub">
+              <span><i class="bi bi-clock me-1"></i>{{ b.start|time:"H:i" }}–{{ b.end|time:"H:i" }} · {{ b.minutes }} min</span>
+              <span><i class="bi bi-person me-1"></i>{% if view == 'teaching' %}{{ b.student|person_name }}{% elif view == 'all' %}{{ b.student|person_name }} with {{ b.educator }}{% else %}{{ b.educator }}{% endif %}</span>
+              {% if b.status == 'held' %}<span class="tc-chip tc-chip--warning">Awaiting payment</span>{% else %}<span class="tc-chip tc-chip--success">Confirmed</span>{% endif %}
+            </div>
+            {% if b.note and view != 'mine' %}<div class="small text-muted mt-1"><i class="bi bi-chat-left-text me-1"></i>{{ b.note|truncatechars:160 }}</div>{% endif %}
+          </div>
+          <div class="d-flex flex-wrap gap-1 justify-content-end">
+            {% if b.meeting and b.status == 'confirmed' %}<a class="btn btn-sm btn-primary" href="{{ b.meeting.get_absolute_url }}"><i class="bi bi-camera-video me-1"></i>Join</a>{% endif %}
+            {% if b.status == 'confirmed' %}
+              {% if b.can_reschedule or is_staff %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'shop:product-detail' b.product.pk %}?reschedule={{ b.pk }}#book">Reschedule</a>
+              {% elif view == 'mine' %}<span class="small text-muted align-self-center">Too close to move</span>{% endif %}
+            {% endif %}
+            {% if is_staff or view == 'teaching' %}
+              <form method="post" action="{% url 'shop:cancel-booking' b.pk %}" onsubmit="var r = prompt('Reason for cancelling (the student sees this)'); if (r === null) { return false; } this.reason.value = r; return true;">
+                {% csrf_token %}<input type="hidden" name="reason" value=""><input type="hidden" name="view" value="{{ view }}">
+                <button class="btn btn-sm btn-link text-danger">Cancel &amp; credit</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      {% empty %}
+        <div class="tc-empty"><i class="bi bi-calendar2-week"></i><h5>No upcoming sessions</h5><p class="mb-0"><a href="{% url 'shop:storefront' %}?aisle=sessions">Book time with an educator</a></p></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if past %}
+  <div class="tc-card">
+    <div class="tc-card__head"><h5>Past &amp; cancelled</h5></div>
+    <div class="tc-table-wrap"><table class="tc-table">
+      <thead><tr><th>When</th><th>Session</th><th>With</th><th>Status</th><th class="r">Price</th></tr></thead>
+      <tbody>
+        {% for b in past %}
+        <tr>
+          <td class="small">{{ b.start|date:"j M Y, H:i" }}</td><td>{{ b.product.name }}</td>
+          <td class="small">{% if view == 'teaching' %}{{ b.student|person_name }}{% else %}{{ b.educator }}{% endif %}</td>
+          <td>{% if b.status == 'cancelled' %}<span class="tc-chip tc-chip--danger" title="{{ b.cancelled_reason }}">Cancelled</span>{% else %}<span class="tc-chip">{{ b.get_status_display }}</span>{% endif %}</td>
+          <td class="r">{{ b.price|rand }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+  {% endif %}
+</div></div>
+{% endblock %}

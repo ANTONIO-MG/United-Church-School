@@ -1,0 +1,85 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}Certificates: everything issued, with issue / regenerate / revoke / reinstate.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk · Academic</span><h3>Certificates</h3>
+      <p>Every certificate issued. Revoking keeps the record, and the public verify page then says it was withdrawn.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-primary" href="{% url 'staffdesk:certificate-issue' %}"><i class="bi bi-plus-lg me-1"></i>Issue certificate</a>
+    </div>
+  </div>
+
+  {% include 'staffdesk/academic/_grades_nav.html' with here='certificates' %}
+
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Valid</span><b>{{ counts.valid }}</b><em>in this view</em></div>
+    <div class="tc-kpi"><span>Revoked</span><b class="{% if counts.revoked %}text-danger{% endif %}">{{ counts.revoked }}</b><em>withdrawn</em></div>
+    <div class="tc-kpi"><span>Issued this month</span><b>{{ issued_month }}</b><em>all kinds</em></div>
+  </div>
+
+  <form method="get" class="tc-toolbar"><input type="hidden" name="tab" value="{{ tab }}">
+    <label class="visually-hidden" for="cKind">Kind</label>
+    <select id="cKind" name="kind" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">All kinds</option>
+      {% for value, label in kinds %}<option value="{{ value }}" {% if value == kind %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <label class="visually-hidden" for="cSearch">Search</label>
+    <input id="cSearch" class="form-control form-control-sm tc-search" type="search" name="q" value="{{ search }}" placeholder="Number, title or student">
+    <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i><span class="visually-hidden">Search</span></button>
+  </form>
+
+  <nav class="tc-aisles" aria-label="Status">
+    <a class="tc-aisle {% if tab == 'valid' %}is-active{% endif %}" href="?{{ filter_query }}{% if filter_query %}&amp;{% endif %}tab=valid">Valid<span class="tc-count">{{ counts.valid }}</span></a>
+    <a class="tc-aisle {% if tab == 'revoked' %}is-active{% endif %}" href="?{{ filter_query }}{% if filter_query %}&amp;{% endif %}tab=revoked">Revoked<span class="tc-count">{{ counts.revoked }}</span></a>
+    <a class="tc-aisle {% if tab == 'all' %}is-active{% endif %}" href="?{{ filter_query }}{% if filter_query %}&amp;{% endif %}tab=all">All<span class="tc-count">{{ counts.all }}</span></a>
+  </nav>
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>Number</th><th>Student</th><th>Award</th><th class="r">Mark</th><th class="d-none d-md-table-cell">Issued</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for c in page %}
+        <tr>
+          <td class="text-nowrap"><a class="fw-semibold" href="{% url 'reports:certificate' c.pk %}">{{ c.number }}</a></td>
+          <td>{{ c.student|person_name }}<div class="small text-muted">{{ c.student.email }}</div></td>
+          <td class="small">{{ c.title }}<div class="text-muted">{{ c.get_kind_display }}{% if c.module %} · {{ c.module.reference }}{% endif %}</div></td>
+          <td class="r">{{ c.final_mark|floatformat:0 }}%</td>
+          <td class="d-none d-md-table-cell small text-muted">{{ c.issued_at|date:"j M Y" }}</td>
+          <td>{% if c.is_revoked %}<span class="tc-chip tc-chip--danger" title="{{ c.revoked_reason }}">Revoked {{ c.revoked_at|date:"j M" }}</span>{% else %}<span class="tc-chip tc-chip--success">Valid</span>{% endif %}</td>
+          <td class="r">
+            <div class="dropdown">
+              <button class="btn btn-sm tc-btn-soft dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>
+              <div class="dropdown-menu dropdown-menu-end p-2 sda-menu">
+                <a class="dropdown-item" href="{% url 'reports:certificate' c.pk %}"><i class="bi bi-eye me-2"></i>View</a>
+                <a class="dropdown-item" href="{% url 'reports:certificate-pdf' c.pk %}"><i class="bi bi-file-earmark-pdf me-2"></i>Download PDF</a>
+                <a class="dropdown-item" href="{% url 'reports:verify' c.verification_uuid %}" target="_blank" rel="noopener"><i class="bi bi-patch-check me-2"></i>Verify page</a>
+                <form method="post" action="{% url 'staffdesk:certificate-regenerate' c.pk %}">{% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button class="dropdown-item"><i class="bi bi-arrow-clockwise me-2"></i>Regenerate</button></form>
+                <div class="dropdown-divider"></div>
+                {% if c.is_revoked %}
+                <form method="post" action="{% url 'staffdesk:certificate-reinstate' c.pk %}">{% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button class="dropdown-item text-success"><i class="bi bi-arrow-counterclockwise me-2"></i>Reinstate</button></form>
+                {% else %}
+                <form method="post" action="{% url 'staffdesk:certificate-revoke' c.pk %}" class="px-1">{% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <label class="form-label small mb-1" for="rv{{ c.pk }}">Reason for revoking</label>
+                  <textarea id="rv{{ c.pk }}" name="reason" class="form-control form-control-sm mb-2" rows="2" required></textarea>
+                  <button class="btn btn-sm btn-outline-danger w-100"><i class="bi bi-x-octagon me-1"></i>Revoke</button></form>
+                {% endif %}
+              </div>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7"><div class="tc-empty"><i class="bi bi-award"></i><h5>No certificates here</h5></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% include 'staffdesk/academic/_pager.html' %}
+</div></div>
+{% endblock %}

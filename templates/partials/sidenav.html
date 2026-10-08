@@ -1,0 +1,403 @@
+{% load people %}{% load static %}
+{% comment %}Sidebar navigation.
+
+Styled by css/sidenav.css to match the MyHub dashboard: Inter, the dashboard's
+ink black for labels and a single blue for every icon and the active state — no
+per-item colour rainbow. Icons are the same Bootstrap Icons the dashboard cards
+use, so a section reads the same in both places.
+
+Sections are role-scoped by the flags from core.roles (via the user_roles context
+processor). Educator and admin sections group their links into collapsible
+sub-menus so a long teaching list stays scannable.
+{% endcomment %}
+<nav class="navbar navbar-expand-lg mx-0 dash-side">
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasSideNavbar">
+        <div class="offcanvas-header">
+            {% include 'myhub/elements/nav-header.html' %}   {# drawer brand #}
+            <button type="button" class="btn-close text-reset ms-auto" data-bs-dismiss="offcanvas"
+                aria-label="Close"></button>
+        </div>
+
+        <div class="offcanvas-body d-block px-2 px-lg-0">
+            <div class="card overflow-hidden">
+                <div class="h-50px"
+                    style="background-image:url({% static 'images/bg/01.jpg' %}); background-position: center; background-size: cover; background-repeat: no-repeat;">
+                </div>
+
+                <div class="card-body pt-0">
+                    <div class="text-center">
+                        <div class="avatar avatar-lg mt-n5 mb-3">
+                            <a href="/community/profile/"><img class="avatar-img rounded border border-white border-3"
+                                    src="{% if account_stats.profile.avatar_url %}{{ account_stats.profile.avatar_url }}{% else %}{% static 'images/avatar/default-neutral.svg' %}{% endif %}" alt=""></a>
+                        </div>
+                        <h5 class="side-name mb-0"><a href="/community/profile/">{{ account_stats.profile.name|default:request.user|person_name|default:"Guest" }}</a></h5>
+                        <span class="side-role">{{ account_stats.profile.title|default:"Member" }}</span>
+
+                        {% comment %}The three numbers a candidate should be able to
+                        answer at a glance: what they are carrying, how far through
+                        the year's tests and exams they are, and whether that is
+                        enough for the one coming. Built by
+                        apps.accounts.context_processors._study_tiles.{% endcomment %}
+                        <div class="hstack gap-2 gap-xl-3 justify-content-center mt-3">
+                            <a class="side-stat text-reset text-decoration-none" href="{% url 'learning:my-modules' %}"
+                               title="Subjects you are enrolled in">
+                               <b>{{ account_stats.module_count|default:0 }}</b><span>Subjects</span></a>
+                            <div class="vr"></div>
+                            <a class="side-stat text-reset text-decoration-none" href="/reports/progress/"
+                               title="How much of this year's tests and exams you have worked through">
+                               <b>{{ account_stats.completion_pct|default:0 }}%</b><span>Year work</span></a>
+                            <div class="vr"></div>
+                            <a class="side-stat text-reset text-decoration-none" href="/reports/progress/"
+                               title="{% if account_stats.readiness.basis %}{{ account_stats.readiness.basis }}{% else %}Not enough data to predict yet{% endif %}">
+                               {% if account_stats.readiness.pct is not None %}
+                                 <b class="text-{{ account_stats.readiness.tone }}">{{ account_stats.readiness.pct }}%</b>
+                               {% else %}<b>—</b>{% endif %}
+                               <span>Readiness</span></a>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    {% comment %}
+                    ===== Common nav (everyone) =====
+                    Skipped entirely for parents: every item here either has no
+                    meaning for them (the programme feed) or is repeated in their own
+                    section below, arranged around their child rather than around
+                    a learner's own work.
+                    {% endcomment %}
+                    {% comment %}Dashboard is not listed here: it lives in the navbar
+                    beside My Programme, where it is reachable from every page
+                    including the ones with no sidebar.{% endcomment %}
+                    {% if not is_parent %}
+                    <ul class="nav flex-column gap-1">
+                        <li class="nav-item"><a class="nav-link" href="{% url 'pages:dashboard' %}"><i class="bi bi-people"></i><span>Grade Feed</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/communication/chat/"><i class="bi bi-chat-left-text"></i><span>Messages</span>
+                            {% if dynamic.badges.unread_messages|default:True and comm_stats.unread_messages %}<span class="side-badge">{{ comm_stats.unread_messages }}</span>{% endif %}</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/communication/notifications/"><i class="bi bi-bell"></i><span>Notifications</span>
+                            {% if dynamic.badges.unread_notifications|default:True and comm_stats.unread_notifications %}<span class="side-badge">{{ comm_stats.unread_notifications }}</span>{% endif %}</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/myhub/event-management/"><i class="bi bi-calendar-week"></i><span>Calendar</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'myhub:events' %}"><i class="bi bi-calendar-event"></i><span>Events</span></a></li>
+                    </ul>
+                    {% else %}
+                    <ul class="nav flex-column gap-1">
+                        <li class="nav-item"><a class="nav-link" href="/reports/progress/"><i class="bi bi-graph-up"></i><span>Progress</span></a></li>
+                    </ul>
+                    {% endif %}
+
+                    {# ===== Student / member ===== #}
+                    {% if is_student %}
+                    <hr><p class="side-heading">My learning</p>
+                    <ul class="nav flex-column gap-1">
+                        {% if my_programmes_count %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'accounts:my-programmes' %}"><i class="bi bi-mortarboard"></i><span>{% if my_programmes_count > 1 %}My Grades{% else %}My Grade{% endif %}</span></a></li>
+                        {% endif %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'learning:my-modules' %}"><i class="bi bi-grid-1x2-fill"></i><span>My Subjects</span></a></li>
+                        {% comment %}Online sessions replace the old "Courses" library:
+                        what a candidate attends here is a live class session, not a
+                        self-paced course.{% endcomment %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'livesessions:calendar' %}"><i class="bi bi-calendar3"></i><span>Calendar</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/communication/meetings/"><i class="bi bi-camera-video"></i><span>Online Sessions</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'livesessions:past-sessions' %}"><i class="bi bi-play-btn"></i><span>Past Sessions</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/assessments/"><i class="bi bi-ui-checks"></i><span>Assessments</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'revision:home' %}"><i class="bi bi-arrow-repeat"></i><span>Revision</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/reports/progress/"><i class="bi bi-graph-up"></i><span>My Progress</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/reports/"><i class="bi bi-patch-check"></i><span>Reports &amp; Certificates</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/communication/workspaces/"><i class="bi bi-folder2-open"></i><span>Workspaces</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/tasks/"><i class="bi bi-check2-square"></i><span>My Tasks</span>{% if dynamic.badges.pending_tasks|default:True and task_stats.my_pending %}<span class="side-badge">{{ task_stats.my_pending }}</span>{% endif %}</a></li>
+                    </ul>
+
+                    <hr><p class="side-heading">Account</p>
+                    <ul class="nav flex-column gap-1">
+                        <li class="nav-item"><a class="nav-link" href="{% url 'admissions:my-application' %}"><i class="bi bi-person-vcard"></i><span>My application</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'finance:my-finances' %}"><i class="bi bi-pie-chart"></i><span>My finances</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/finance/"><i class="bi bi-receipt"></i><span>Invoices</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'finance:statement' %}"><i class="bi bi-journal-text"></i><span>Statement</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'finance:payment-history' %}"><i class="bi bi-clock-history"></i><span>Payments</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/shop/"><i class="bi bi-bag"></i><span>Shop</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'shop:cart' %}"><i class="bi bi-cart"></i><span>My cart</span>{% if shop_stats.cart_count %}<span class="side-badge">{{ shop_stats.cart_count }}</span>{% endif %}</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'shop:my-orders' %}"><i class="bi bi-bag-check"></i><span>My orders</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'shop:my-bookings' %}"><i class="bi bi-calendar2-check"></i><span>My 1-on-1s</span></a></li>
+                    </ul>
+                    {% endif %}
+
+                    {% comment %}
+                    ===== Parent / guardian =====
+                    A parent's nav is the whole of their platform: their child's
+                    progress, the money, and a line to the school. Everything
+                    listed here is also enforced server-side by
+                    ParentAccessMiddleware — this menu is the convenience, not
+                    the control.
+                    {% endcomment %}
+                    {% if is_parent %}
+                    <hr><p class="side-heading">{% if child_name %}{{ child_name }}{% else %}My child{% endif %}</p>
+                    <ul class="nav flex-column gap-1">
+                        <li class="nav-item"><a class="nav-link" href="/reports/progress/"><i class="bi bi-graph-up"></i><span>Progress &amp; analytics</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/reports/"><i class="bi bi-patch-check"></i><span>Results &amp; certificates</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/assessments/"><i class="bi bi-ui-checks"></i><span>Assessments</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/communication/attendance/"><i class="bi bi-person-check"></i><span>Attendance</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/tasks/"><i class="bi bi-check2-square"></i><span>Tasks</span></a></li>
+                    </ul>
+
+                    <hr><p class="side-heading">School</p>
+                    <ul class="nav flex-column gap-1">
+                        <li class="nav-item"><a class="nav-link" href="/communication/chat/"><i class="bi bi-chat-left-text"></i><span>Message the school</span>
+                            {% if comm_stats.unread_messages %}<span class="side-badge">{{ comm_stats.unread_messages }}</span>{% endif %}</a></li>
+                        {% comment %}Announcements from the school arrive here as notifications —
+                        the announcements page itself is the sender's view.{% endcomment %}
+                        <li class="nav-item"><a class="nav-link" href="/communication/notifications/"><i class="bi bi-bell"></i><span>Notifications</span>
+                            {% if comm_stats.unread_notifications %}<span class="side-badge">{{ comm_stats.unread_notifications }}</span>{% endif %}</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'myhub:events' %}"><i class="bi bi-calendar-event"></i><span>Upcoming events</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/myhub/event-management/"><i class="bi bi-calendar-week"></i><span>Calendar</span></a></li>
+                    </ul>
+
+                    <hr><p class="side-heading">Account</p>
+                    <ul class="nav flex-column gap-1">
+                        <li class="nav-item"><a class="nav-link" href="{% url 'admissions:my-application' %}"><i class="bi bi-person-vcard"></i><span>Application</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/finance/"><i class="bi bi-receipt"></i><span>Fees &amp; invoices</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'finance:payment-history' %}"><i class="bi bi-clock-history"></i><span>Payments</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/shop/"><i class="bi bi-bag"></i><span>Shop</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'shop:cart' %}"><i class="bi bi-cart"></i><span>My Cart</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/community/profile/"><i class="bi bi-person-vcard"></i><span>My profile</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/community/settings/"><i class="bi bi-gear"></i><span>Settings</span></a></li>
+                    </ul>
+                    {% endif %}
+
+                    {# ===== Educator — grouped into collapsible sub-menus ===== #}
+                    {% if is_educator %}
+                    <hr><p class="side-heading">Teaching</p>
+                    <ul class="nav flex-column gap-1">
+                        <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:teaching' %}"><i class="bi bi-easel"></i><span>My teaching desk</span></a></li>
+
+                        {# Content — what the educator authors and delivers #}
+                        <li class="nav-item sidenav-group">
+                            <a class="nav-link" data-bs-toggle="collapse" href="#navEduContent" role="button" aria-expanded="false">
+                                <i class="bi bi-journal-richtext"></i><span>Content</span><i class="bi bi-chevron-down sidenav-caret"></i></a>
+                            <div class="collapse" id="navEduContent"><ul class="nav flex-column sidenav-sub">
+                                <li class="nav-item"><a class="nav-link" href="{% url 'learning:lesson-manage' %}">Manage lessons</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'learning:lesson-create' %}">New lesson</a></li>
+                            </ul></div>
+                        </li>
+
+                        {# Assessment — setting, marking and closing the loop #}
+                        <li class="nav-item sidenav-group">
+                            <a class="nav-link" data-bs-toggle="collapse" href="#navEduAssess" role="button" aria-expanded="false">
+                                <i class="bi bi-ui-checks"></i><span>Assessment</span><i class="bi bi-chevron-down sidenav-caret"></i></a>
+                            <div class="collapse" id="navEduAssess"><ul class="nav flex-column sidenav-sub">
+                                <li class="nav-item"><a class="nav-link" href="/assessments/">All assessments</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessments:manage' %}">Build assessments</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessments:create' %}">New assessment</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessments:marking-queue' %}">Marking queue</a></li>
+                            </ul></div>
+                        </li>
+
+                        {# My classes — the day-to-day running of a class #}
+                        <li class="nav-item sidenav-group">
+                            <a class="nav-link" data-bs-toggle="collapse" href="#navEduClasses" role="button" aria-expanded="false">
+                                <i class="bi bi-people"></i><span>My classes</span><i class="bi bi-chevron-down sidenav-caret"></i></a>
+                            <div class="collapse" id="navEduClasses"><ul class="nav flex-column sidenav-sub">
+                                <li class="nav-item"><a class="nav-link" href="/communication/attendance/">Attendance</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'livesessions:calendar' %}">Calendar</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'livesessions:session-create' %}">Schedule a session</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'livesessions:past-sessions' %}">Past sessions</a></li>
+                                <li class="nav-item"><a class="nav-link" href="/communication/meetings/">Live sessions</a></li>
+                                <li class="nav-item"><a class="nav-link" href="/communication/discussions/">Discussions</a></li>
+                            </ul></div>
+                        </li>
+
+                        {# Insights — how the class and its students are doing #}
+                        <li class="nav-item sidenav-group">
+                            <a class="nav-link" data-bs-toggle="collapse" href="#navEduInsights" role="button" aria-expanded="false">
+                                <i class="bi bi-graph-up"></i><span>Insights</span><i class="bi bi-chevron-down sidenav-caret"></i></a>
+                            <div class="collapse" id="navEduInsights"><ul class="nav flex-column sidenav-sub">
+                                {# Grades only — certificates are not an educator's to browse. #}
+                                <li class="nav-item"><a class="nav-link" href="/reports/">Reports</a></li>
+                                <li class="nav-item"><a class="nav-link" href="/analytics/">Analytics</a></li>
+                            </ul></div>
+                        </li>
+
+                        <li class="nav-item"><a class="nav-link" href="/communication/workspaces/"><i class="bi bi-folder2-open"></i><span>Workspaces</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/tasks/"><i class="bi bi-check2-square"></i><span>My Tasks</span>{% if task_stats.my_pending %}<span class="side-badge">{{ task_stats.my_pending }}</span>{% endif %}</a></li>
+                    </ul>
+                    {% endif %}
+
+                    {# ===== Admin / staff ===== #}
+                    {% if is_admin_staff %}
+                    <hr><p class="side-heading">Administration</p>
+                    <ul class="nav flex-column gap-1">
+                        <li class="nav-item"><a class="nav-link" href="{% url 'admissions:office-list' %}"><i class="bi bi-person-vcard"></i><span>Admissions</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/community/members/"><i class="bi bi-people-fill"></i><span>Members &amp; enrolment</span></a></li>
+                        {% if user.is_superuser %}<li class="nav-item"><a class="nav-link" href="{% url 'accounts:staff-create' %}"><i class="bi bi-person-plus-fill"></i><span>Create team account</span></a></li>{% endif %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'accounts:closed-accounts' %}"><i class="bi bi-person-x"></i><span>Closed accounts</span></a></li>
+
+                        {% comment %}Legacy theme groups (Educators / Students / Staff / Library /
+                        Holidays / Fees) were removed: their pages were never built here and
+                        every link 404'd. People are managed under "Members & enrolment" above,
+                        money under Operations → Finance.{% endcomment %}
+
+                        {% comment %}Courses are gone. What a learner
+                        registers for is the school's grade and its subjects —
+                        created and edited under Learning Hub → Academic structure.{% endcomment %}
+                        <li class="nav-item sidenav-group">
+                            <a class="nav-link" data-bs-toggle="collapse" href="#navAdmAcademic" role="button" aria-expanded="false">
+                                <i class="bi bi-journal-bookmark"></i><span>Grades</span><i class="bi bi-chevron-down sidenav-caret"></i></a>
+                            <div class="collapse" id="navAdmAcademic"><ul class="nav flex-column sidenav-sub">
+                                <li class="nav-item"><a class="nav-link" href="{% url 'learning:manage-institutions' %}">School &amp; grades</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'learning:my-modules' %}">Subjects</a></li>
+                                <li class="nav-item"><a class="nav-link" href="/communication/meetings/">Online sessions</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'livesessions:calendar' %}">School calendar</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'livesessions:session-create' %}">Schedule a session</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'livesessions:settings' %}">Live session settings</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'livesessions:youtube-admin' %}">YouTube recordings</a></li>
+                            </ul></div>
+                        </li>
+
+                        {% comment %}Staff desk: the jobs that used to need Django admin or a shell.{% endcomment %}
+                        <li class="nav-item sidenav-group">
+                            <a class="nav-link" data-bs-toggle="collapse" href="#navAdmDesk" role="button" aria-expanded="false">
+                                <i class="bi bi-person-workspace"></i><span>Staff desk</span><i class="bi bi-chevron-down sidenav-caret"></i></a>
+                            <div class="collapse" id="navAdmDesk"><ul class="nav flex-column sidenav-sub">
+                                <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:home' %}">Operations dashboard</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:students' %}">Student 360</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:teaching' %}">Educator desks</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:at-risk' %}">At-risk students</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:grades' %}">Grades &amp; certificates</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:imports' %}">Content imports</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:ai-reports' %}">AI reports</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:ops-invitations' %}">Invitations</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:ops-parent-links' %}">Parent links</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:ops-audit' %}">Audit log</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:ops-jobs' %}">Background jobs</a></li>
+                                {% if is_admin %}<li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:backups' %}">Backups &amp; restore</a></li>{% endif %}
+                            </ul></div>
+                        </li>
+
+                    </ul>
+
+                    <hr><p class="side-heading">Operations</p>
+                    <ul class="nav flex-column gap-1">
+                        <li class="nav-item"><a class="nav-link" href="{% url 'assistant:chat' %}"><i class="bi bi-stars"></i><span>AI Assistant</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/analytics/"><i class="bi bi-graph-up-arrow"></i><span>Analytics</span></a></li>
+                        {% comment %}Error log + code dictionary. Every diagnostics view
+                        404s for anyone who is not admin/staff; this block is already
+                        inside the is_admin_staff guard.{% endcomment %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'diagnostics:log' %}"><i class="bi bi-bug"></i><span>Error log</span></a></li>
+
+                        <li class="nav-item sidenav-group">
+                            <a class="nav-link" data-bs-toggle="collapse" href="#navOpsLearning" role="button" aria-expanded="false">
+                                <i class="bi bi-mortarboard"></i><span>Learning Hub</span><i class="bi bi-chevron-down sidenav-caret"></i></a>
+                            <div class="collapse" id="navOpsLearning"><ul class="nav flex-column sidenav-sub">
+                                <li class="nav-item"><a class="nav-link" href="{% url 'learning:manage-institutions' %}">Academic structure</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'learning:content-import' %}">Import content</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessments:manage' %}">Build assessments</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'assessments:marking-queue' %}">Marking queue</a></li>
+                            </ul></div>
+                        </li>
+
+                        <li class="nav-item sidenav-group">
+                            <a class="nav-link" data-bs-toggle="collapse" href="#navOpsShop" role="button" aria-expanded="false">
+                                <i class="bi bi-bag"></i><span>Shop</span><i class="bi bi-chevron-down sidenav-caret"></i></a>
+                            <div class="collapse" id="navOpsShop"><ul class="nav flex-column sidenav-sub">
+                                <li class="nav-item"><a class="nav-link" href="/shop/">Storefront</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'shop:all-products' %}">Products &amp; services</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'shop:my-orders' %}">Orders</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'shop:my-bookings' %}?view=all">Bookings</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'shop:fulfilment' %}">Fulfilment</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'shop:discounts' %}">Discounts</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'shop:educators' %}">Educators &amp; hours</a></li>
+                            </ul></div>
+                        </li>
+
+                        <li class="nav-item sidenav-group">
+                            <a class="nav-link" data-bs-toggle="collapse" href="#navOpsFinance" role="button" aria-expanded="false">
+                                <i class="bi bi-receipt"></i><span>Finance</span><i class="bi bi-chevron-down sidenav-caret"></i></a>
+                            <div class="collapse" id="navOpsFinance"><ul class="nav flex-column sidenav-sub">
+                                <li class="nav-item"><a class="nav-link" href="{% url 'finance:reports' %}">Dashboard &amp; reports</a></li>
+                                <li class="nav-item"><a class="nav-link" href="/finance/">Invoices</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'finance:estimates' %}">Estimates</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'finance:expenses' %}">Expenses</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'finance:payment-history' %}">Payments</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'finance:create-invoice' %}">Bulk invoice</a></li>
+                            </ul></div>
+                        </li>
+
+                        <li class="nav-item sidenav-group">
+                            <a class="nav-link" data-bs-toggle="collapse" href="#navOpsTasks" role="button" aria-expanded="false">
+                                <i class="bi bi-list-check"></i><span>Tasks</span><i class="bi bi-chevron-down sidenav-caret"></i></a>
+                            <div class="collapse" id="navOpsTasks"><ul class="nav flex-column sidenav-sub">
+                                <li class="nav-item"><a class="nav-link" href="/tasks/all/">All tasks</a></li>
+                                <li class="nav-item"><a class="nav-link" href="/tasks/manage/add/" hx-boost="false">Create task</a></li>
+                            </ul></div>
+                        </li>
+
+                        <li class="nav-item"><a class="nav-link" href="{% url 'livesessions:calendar' %}"><i class="bi bi-calendar3"></i><span>Calendar</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/communication/attendance/"><i class="bi bi-person-check"></i><span>Attendance</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/communication/workspaces/"><i class="bi bi-folder2-open"></i><span>Workspaces</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/assessments/"><i class="bi bi-ui-checks"></i><span>Assessments</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="/reports/"><i class="bi bi-clipboard-data"></i><span>Reports &amp; Certificates</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:ops-moderation' %}"><i class="bi bi-shield-exclamation"></i><span>Moderation</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'communication:announcements' %}"><i class="bi bi-megaphone"></i><span>Notifications centre</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'communication:mail-inbox' %}"><i class="bi bi-envelope"></i><span>Email</span></a></li>
+                    </ul>
+                    {% endif %}
+
+                    <hr>
+
+                    {% comment %}All Content indexes the whole platform, so it is for
+                    everyone except a parent — whose hub is their child, not the
+                    institution.{% endcomment %}
+                    <ul class="nav flex-column gap-1">
+                        {% if not is_parent %}
+                        {% endif %}
+                        {% comment %} Admins only. /admin/ never asks for a second login — the hub
+                           session IS the admin session (see config.auth_urls). {% endcomment %}
+                        {% if user.is_staff or user.is_superuser %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'admin:index' %}" target="_blank" rel="noopener">
+                            <i class="bi bi-shield-lock"></i><span>Django Admin</span><i class="bi bi-box-arrow-up-right ms-1 small"></i></a></li>
+                        {% endif %}
+                    </ul>
+                </div>
+
+                <div class="card-footer text-center py-2">
+                    <a class="btn btn-link btn-sm" href="/community/profile/">View Profile</a>
+                </div>
+            </div>
+
+            <hr>
+            <ul class="nav flex-column gap-1">
+              <li class="nav-item"><a class="nav-link" href="{% url 'communication:support' %}"><i class="bi bi-life-preserver"></i><span>Support &amp; help</span></a></li>
+            </ul>
+
+            <ul class="nav small mt-3 justify-content-center lh-1 side-help">
+                <li class="nav-item"><a class="nav-link" href="/community/profile/">Profile</a></li>
+                <li class="nav-item"><a class="nav-link" href="/community/settings/">Settings</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'communication:notification-preferences' %}">Notifications</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'pages:privacy-and-terms' %}">Privacy &amp; terms</a></li>
+            </ul>
+            <p class="side-copy text-center mt-2">{{ brand.copyright|default:"© United Church School" }}</p>
+        </div>
+    </div>
+</nav>
+
+<script>
+/* Mark the link matching the current path as active, and open the sub-menu that
+   contains it so a deep page shows where it lives. Longest match wins so
+   "/myhub/all-courses/" beats "/myhub/". */
+(function(){
+  var here = window.location.pathname, best = null, bestLen = -1;
+  document.querySelectorAll('.dash-side .nav-link[href]').forEach(function(a){
+    var href = a.getAttribute('href');
+    if(!href || href === '#' || href.charAt(0) !== '/') return;
+    if(here === href || (href.length > 1 && here.indexOf(href) === 0)){
+      if(href.length > bestLen){ best = a; bestLen = href.length; }
+    }
+  });
+  if(!best) return;
+  best.classList.add('is-active');
+  var group = best.closest('.collapse');
+  if(group){
+    group.classList.add('show');
+    var toggle = document.querySelector('.dash-side [href="#' + group.id + '"]');
+    if(toggle) toggle.setAttribute('aria-expanded', 'true');
+  }
+})();
+</script>

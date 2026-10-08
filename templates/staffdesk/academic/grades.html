@@ -1,0 +1,91 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}Grades browser: every computed module grade, with filters, recompute and override.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk · Academic</span><h3>Grades</h3>
+      <p>Weighted subject marks as computed from the gradebook. Recompute, or override with a reason.</p></div>
+    <div class="tc-head__actions">
+      {% if selected_module %}
+      <form method="post" action="{% url 'staffdesk:grades-recompute-module' %}">{% csrf_token %}
+        <input type="hidden" name="module" value="{{ selected_module.pk }}">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Recompute {{ selected_module.code }}</button>
+      </form>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'staffdesk:weighting-edit' selected_module.pk %}"><i class="bi bi-sliders me-1"></i>Weighting</a>
+      {% endif %}
+      <a class="btn btn-sm btn-primary" href="{% url 'staffdesk:certificate-issue' %}"><i class="bi bi-award me-1"></i>Issue certificate</a>
+    </div>
+  </div>
+
+  {% include 'staffdesk/academic/_grades_nav.html' with here='grades' %}
+
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Grades</span><b>{{ counts.all }}</b><em>in this view</em></div>
+    <div class="tc-kpi"><span>Pass rate</span><b>{% if pass_rate is not None %}{{ pass_rate }}%{% else %}—{% endif %}</b><em>{{ counts.passed }} passed</em></div>
+    <div class="tc-kpi"><span>Average</span><b>{% if average is not None %}{{ average|floatformat:1 }}%{% else %}—{% endif %}</b><em>final mark</em></div>
+    <div class="tc-kpi"><span>Overridden</span><b class="{% if counts.overridden %}text-warning{% endif %}">{{ counts.overridden }}</b><em>set by staff</em></div>
+  </div>
+
+  <form method="get" class="tc-toolbar sda-filters">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    {% if student_id %}<input type="hidden" name="student" value="{{ student_id }}">{% endif %}
+    <label class="visually-hidden" for="gProgramme">Grade</label>
+    <select id="gProgramme" name="programme" class="form-select form-select-sm" onchange="this.form.module.value='';this.form.submit()">
+      <option value="">All grades</option>
+      {% for p in programmes %}<option value="{{ p.pk }}" {% if p.pk == programme_id %}selected{% endif %}>{{ p.full_code }}</option>{% endfor %}
+    </select>
+    <label class="visually-hidden" for="gModule">Subject</label>
+    <select id="gModule" name="module" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">All subjects</option>
+      {% for m in modules %}<option value="{{ m.pk }}" {% if m.pk == module_id %}selected{% endif %}>{{ m.reference }}</option>{% endfor %}
+    </select>
+    <label class="visually-hidden" for="gSearch">Student</label>
+    <input id="gSearch" class="form-control form-control-sm tc-search" type="search" name="q" value="{{ search }}" placeholder="Student name or e-mail">
+    <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i><span class="visually-hidden">Filter</span></button>
+    {% if student %}<a class="tc-chip tc-chip--primary" href="?tab={{ tab }}{% if module_id %}&amp;module={{ module_id }}{% endif %}">{{ student|person_name }} <i class="bi bi-x"></i></a>{% endif %}
+  </form>
+
+  <nav class="tc-aisles" aria-label="Result">
+    <a class="tc-aisle {% if tab == 'all' %}is-active{% endif %}" href="?{{ filter_query }}{% if filter_query %}&amp;{% endif %}tab=all">All<span class="tc-count">{{ counts.all }}</span></a>
+    <a class="tc-aisle {% if tab == 'passed' %}is-active{% endif %}" href="?{{ filter_query }}{% if filter_query %}&amp;{% endif %}tab=passed">Passed<span class="tc-count">{{ counts.passed }}</span></a>
+    <a class="tc-aisle {% if tab == 'failed' %}is-active{% endif %}" href="?{{ filter_query }}{% if filter_query %}&amp;{% endif %}tab=failed">Not passed<span class="tc-count">{{ counts.failed }}</span></a>
+    <a class="tc-aisle {% if tab == 'overridden' %}is-active{% endif %}" href="?{{ filter_query }}{% if filter_query %}&amp;{% endif %}tab=overridden">Overridden<span class="tc-count">{{ counts.overridden }}</span></a>
+  </nav>
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>Student</th><th>Subject</th><th class="r">Final</th><th>Grade</th><th class="d-none d-md-table-cell">Breakdown</th><th class="r d-none d-lg-table-cell">Position</th><th class="d-none d-lg-table-cell">Updated</th><th></th></tr></thead>
+      <tbody>
+      {% for g in page %}
+        <tr>
+          <td><a class="fw-semibold" href="?student={{ g.student_id }}">{{ g.student|person_name }}</a>
+            <div class="small text-muted">{{ g.student.email }}</div></td>
+          <td class="small">{{ g.module.reference|default:"—" }}</td>
+          <td class="r fw-semibold">{{ g.final_pct|floatformat:1 }}%
+            {% if g.is_overridden %}<div class="small text-muted" title="Computed from marks">calc {{ g.computed_pct|floatformat:1 }}%</div>{% endif %}</td>
+          <td class="text-nowrap">
+            <span class="tc-chip {% if g.passed %}tc-chip--success{% else %}tc-chip--danger{% endif %}">{{ g.letter|default:"—" }} · {% if g.passed %}Pass{% else %}Fail{% endif %}</span>
+            {% if g.is_overridden %}<span class="tc-chip tc-chip--warning" title="{{ g.override_reason }}"><i class="bi bi-pencil"></i>Override</span>{% endif %}
+          </td>
+          <td class="d-none d-md-table-cell small text-muted">{% for k, v in g.components.items %}{{ k|capfirst }} {{ v|floatformat:0 }}%{% if not forloop.last %} · {% endif %}{% empty %}—{% endfor %}</td>
+          <td class="r d-none d-lg-table-cell small">{% if g.class_position %}{{ g.class_position }} / {{ g.cohort_size }}{% else %}—{% endif %}</td>
+          <td class="d-none d-lg-table-cell small text-muted">{{ g.computed_at|timesince }} ago</td>
+          <td class="r text-nowrap">
+            <form method="post" action="{% url 'staffdesk:grade-recompute' g.pk %}" class="d-inline">{% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button class="btn btn-sm btn-outline-secondary" title="Recompute"><i class="bi bi-arrow-repeat"></i><span class="visually-hidden">Recompute</span></button>
+            </form>
+            <a class="btn btn-sm tc-btn-soft" href="{% url 'staffdesk:grade-detail' g.pk %}">Open</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8"><div class="tc-empty"><i class="bi bi-clipboard-data"></i><h5>No grades here</h5><p class="mb-0">Grades appear once a student's work is marked{% if selected_module %} — or recompute {{ selected_module.code }} now{% endif %}.</p></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% include 'staffdesk/academic/_pager.html' %}
+</div></div>
+{% endblock %}

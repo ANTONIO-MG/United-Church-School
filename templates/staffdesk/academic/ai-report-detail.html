@@ -1,0 +1,27 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}One AI report, shown as written (Markdown source, not rendered: the text is model output).{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow"><a href="{% url 'staffdesk:ai-reports' %}">AI reports</a> · {{ report.get_kind_display }}</span><h3>{{ report.title }}</h3>
+      <p>{{ report.created_at|date:"j M Y, H:i" }}{% if report.created_by %} · {{ report.created_by|person_name }}{% endif %}{% if report.module %} · {{ report.module.reference }}{% endif %}{% if report.student %} · about {{ report.student|person_name }}{% endif %}</p></div>
+    <div class="tc-head__actions">
+      <span class="tc-chip {% if report.status == 'final' %}tc-chip--success{% endif %}">{{ report.get_status_display }}</span>
+      {% if report.used_llm %}<span class="tc-chip tc-chip--cyan"><i class="bi bi-stars"></i>Language model</span>{% endif %}
+    </div>
+  </div>
+  <div class="tc-card">
+    <div class="tc-card__body pt-3"><div class="sda-doc">{{ report.content|default:"(empty)" }}</div></div>
+  </div>
+  {% if report.linked_ref %}<p class="small text-muted mt-2">Linked record: <code>{{ report.linked_ref }}</code></p>{% endif %}
+  {% if report.prompt %}
+  <details class="tc-card mt-3 sda-details"><summary class="tc-card__head"><h6>Prompt / inputs</h6></summary>
+    <div class="tc-card__body"><pre class="sda-pre">{{ report.prompt }}</pre></div></details>
+  {% endif %}
+  {% if data %}
+  <details class="tc-card mt-3 sda-details"><summary class="tc-card__head"><h6>Structured data</h6></summary>
+    <div class="tc-card__body"><pre class="sda-pre">{{ data }}</pre></div></details>
+  {% endif %}
+</div></div>
+{% endblock %}

@@ -1,0 +1,219 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load custom_tags %}
+{% comment %}Assessments list. Every column carries its own filter: a funnel on the
+header opens a tick-list of the values actually present in that column, and a row
+shows only when it matches every active filter. Filtering is client-side over the
+rows already on the page, so it is instant and needs no round trip.{% endcomment %}
+
+{% block additional_css %}
+<style>
+  .col-filter{ position:relative; }
+  .col-filter .filter-toggle{ border:0; background:transparent; color:#adb5bd; padding:0 2px; font-size:.78rem; line-height:1; }
+  .col-filter .filter-toggle:hover{ color:#0d6efd; }
+  .col-filter.is-active .filter-toggle{ color:#0d6efd; }
+  .filter-menu{ min-width:210px; max-height:280px; overflow:auto; padding:.5rem; }
+  .filter-menu .form-check{ margin-bottom:.15rem; }
+  .filter-menu .form-check-label{ font-weight:400; font-size:.82rem; }
+  /* "Completed" was an invisible white pill — tint it green, at low opacity so
+     it reads as a quiet status rather than a call to action. */
+  .badge-completed{ background:rgba(25,135,84,.14); color:#146c43; border:1px solid rgba(25,135,84,.28); font-weight:600; }
+  .no-match td{ text-align:center; color:#6c757d; padding:2rem 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body d-sm-flex justify-content-between align-items-center">
+      <div>
+        <h1 class="h4 mb-1"><i class="bi bi-ui-checks text-primary me-2"></i>{{ page_title }}</h1>
+        <p class="mb-0 small text-muted">
+          {% if read_only %}The quizzes, tests and assignments set for {{ child|person_name }},
+            and how they went. You can follow the results here; sitting them is theirs to do.
+          {% else %}Quizzes, tests, exams and assignments for your subjects.
+            Use the <i class="bi bi-funnel"></i> on any column to narrow the list.{% endif %}</p>
+      </div>
+      {% include 'partials/_child_switcher.html' %}
+      <button type="button" class="btn btn-sm btn-light mt-2 mt-sm-0 d-none" id="clearFiltersBtn">
+        <i class="bi bi-x-lg me-1"></i>Clear filters <span class="badge bg-primary ms-1" id="filterCount">0</span></button>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="assessmentTable">
+                <thead>
+                  <tr>
+                    <th class="col-filter" data-col="0">Title
+                      <button type="button" class="filter-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Filter by title"><i class="bi bi-funnel-fill"></i></button>
+                      <div class="dropdown-menu filter-menu"></div></th>
+                    <th class="col-filter" data-col="1">Type
+                      <button type="button" class="filter-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Filter by type"><i class="bi bi-funnel-fill"></i></button>
+                      <div class="dropdown-menu filter-menu"></div></th>
+                    <th class="col-filter" data-col="2">Subject
+                      <button type="button" class="filter-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Filter by subject"><i class="bi bi-funnel-fill"></i></button>
+                      <div class="dropdown-menu filter-menu"></div></th>
+                    <th class="col-filter" data-col="3">Total
+                      <button type="button" class="filter-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Filter by total marks"><i class="bi bi-funnel-fill"></i></button>
+                      <div class="dropdown-menu filter-menu"></div></th>
+                    <th class="col-filter" data-col="4">Pass
+                      <button type="button" class="filter-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Filter by pass mark"><i class="bi bi-funnel-fill"></i></button>
+                      <div class="dropdown-menu filter-menu"></div></th>
+                    <th class="col-filter" data-col="5">Time
+                      <button type="button" class="filter-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Filter by time limit"><i class="bi bi-funnel-fill"></i></button>
+                      <div class="dropdown-menu filter-menu"></div></th>
+                    <th class="col-filter" data-col="6">Status
+                      <button type="button" class="filter-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" title="Filter by status"><i class="bi bi-funnel-fill"></i></button>
+                      <div class="dropdown-menu filter-menu"></div></th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                {% for a in assessments %}
+                    <tr>
+                        <td>{{ a.title }}</td>
+                        <td><span class="badge bg-light text-dark">{{ a.get_kind_display }}</span></td>
+                        <td>{{ a.module }}</td>
+                        <td>{{ a.total_marks }}</td>
+                        <td>{{ a.pass_mark_pct }}%</td>
+                        <td>{% if a.time_limit_minutes %}{{ a.time_limit_minutes }} min{% else %}—{% endif %}</td>
+                        <td><span class="badge bg-{% if a.status == 'open' %}success{% else %}secondary{% endif %} bg-opacity-10 text-{% if a.status == 'open' %}success{% else %}secondary{% endif %}">{{ a.get_status_display }}</span></td>
+                        <td class="text-end">
+                          {% if is_staff %}
+                            <a href="{% url 'assessments:builder' a.id %}" class="btn btn-sm btn-outline-secondary">Build</a>
+                          {% elif read_only %}
+                            {% comment %}A parent follows the result; sitting it is the learner's to do.{% endcomment %}
+                            {% with attempt=best|get_item:a.id %}
+                              {% if attempt %}
+                                <span class="badge badge-completed me-1"><i class="bi bi-check2 me-1"></i>Completed</span>
+                                <a href="{% url 'assessments:result' attempt.public_id %}" class="btn btn-sm btn-outline-primary">Result</a>
+                              {% else %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary">Not sat yet</span>
+                              {% endif %}
+                            {% endwith %}
+                          {% else %}
+                            {% if a.id in best %}<span class="badge badge-completed me-1"><i class="bi bi-check2 me-1"></i>Completed</span>{% endif %}
+                            <a href="{% url 'assessments:take' a.id %}" class="btn btn-sm btn-primary">
+                              {% if a.id in best %}Retake{% else %}Take{% endif %}</a>
+                          {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="8" class="text-center text-muted py-5">No assessments available.</td></tr>
+                {% endfor %}
+                <tr class="no-match d-none"><td colspan="8">No assessments match the selected filters.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+  var table = document.getElementById('assessmentTable');
+  if(!table) return;
+  var rows = Array.prototype.slice.call(table.tBodies[0].rows)
+    .filter(function(r){ return !r.classList.contains('no-match') && r.cells.length > 1; });
+  var noMatch = table.querySelector('.no-match');
+  var clearBtn = document.getElementById('clearFiltersBtn');
+  var countEl = document.getElementById('filterCount');
+  // col index -> Set of selected values ("" = show everything in that column)
+  var selected = {};
+
+  function cellText(row, col){
+    var cell = row.cells[col];
+    return cell ? cell.textContent.trim() : '';
+  }
+
+  function apply(){
+    var active = Object.keys(selected).filter(function(c){ return selected[c].size; });
+    var shown = 0;
+    rows.forEach(function(row){
+      var ok = active.every(function(c){ return selected[c].has(cellText(row, +c)); });
+      row.classList.toggle('d-none', !ok);
+      if(ok) shown++;
+    });
+    if(noMatch) noMatch.classList.toggle('d-none', shown > 0 || rows.length === 0);
+    table.querySelectorAll('.col-filter').forEach(function(th){
+      var c = th.dataset.col;
+      th.classList.toggle('is-active', !!(selected[c] && selected[c].size));
+    });
+    if(clearBtn){
+      clearBtn.classList.toggle('d-none', active.length === 0);
+      if(countEl) countEl.textContent = active.length;
+    }
+  }
+
+  // Build one tick-list per column from the values actually in that column.
+  table.querySelectorAll('.col-filter').forEach(function(th){
+    var col = +th.dataset.col;
+    var menu = th.querySelector('.filter-menu');
+    selected[col] = new Set();
+
+    var values = [];
+    var seen = new Set();
+    rows.forEach(function(row){
+      var v = cellText(row, col);
+      if(!seen.has(v)){ seen.add(v); values.push(v); }
+    });
+    values.sort(function(a, b){
+      var na = parseFloat(a), nb = parseFloat(b);
+      if(!isNaN(na) && !isNaN(nb)) return na - nb;
+      return a.localeCompare(b);
+    });
+
+    if(!values.length){ menu.innerHTML = '<span class="small text-muted px-1">Nothing to filter.</span>'; return; }
+
+    var head = document.createElement('div');
+    head.className = 'd-flex justify-content-between align-items-center mb-2 px-1';
+    head.innerHTML = '<strong class="small">Show</strong>'
+      + '<button type="button" class="btn btn-sm btn-link p-0 small text-decoration-none col-clear">All</button>';
+    menu.appendChild(head);
+
+    // A search box makes the free-text columns (Title, Module) usable when the
+    // tick-list would otherwise be one entry per row.
+    if(values.length > 8){
+      var search = document.createElement('input');
+      search.type = 'search';
+      search.className = 'form-control form-control-sm mb-2';
+      search.placeholder = 'Search…';
+      search.addEventListener('input', function(){
+        var q = search.value.toLowerCase();
+        menu.querySelectorAll('.form-check').forEach(function(fc){
+          fc.classList.toggle('d-none', fc.textContent.toLowerCase().indexOf(q) === -1);
+        });
+      });
+      search.addEventListener('click', function(e){ e.stopPropagation(); });
+      menu.appendChild(search);
+    }
+
+    values.forEach(function(v, i){
+      var id = 'f' + col + '_' + i;
+      var wrap = document.createElement('div');
+      wrap.className = 'form-check';
+      wrap.innerHTML = '<input class="form-check-input" type="checkbox" id="' + id + '">'
+        + '<label class="form-check-label" for="' + id + '"></label>';
+      wrap.querySelector('label').textContent = v || '—';
+      wrap.querySelector('input').addEventListener('change', function(e){
+        if(e.target.checked) selected[col].add(v); else selected[col].delete(v);
+        apply();
+      });
+      menu.appendChild(wrap);
+    });
+
+    head.querySelector('.col-clear').addEventListener('click', function(){
+      selected[col].clear();
+      menu.querySelectorAll('input[type=checkbox]').forEach(function(cb){ cb.checked = false; });
+      apply();
+    });
+  });
+
+  if(clearBtn) clearBtn.addEventListener('click', function(){
+    Object.keys(selected).forEach(function(c){ selected[c].clear(); });
+    table.querySelectorAll('.filter-menu input[type=checkbox]').forEach(function(cb){ cb.checked = false; });
+    apply();
+  });
+
+  apply();
+})();
+</script>
+{% endblock %}

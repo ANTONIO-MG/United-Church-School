@@ -1,0 +1,41 @@
+{% load people %}{% comment %}Right-rail tile: the newest message from each of the user's chat groups
+(their own messages are skipped — this is an inbox, not a transcript).{% endcomment %}
+
+<div class="dash-card">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--info"><i class="bi bi-chat-left-text"></i></span>
+    <h6>Recent messages</h6>
+    <a class="dash-link" href="{% url 'communication:chat-home' %}">Open chat</a>
+  </div>
+
+  <div class="dash-card__body dash-card__body--flush pt-1">
+    {% for message in recent_messages %}
+    <a class="dash-row" href="{% url 'communication:chat-room' message.group_id %}">
+      {% if message.sender.profile %}
+        <img class="dash-row__avatar" src="{{ message.sender.profile.avatar_url }}" alt="">
+      {% else %}
+        <span class="dash-row__initials dash-glyph--info">
+          {{ message.sender|person_name|slice:":2"|upper }}
+        </span>
+      {% endif %}
+      <div class="dash-row__main">
+        <p class="dash-row__name">{{ message.sender|person_name }}</p>
+        <p class="dash-row__text">
+          {% if message.body %}{{ message.body|striptags|truncatechars:52 }}
+          {% else %}<i class="bi bi-paperclip"></i> Attachment{% endif %}
+        </p>
+        <p class="dash-row__text" style="opacity:.75;">
+          <i class="bi bi-people me-1"></i>{{ message.group.display_name|truncatechars:26 }}
+        </p>
+      </div>
+      <span class="dash-row__time">{{ message.created_at|timesince|truncatewords:1 }}</span>
+    </a>
+    {% empty %}
+    <div class="dash-empty">
+      <i class="bi bi-chat-dots"></i>
+      No messages yet.
+      <div class="mt-2"><a class="dash-link" href="{% url 'communication:chat-home' %}">Start a conversation</a></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>

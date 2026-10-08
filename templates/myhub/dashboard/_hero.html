@@ -1,0 +1,103 @@
+{% load static %}
+{% comment %}Academic-journey summary strip: greeting, overall completion ring and the
+headline stat tiles (courses, lessons, study time, average mark, achievements,
+finance). Numbers come from apps.myhub.dashboard.academic_summary.{% endcomment %}
+
+<section class="dash-hero">
+  <div class="dash-hero__inner">
+
+    <div class="d-flex align-items-center gap-3 flex-wrap mb-3">
+      {% if account_stats.profile.avatar_url %}
+        <img class="dash-hero__avatar" src="{{ account_stats.profile.avatar_url }}" alt="">
+      {% else %}
+        <img class="dash-hero__avatar" src="{% static 'images/avatar/default-neutral.svg' %}" alt="">
+      {% endif %}
+
+      <div class="flex-grow-1 min-w-0">
+        <h1>Welcome back, {{ account_stats.profile.name|default:user.get_username|truncatechars:34 }}</h1>
+        <p>
+          {% if standing %}
+            {{ standing.institution.display_name }} ·
+            <strong>{{ standing.programme.display_name }}</strong>
+            {% if standing.cohort %}· {{ standing.cohort.code }}{% endif %}
+            · {{ standing.modules_total }} subject{{ standing.modules_total|pluralize }}
+            {% if trend.streak %}· <i class="bi bi-fire"></i> {{ trend.streak }}-day streak{% endif %}
+          {% else %}
+            Here's where your studies stand today.
+          {% endif %}
+        </p>
+      </div>
+
+    </div>
+
+    {% if summary %}
+    <div class="dash-stats">
+
+      <a class="dash-stat" href="{% url 'learning:my-modules' %}">
+        <span class="dash-stat__label"><i class="bi bi-grid-1x2-fill"></i> Subjects</span>
+        <span class="dash-stat__value">{{ standing.modules_unlocked|default:0 }}<small> / {{ standing.modules_total|default:0 }}</small></span>
+        <span class="dash-stat__foot">
+          {% if standing.modules_locked %}{{ standing.modules_locked }} awaiting payment
+          {% else %}all open{% endif %}
+        </span>
+      </a>
+
+      <a class="dash-stat" href="{% url 'myhub:events' %}">
+        <span class="dash-stat__label"><i class="bi bi-calendar2-check"></i> Next {{ countdown.kind|lower|default:"exam" }}</span>
+        <span class="dash-stat__value">
+          {% if countdown %}{{ countdown.days_left }}<small> days</small>{% else %}—{% endif %}
+        </span>
+        <span class="dash-stat__foot">
+          {% if countdown %}{{ countdown.date|date:"j M Y" }}{% else %}No date published yet{% endif %}
+        </span>
+      </a>
+
+      <a class="dash-stat" href="{% url 'reports:my-progress' %}">
+        <span class="dash-stat__label"><i class="bi bi-clock-history"></i> Study time</span>
+        <span class="dash-stat__value">{{ summary.study_hours }}<small> h</small></span>
+        <span class="dash-stat__foot">{{ summary.sessions }} session{{ summary.sessions|pluralize }} logged</span>
+      </a>
+
+      <a class="dash-stat" href="{% url 'assessments:index' %}">
+        <span class="dash-stat__label"><i class="bi bi-ui-checks"></i> Assessments</span>
+        <span class="dash-stat__value">{{ summary.assessments_passed }}<small> / {{ summary.assessments_taken }}</small></span>
+        <span class="dash-stat__foot">
+          {% if summary.accuracy is not None %}{{ summary.accuracy }}% answer accuracy{% else %}passed / taken{% endif %}
+        </span>
+      </a>
+
+      <a class="dash-stat" href="{% url 'reports:my-reports' %}">
+        <span class="dash-stat__label"><i class="bi bi-bar-chart"></i> Average mark</span>
+        <span class="dash-stat__value">
+          {% if summary.avg_mark is not None %}{{ summary.avg_mark }}<small>%</small>{% else %}—{% endif %}
+        </span>
+        <span class="dash-stat__foot">
+          {% if summary.modules_passed %}{{ summary.modules_passed }} subject{{ summary.modules_passed|pluralize }} passed
+          {% else %}No graded results yet{% endif %}
+        </span>
+      </a>
+
+      <a class="dash-stat" href="{% url 'reports:my-reports' %}">
+        <span class="dash-stat__label"><i class="bi bi-trophy"></i> Achievements</span>
+        <span class="dash-stat__value">{{ achievements.earned|default:0 }}<small> / {{ achievements.total|default:0 }}</small></span>
+        <span class="dash-stat__foot">{{ summary.certificates }} certificate{{ summary.certificates|pluralize }}</span>
+      </a>
+
+      {% if finance.has_data %}
+      <a class="dash-stat" href="{% url 'finance:invoices' %}">
+        <span class="dash-stat__label"><i class="bi bi-wallet2"></i> Account</span>
+        <span class="dash-stat__value">
+          {% if finance.outstanding %}R{{ finance.outstanding|floatformat:0 }}{% else %}Settled{% endif %}
+        </span>
+        <span class="dash-stat__foot">
+          {% if finance.overdue %}{{ finance.overdue }} overdue invoice{{ finance.overdue|pluralize }}
+          {% else %}{{ finance.paid_pct }}% of R{{ finance.billed|floatformat:0 }} paid{% endif %}
+        </span>
+      </a>
+      {% endif %}
+
+    </div>
+    {% endif %}
+
+  </div>
+</section>

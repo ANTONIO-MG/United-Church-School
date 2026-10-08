@@ -1,0 +1,101 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static %}
+{% comment %}The sender's view of one broadcast: what went out, to whom, and who has read it.{% endcomment %}
+{% block additional_css %}
+<link rel="stylesheet" href="{% static 'css/commerce.css' %}">
+<link rel="stylesheet" href="{% static 'css/broadcast.css' %}?v=1">
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><a class="tc-eyebrow" href="{% url 'communication:announcements' %}"><i class="bi bi-arrow-left me-1"></i>Notifications centre</a>
+      <h3>{{ a.title }}</h3>
+      <p>{% include 'communication/_broadcast_status.html' %}
+        {% if a.is_important %}<span class="tc-chip tc-chip--danger">Important</span>{% endif %}
+        <span class="ms-1">by {{ a.sender|person_name|default:"—" }} · created {{ a.created_at|date:"j M Y, H:i" }}</span></p></div>
+    <div class="tc-head__actions">
+      <form method="post" action="{% url 'communication:announcement-action' a.pk %}" class="d-flex flex-wrap gap-2 mb-0">
+        {% csrf_token %}
+        {% if a.is_editable %}<a class="btn btn-sm btn-outline-secondary mb-0" href="{% url 'communication:announcement-edit' a.pk %}"><i class="bi bi-pencil me-1"></i>Edit</a>{% endif %}
+        {% if a.status == 'scheduled' %}<button class="btn btn-sm btn-outline-secondary mb-0" name="action" value="cancel"><i class="bi bi-slash-circle me-1"></i>Cancel schedule</button>{% endif %}
+        {% if a.status in 'draft scheduled failed cancelled' %}
+          {% if not a.recipient_count %}<button class="btn btn-sm btn-outline-danger mb-0" name="action" value="delete" onclick="return confirm('Delete this draft?')"><i class="bi bi-trash me-1"></i>Delete</button>{% endif %}
+          <button class="btn btn-sm btn-primary mb-0" name="action" value="send" onclick="return confirm('Send this to {{ audience.total|default:0 }} people now?')"><i class="bi bi-send me-1"></i>Send now</button>
+        {% endif %}
+        {% if a.status == 'sent' and stats.total and stats.read < stats.total %}
+          <a class="btn btn-sm btn-outline-primary mb-0" href="{% url 'communication:announcement-compose' %}?copy={{ a.pk }}&unread=1" title="A new draft to the people who haven't opened it"><i class="bi bi-bell me-1"></i>Remind unread</a>
+        {% endif %}
+        <a class="btn btn-sm btn-light mb-0" href="{% url 'communication:announcement-compose' %}?copy={{ a.pk }}"><i class="bi bi-copy me-1"></i>Duplicate</a>
+      </form>
+    </div>
+  </div>
+
+  {% if a.status == 'failed' %}<div class="tc-alert tc-alert--danger mb-3"><b>Sending stopped:</b> {{ a.failure }} — {{ a.recipient_count }} people had already been reached. “Send now” retries with everyone who hasn't.</div>{% endif %}
+  {% if a.status == 'scheduled' and not scheduler_ok %}<div class="tc-alert tc-alert--danger mb-3"><i class="bi bi-exclamation-triangle me-1"></i>The background scheduler isn't running, so this won't go out at {{ a.scheduled_for|date:"H:i" }} on its own. Use “Send now”.</div>{% endif %}
+
+  <div class="tc-kpis">
+    {% if a.status == 'sent' or stats.total %}
+    <div class="tc-kpi"><span>Reached</span><b>{{ stats.total }}</b><em>in-app notifications</em></div>
+    <div class="tc-kpi"><span>Read</span><b class="text-success">{{ stats.read_pct }}%</b><em>{{ stats.read }} of {{ stats.total }}</em></div>
+    <div class="tc-kpi"><span>E-mailed</span><b>{{ stats.emailed }}</b><em>{% if a.send_email %}copies sent{% else %}e-mail was off{% endif %}</em></div>
+    <div class="tc-kpi"><span>WhatsApp</span><b>{{ stats.whatsapped }}</b><em>opted-in recipients</em></div>
+    {% else %}
+    <div class="tc-kpi"><span>Will reach</span><b>{{ audience.total }}</b><em>if sent now</em></div>
+    {% for role, n in audience.by_role.items %}<div class="tc-kpi"><span>{{ role|capfirst }}s</span><b>{{ n }}</b><em>&nbsp;</em></div>{% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="row g-3">
+    <div class="col-xl-7">
+      <div class="tc-card bc-card">
+        <span class="bc-label">What recipients see</span>
+        <h4 class="mt-2">{{ a.title }}</h4>
+        <div>{{ a.body|urlize|linebreaks }}</div>
+        {% include 'communication/_broadcast_media.html' %}
+      </div>
+    </div>
+    <div class="col-xl-5">
+      <div class="tc-card bc-card">
+        <span class="bc-label">Audience</span>
+        {% if a.audience == 'all' %}<p class="mb-2"><i class="bi bi-globe2 me-1"></i>Everyone</p>{% endif %}
+        {% if a.institutions.all %}<p class="mb-1"><b>Schools:</b> {{ a.institutions.all|join:", " }}</p>{% endif %}
+        {% if a.programmes.all %}<p class="mb-1"><b>Grades:</b> {{ a.programmes.all|join:", " }}</p>{% endif %}
+        {% if a.cohorts.all %}<p class="mb-1"><b>Classes:</b> {{ a.cohorts.all|join:", " }}</p>{% endif %}
+        {% if a.modules.all %}<p class="mb-1"><b>Subjects:</b> {{ a.modules.all|join:", " }}</p>{% endif %}
+        {% if a.users.all %}<p class="mb-1"><b>People:</b> {% for u in a.users.all %}{% person_link u %}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+        {% if a.user_type %}<p class="mb-1"><b>Role:</b> {{ a.user_type }}</p>{% endif %}
+        <p class="mb-1"><b>Roles:</b> {{ a.role_labels|join:", "|default:"every role" }}{% if a.include_parents %} · parents copied{% endif %}</p>
+        <p class="mb-0 small text-muted">E-mail {{ a.send_email|yesno:"on,off" }}{% if a.scheduled_for %} · scheduled for {{ a.scheduled_for|date:"D j M Y, H:i" }}{% endif %}</p>
+      </div>
+
+      {% if stats.total %}
+      <div class="tc-card bc-card">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="bc-label mb-0">Recipients</span>
+          <nav class="d-flex gap-1">
+            <a class="btn btn-sm mb-0 {% if show == 'all' %}btn-dark{% else %}btn-light{% endif %}" href="?show=all">All</a>
+            <a class="btn btn-sm mb-0 {% if show == 'unread' %}btn-dark{% else %}btn-light{% endif %}" href="?show=unread">Unread</a>
+            <a class="btn btn-sm mb-0 {% if show == 'read' %}btn-dark{% else %}btn-light{% endif %}" href="?show=read">Read</a>
+          </nav>
+        </div>
+        <div style="max-height:26rem;overflow-y:auto">
+          <table class="tc-table">
+            <tbody>
+            {% for n in notes %}
+              <tr>
+                <td>{% person_link n.recipient %}<br><small class="text-muted">{{ n.recipient.profile.get_user_type_display|default:"" }}</small></td>
+                <td class="text-end">{% if n.is_read %}<span class="tc-chip tc-chip--success"><i class="bi bi-check2-all"></i>Read</span>{% else %}<span class="tc-chip">Unread</span>{% endif %}
+                  {% if n.emailed %}<i class="bi bi-envelope-check text-muted ms-1" title="E-mailed"></i>{% endif %}
+                  {% if n.whatsapped %}<i class="bi bi-whatsapp text-muted ms-1" title="WhatsApp"></i>{% endif %}</td>
+              </tr>
+            {% empty %}<tr><td class="text-muted">Nobody in this list.</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div></div>
+{% endblock %}

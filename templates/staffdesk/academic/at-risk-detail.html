@@ -1,0 +1,102 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}One risk flag: why, the student's grades, the triage log, and who to tell.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow"><a href="{% url 'staffdesk:at-risk' %}">At-risk students</a></span>
+      <h3>{{ flag.student|person_name }}</h3>
+      <p>{{ flag.student.email }} · flagged {{ flag.created_at|timesince }} ago · {{ flag.module.reference|default:"all subjects" }}</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'reports:my-progress' %}?student={{ flag.student_id }}"><i class="bi bi-graph-up me-1"></i>Progress</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'staffdesk:grades' %}?student={{ flag.student_id }}"><i class="bi bi-clipboard-data me-1"></i>Grades</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ compose_url }}"><i class="bi bi-megaphone me-1"></i>Compose message</a>
+    </div>
+  </div>
+
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Risk score</span><b class="text-{{ flag.severity_variant }}">{{ flag.score }}</b><em>{{ flag.severity }} risk</em></div>
+    <div class="tc-kpi"><span>Status</span><b>{% if flag.resolved %}Resolved{% elif acknowledged %}Acknowledged{% else %}Open{% endif %}</b><em>{{ log|length }} triage step{{ log|length|pluralize }}</em></div>
+    <div class="tc-kpi"><span>Educators</span><b>{{ educators|length }}</b><em>teach this student</em></div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-7 d-grid gap-3 align-content-start">
+      <div class="tc-card">
+        <div class="tc-card__head"><h6>Why they were flagged</h6></div>
+        <div class="tc-card__body">
+          <ul class="mb-0">{% for r in flag.reasons %}<li>{{ r }}</li>{% empty %}<li class="text-muted">No reasons recorded.</li>{% endfor %}</ul>
+        </div>
+      </div>
+
+      <div class="tc-card">
+        <div class="tc-card__head"><h6>Triage</h6></div>
+        <div class="tc-card__body">
+          <form method="post" action="{% url 'staffdesk:at-risk-triage' flag.pk %}">{% csrf_token %}
+            <label class="form-label" for="tNote">Note</label>
+            <textarea id="tNote" class="form-control mb-2" name="note" rows="2" placeholder="What was done, or what is next"></textarea>
+            <div class="d-flex flex-wrap gap-2">
+              <button class="btn btn-sm btn-outline-secondary" name="action" value="note"><i class="bi bi-sticky me-1"></i>Add note</button>
+              {% if flag.resolved %}
+                <button class="btn btn-sm btn-outline-primary" name="action" value="reopen"><i class="bi bi-arrow-counterclockwise me-1"></i>Reopen</button>
+              {% else %}
+                {% if not acknowledged %}<button class="btn btn-sm btn-outline-primary" name="action" value="ack"><i class="bi bi-eye me-1"></i>Acknowledge</button>{% endif %}
+                <button class="btn btn-sm btn-success" name="action" value="resolve"><i class="bi bi-check2 me-1"></i>Resolve</button>
+              {% endif %}
+            </div>
+          </form>
+          <ul class="sda-log mt-3">
+            {% for t in log %}
+              <li><b>{{ t.get_action_display }}</b> <span class="text-muted">· {{ t.by|person_name|default:"system" }} · {{ t.at|date:"j M Y, H:i" }}</span>
+                {% if t.note %}<div>{{ t.note|linebreaksbr }}</div>{% endif %}</li>
+            {% empty %}<li class="text-muted">Nothing done yet.</li>{% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <div class="tc-card">
+        <div class="tc-card__head"><h6>Grades</h6></div>
+        <div class="tc-table-wrap"><table class="tc-table">
+          <thead><tr><th>Subject</th><th class="r">Final</th><th>Grade</th></tr></thead>
+          <tbody>{% for g in grades %}
+            <tr><td class="small"><a href="{% url 'staffdesk:grade-detail' g.pk %}">{{ g.module.reference|default:"—" }}</a></td><td class="r">{{ g.final_pct|floatformat:1 }}%</td>
+              <td><span class="tc-chip {% if g.passed %}tc-chip--success{% else %}tc-chip--danger{% endif %}">{{ g.letter|default:"—" }}</span></td></tr>
+          {% empty %}<tr><td colspan="3" class="text-muted small">No grades yet.</td></tr>{% endfor %}</tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="col-lg-5 d-grid gap-3 align-content-start">
+      <div class="tc-card">
+        <div class="tc-card__head"><h6><i class="bi bi-person me-1"></i>Notify the student</h6></div>
+        <div class="tc-card__body">
+          <form method="post" action="{% url 'staffdesk:at-risk-notify' flag.pk 'student' %}">{% csrf_token %}
+            {% include 'staffdesk/academic/_notify_fields.html' with form=student_form %}
+            <button class="btn btn-sm btn-primary"><i class="bi bi-send me-1"></i>Send to {{ flag.student.first_name|default:"student" }}</button>
+          </form>
+        </div>
+      </div>
+      <div class="tc-card">
+        <div class="tc-card__head"><h6><i class="bi bi-mortarboard me-1"></i>Notify educator{{ educators|length|pluralize }}</h6></div>
+        <div class="tc-card__body">
+          {% if educators %}
+          <p class="small text-muted mb-2">{% for e in educators %}{{ e|person_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+          <form method="post" action="{% url 'staffdesk:at-risk-notify' flag.pk 'educator' %}">{% csrf_token %}
+            {% include 'staffdesk/academic/_notify_fields.html' with form=educator_form %}
+            <button class="btn btn-sm btn-primary"><i class="bi bi-send me-1"></i>Send</button>
+          </form>
+          {% else %}<p class="small text-muted mb-0">No educator is assigned to this student's subjects.</p>{% endif %}
+        </div>
+      </div>
+      {% if other_flags %}
+      <div class="tc-card">
+        <div class="tc-card__head"><h6>Earlier flags</h6></div>
+        <div class="tc-card__body"><ul class="sda-log mb-0">
+          {% for o in other_flags %}<li><a href="{% url 'staffdesk:at-risk-detail' o.pk %}">Score {{ o.score }}</a> <span class="text-muted">· {{ o.created_at|date:"j M Y" }}{% if o.resolved %} · resolved{% endif %}</span></li>{% endfor %}
+        </ul></div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div></div>
+{% endblock %}

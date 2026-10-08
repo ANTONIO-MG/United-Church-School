@@ -1,0 +1,156 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}Moderation: flagged content to review, penalties in force, appeals and reputation.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/ops/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk</span><h3>Moderation</h3>
+      <p>Content the filters or members flagged, the penalties that followed, and appeals against them.</p></div>
+  </div>
+
+  <nav class="tc-aisles" aria-label="Moderation">
+    <a class="tc-aisle {% if tab == 'violations' %}is-active{% endif %}" href="?tab=violations">To review<span class="tc-count">{{ counts.violations }}</span></a>
+    <a class="tc-aisle {% if tab == 'penalties' %}is-active{% endif %}" href="?tab=penalties">Active penalties<span class="tc-count">{{ counts.penalties }}</span></a>
+    <a class="tc-aisle {% if tab == 'appeals' %}is-active{% endif %}" href="?tab=appeals">Appeals<span class="tc-count">{{ counts.appeals }}</span></a>
+    <a class="tc-aisle {% if tab == 'reputation' %}is-active{% endif %}" href="?tab=reputation">Reputation<span class="tc-count">{{ counts.reputation }}</span></a>
+  </nav>
+
+  <form method="get" class="tc-toolbar"><input type="hidden" name="tab" value="{{ tab }}">
+    <label class="visually-hidden" for="modSearch">Search</label>
+    <input id="modSearch" class="form-control form-control-sm tc-search" type="search" name="q" value="{{ search }}" placeholder="Search by name, e-mail or text">
+    {% if tab != 'reputation' %}
+    <select class="form-select form-select-sm w-auto" name="show" aria-label="Show">
+      <option value="">{% if tab == 'violations' %}Unreviewed only{% elif tab == 'penalties' %}Active only{% else %}Pending only{% endif %}</option>
+      <option value="all" {% if show == 'all' %}selected{% endif %}>Everything</option>
+    </select>
+    {% endif %}
+    <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i><span class="visually-hidden">Search</span></button>
+  </form>
+
+  {% if tab == 'violations' %}
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>When</th><th>User</th><th>Flagged content</th><th>Severity</th><th class="r">Decision</th></tr></thead>
+      <tbody>
+      {% for v in page %}
+        <tr>
+          <td class="small text-nowrap">{{ v.created_at|date:"j M H:i" }}<div class="text-muted">{{ v.get_source_display }}</div></td>
+          <td><span class="fw-semibold">{{ v.user|person_name }}</span><div class="small text-muted">{{ v.user.email }}</div>
+            {% if v.reporter %}<div class="small text-muted">Reported by {{ v.reporter|person_name }}</div>{% endif %}</td>
+          <td class="sd-flagged">
+            <blockquote class="sd-quote">{{ v.text|default:v.message.body|default:"(no text captured)"|linebreaksbr }}</blockquote>
+            <div class="small text-muted">
+              {% if v.message %}In {{ v.message.group.name|default:"a chat" }}{% if v.message.is_deleted %} · <span class="text-danger">hidden</span>{% endif %}{% endif %}
+              {% if v.evidence.matched %} · matched {{ v.evidence.matched|join:", " }}{% endif %}
+            </div>
+          </td>
+          <td class="text-nowrap">
+            <span class="tc-chip {% if v.score >= 3 %}tc-chip--danger{% elif v.score == 2 %}tc-chip--warning{% else %}tc-chip--cyan{% endif %}">{{ v.score }}/4 · {{ v.category|default:"flag" }}</span>
+            <div class="small text-muted mt-1">{{ v.get_detected_by_display }}{% if v.n_penalties %} · {{ v.n_penalties }} penalt{{ v.n_penalties|pluralize:"y,ies" }}{% endif %}</div>
+          </td>
+          <td class="r">
+            {% if v.handled %}
+              <span class="tc-chip {% if v.evidence.review.outcome == 'dismissed' %}tc-chip--success{% else %}tc-chip--primary{% endif %}">{{ v.evidence.review.outcome|default:"reviewed"|capfirst }}</span>
+              {% if v.evidence.review.by %}<div class="small text-muted mt-1">{{ v.evidence.review.by }}</div>{% endif %}
+            {% else %}
+            <form method="post" action="{% url 'staffdesk:ops-violation-action' v.pk %}" class="sd-actions">{% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button class="btn btn-sm tc-btn-soft" name="action" value="dismiss" title="False positive: lift its penalties, restore reputation and the message"><i class="bi bi-hand-thumbs-up me-1"></i>Dismiss</button>
+              <button class="btn btn-sm btn-outline-danger" name="action" value="confirm" title="{% if v.n_penalties %}Keep the penalty already issued{% else %}Apply the next penalty on the ladder{% endif %}"><i class="bi bi-flag me-1"></i>Confirm</button>
+              {% if v.message and not v.message.is_deleted %}<label class="small text-muted d-block mt-1"><input type="checkbox" class="form-check-input me-1" name="hide" value="1">hide message on confirm</label>{% endif %}
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5"><div class="tc-empty"><i class="bi bi-shield-check"></i><h5>Nothing to review</h5><p class="mb-0">No flagged content is waiting.</p></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+
+  {% elif tab == 'penalties' %}
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>User</th><th>Penalty</th><th>Reason</th><th>From</th><th>Until</th><th class="r"></th></tr></thead>
+      <tbody>
+      {% for p in page %}
+        <tr>
+          <td><span class="fw-semibold">{{ p.user|person_name }}</span><div class="small text-muted">{{ p.user.email }}</div></td>
+          <td class="text-nowrap"><span class="tc-chip {% if p.kind in 'mute chat_suspend platform_suspend class_suspend' %}tc-chip--danger{% elif p.kind == 'escalate' %}tc-chip--warning{% else %}tc-chip--cyan{% endif %}">{{ p.get_kind_display }}</span>
+            {% if not p.active %}<div class="small text-muted mt-1">Lifted</div>{% elif not p.is_current %}<div class="small text-muted mt-1">Expired</div>{% endif %}</td>
+          <td class="small">{{ p.reason|default:"—" }}{% if p.issued_by %}<div class="text-muted">by {{ p.issued_by|person_name }}</div>{% endif %}</td>
+          <td class="small text-nowrap">{{ p.starts_at|date:"j M H:i" }}</td>
+          <td class="small text-nowrap">{% if p.ends_at %}{{ p.ends_at|date:"j M H:i" }}{% else %}Indefinite{% endif %}</td>
+          <td class="r">{% if p.active %}
+            <form method="post" action="{% url 'staffdesk:ops-penalty-lift' p.pk %}">{% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button class="btn btn-sm tc-btn-soft text-nowrap"><i class="bi bi-unlock me-1"></i>Lift</button>
+            </form>{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6"><div class="tc-empty"><i class="bi bi-emoji-smile"></i><h5>No penalties in force</h5></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+
+  {% elif tab == 'appeals' %}
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>When</th><th>User</th><th>Penalty</th><th>Their appeal</th><th class="r">Decision</th></tr></thead>
+      <tbody>
+      {% for a in page %}
+        <tr>
+          <td class="small text-nowrap">{{ a.created_at|date:"j M H:i" }}</td>
+          <td><span class="fw-semibold">{{ a.user|person_name }}</span><div class="small text-muted">{{ a.user.email }}</div></td>
+          <td class="small">{{ a.penalty.get_kind_display }}<div class="text-muted">{{ a.penalty.reason|truncatechars:60 }}</div>{% if not a.penalty.active %}<div class="text-muted">already lifted</div>{% endif %}</td>
+          <td class="sd-flagged"><blockquote class="sd-quote">{{ a.message|linebreaksbr }}</blockquote></td>
+          <td class="r sd-decide">
+            {% if a.status == 'pending' %}
+            <form method="post" action="{% url 'staffdesk:ops-appeal-decide' a.pk %}">{% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <label class="visually-hidden" for="note{{ a.pk }}">Note to the user</label>
+              <textarea id="note{{ a.pk }}" class="form-control form-control-sm mb-1" name="note" rows="2" placeholder="Note to the user (optional)"></textarea>
+              <div class="sd-actions">
+                <button class="btn btn-sm btn-success" name="decision" value="approve"><i class="bi bi-check-lg me-1"></i>Approve</button>
+                <button class="btn btn-sm btn-outline-danger" name="decision" value="deny"><i class="bi bi-x-lg me-1"></i>Deny</button>
+              </div>
+            </form>
+            {% else %}
+              <span class="tc-chip {% if a.status == 'accepted' %}tc-chip--success{% else %}tc-chip--danger{% endif %}">{{ a.get_status_display }}</span>
+              {% if a.reviewed_by %}<div class="small text-muted mt-1">{{ a.reviewed_by|person_name }}</div>{% endif %}
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5"><div class="tc-empty"><i class="bi bi-chat-square-text"></i><h5>No appeals waiting</h5></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+
+  {% else %}
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>User</th><th>Score</th><th class="r">Violations</th><th class="r">Penalties</th><th>Updated</th></tr></thead>
+      <tbody>
+      {% for r in page %}
+        <tr>
+          <td><span class="fw-semibold">{{ r.user|person_name }}</span><div class="small text-muted">{{ r.user.email }}</div></td>
+          <td class="text-nowrap"><span class="tc-chip {% if r.score < 50 %}tc-chip--danger{% elif r.score < 80 %}tc-chip--warning{% else %}tc-chip--success{% endif %}">{{ r.score }}/100</span></td>
+          <td class="r">{{ r.n_violations }}</td>
+          <td class="r">{{ r.n_penalties }}</td>
+          <td class="small text-muted text-nowrap">{{ r.updated_at|date:"j M Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5"><div class="tc-empty"><i class="bi bi-stars"></i><h5>No reputation scores yet</h5><p class="mb-0">Everyone starts at 100; a score appears once a violation lowers it.</p></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% endif %}
+
+  {% include 'staffdesk/ops/_pager.html' %}
+</div></div>
+{% endblock %}

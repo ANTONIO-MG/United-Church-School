@@ -1,0 +1,467 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% comment %}
+Community "Settings" hub — a real, tabbed settings page whose sections all persist:
+  • Account   — read-only identity + the profile-picture form.
+  • Preferences & privacy — UserSettings (visibility / theme / language).
+  • Privacy & consent — POPIA consents + data rights.
+  • Academic calendar — the candidate's own exam/assignment/practical dates.
+  • Notifications — links to the existing communication:notification-preferences.
+  • Danger zone — link to the close-account verify flow.
+Each panel posts independently via a hidden ``form_name`` field.
+
+There is deliberately no Security tab: a password is changed from the login page
+("Forgot password"), which proves control of the mailbox. Offering it here too
+means an unattended, already-signed-in session can lock the real owner out.
+{% endcomment %}
+
+{% block content %}
+<div class="content-body">
+  <div class="container-fluid">
+
+    <div class="row page-titles mx-0">
+      <div class="col-sm-6 p-md-0">
+        <div class="welcome-text"><h4>{{ page_title }}</h4></div>
+      </div>
+      <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex align-items-center">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="{% url 'accounts:my-profile' %}">Community</a></li>
+          <li class="breadcrumb-item active"><a href="javascript:void(0);">Settings</a></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-xl-3 col-lg-4">
+        <div class="card mb-3">
+          <div class="card-body text-center">
+            {% if person %}
+              <img class="rounded-circle mb-3 shadow" style="width:96px;height:96px;object-fit:cover" src="{{ person.avatar_url }}" alt="">
+            {% else %}
+              <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center mx-auto mb-3" style="width:96px;height:96px;font-size:34px;">{{ person.first_name|first|default:person.user.email|first|upper }}</div>
+            {% endif %}
+            <h5 class="mb-0">{{ person }}</h5>
+            <span class="badge bg-primary bg-opacity-10 text-primary text-capitalize">{{ person.get_user_type_display }}</span>
+            <p class="text-muted small mt-2 mb-0">{{ person.user.email }}</p>
+            <a href="{% url 'accounts:my-profile' %}" class="btn btn-light btn-sm mt-3"><i class="bi bi-person me-1"></i>View profile</a>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body p-2">
+            <ul class="nav nav-pills flex-column gap-1" id="settingsTabs" role="tablist">
+              <li class="nav-item"><a class="nav-link {% if active_tab == 'account' %}active{% endif %}" data-bs-toggle="pill" href="#tab-account"><i class="bi bi-person-badge fa-fw me-2"></i>Account &amp; profile</a></li>
+              <li class="nav-item"><a class="nav-link {% if active_tab == 'preferences' %}active{% endif %}" data-bs-toggle="pill" href="#tab-preferences"><i class="bi bi-shield-lock fa-fw me-2"></i>Preferences &amp; privacy</a></li>
+              <li class="nav-item"><a class="nav-link {% if active_tab == 'consent' %}active{% endif %}" data-bs-toggle="pill" href="#tab-consent"><i class="bi bi-file-earmark-lock2 fa-fw me-2"></i>Privacy &amp; consent</a></li>
+              <li class="nav-item"><a class="nav-link {% if active_tab == 'calendar' %}active{% endif %}" data-bs-toggle="pill" href="#tab-calendar"><i class="bi bi-calendar3 fa-fw me-2"></i>Academic calendar</a></li>
+              <li class="nav-item"><a class="nav-link {% if active_tab == 'connected' %}active{% endif %}" data-bs-toggle="pill" href="#tab-connected"><i class="bi bi-calendar2-week fa-fw me-2"></i>Connected calendars</a></li>
+              <li class="nav-item"><a class="nav-link {% if active_tab == 'notifications' %}active{% endif %}" data-bs-toggle="pill" href="#tab-notifications"><i class="bi bi-bell fa-fw me-2"></i>Notifications</a></li>
+              <li class="nav-item"><a class="nav-link text-danger" data-bs-toggle="pill" href="#tab-danger"><i class="bi bi-trash3 fa-fw me-2"></i>Close account</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-9 col-lg-8">
+        <div class="tab-content">
+
+          <div class="tab-pane fade {% if active_tab == 'account' %}show active{% endif %}" id="tab-account">
+            {% comment %}Identity is shown, not edited. Legal name, gender and date
+            of birth follow a candidate onto results and certificates, so changing
+            them is an administrator's job — ask, and the change is made once,
+            with a record of who made it.{% endcomment %}
+            <div class="card mb-3">
+              <div class="card-header border-0 pb-0">
+                <h5 class="card-title mb-0">Your details</h5>
+                <p class="mb-0 small text-muted">These identify you on results and certificates.
+                  <a href="{% url 'communication:chat-home' %}">Ask an administrator</a> if any of them is wrong.</p>
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-sm-6"><div class="rounded border px-3 py-2"><small class="text-muted d-block">First name</small><strong>{{ person.first_name|default:"—" }}</strong></div></div>
+                  <div class="col-sm-6"><div class="rounded border px-3 py-2"><small class="text-muted d-block">Surname</small><strong>{{ person.last_name|default:"—" }}</strong></div></div>
+                  <div class="col-sm-6"><div class="rounded border px-3 py-2"><small class="text-muted d-block">Gender</small><strong>{{ person.get_gender_display|default:"—" }}</strong></div></div>
+                  <div class="col-sm-6"><div class="rounded border px-3 py-2"><small class="text-muted d-block">Date of birth</small><strong>{{ person.date_of_birth|date:"d M Y"|default:"—" }}</strong></div></div>
+                  <div class="col-sm-6"><div class="rounded border px-3 py-2"><small class="text-muted d-block">E-mail</small><strong>{{ person.user.email|default:"—" }}</strong>
+                    {% if email_verified is True %}<span class="badge bg-success bg-opacity-10 text-success ms-1">Verified</span>
+                    {% elif email_verified is False %}<span class="badge bg-warning bg-opacity-10 text-warning ms-1">Not verified</span>{% endif %}
+                  </div></div>
+                  <div class="col-sm-6"><div class="rounded border px-3 py-2"><small class="text-muted d-block">Account type</small><strong class="text-capitalize">{{ person.get_user_type_display }}</strong></div></div>
+                  <div class="col-sm-6"><div class="rounded border px-3 py-2"><small class="text-muted d-block">Date joined</small><strong>{{ person.user.date_joined|date:"M j, Y" }}</strong></div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Profile picture</h5>
+                <p class="mb-0 small text-muted">This is what everyone else sees beside your name.</p>
+              </div>
+              <div class="card-body">
+                <form method="post" action="{% url 'accounts:settings' %}" enctype="multipart/form-data" novalidate>
+                  {% csrf_token %}
+                  <input type="hidden" name="form_name" value="profile">
+                  <div class="row g-3 align-items-center">
+                    <div class="col-auto">
+                      {% if person %}
+                        <img class="rounded-circle shadow-sm" style="width:72px;height:72px;object-fit:cover" src="{{ person.avatar_url }}" alt="">
+                      {% else %}
+                        <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width:72px;height:72px;font-size:26px;">{{ person.first_name|first|default:person.user.email|first|upper }}</div>
+                      {% endif %}
+                    </div>
+                    {% for field in profile_form %}
+                    <div class="col">
+                      <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                      {{ field }}
+                      {% if field.help_text %}<small class="form-text text-muted d-block">{{ field.help_text }}</small>{% endif %}
+                      {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                  </div>
+                  <div class="mt-3 text-end">
+                    <a href="{% url 'accounts:my-profile' %}" class="btn btn-light">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Save picture</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade {% if active_tab == 'preferences' %}show active{% endif %}" id="tab-preferences">
+            <div class="card">
+              <div class="card-header border-0 pb-0">
+                <h5 class="card-title mb-0">Preferences &amp; privacy</h5>
+                <p class="mb-0 small text-muted">Control who can see your profile, how the app looks, what language it speaks
+                  and which clock it keeps. Theme, language and time zone apply the moment you save, on every device you sign in
+                  from — session times, reminders and the calendar all follow your time zone.</p>
+              </div>
+              <div class="card-body">
+                <form method="post" action="{% url 'accounts:settings' %}" novalidate>
+                  {% csrf_token %}
+                  <input type="hidden" name="form_name" value="preferences">
+                  <div class="row g-3">
+                    {% for field in settings_form %}
+                    <div class="col-md-6">
+                      {% if field.field.widget.input_type == 'checkbox' %}
+                        <div class="form-check mt-4">
+                          {{ field }}
+                          <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        </div>
+                      {% else %}
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                      {% endif %}
+                      {% if field.help_text %}<small class="form-text text-muted d-block">{{ field.help_text }}</small>{% endif %}
+                      {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                  </div>
+                  <div class="mt-3 text-end">
+                    <button type="submit" class="btn btn-primary">Save preferences</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade {% if active_tab == 'consent' %}show active{% endif %}" id="tab-consent">
+            <div class="card">
+              <div class="card-header border-0 pb-0">
+                <h5 class="card-title mb-0">Privacy &amp; consent</h5>
+                <p class="mb-0 small text-muted">Under the Protection of Personal Information Act (POPIA), you control how we use your information. Change these anytime.</p>
+              </div>
+              <div class="card-body">
+                <div class="rounded border bg-light p-3 mb-4">
+                  <div class="d-flex align-items-center gap-2 mb-1"><i class="bi bi-check-circle-fill text-success"></i><strong class="small">Required to run your account</strong></div>
+                  <ul class="small text-muted mb-0 ps-4">
+                    <li>Privacy Policy — {% if consent.privacy_policy_accepted %}<span class="text-success">accepted</span>{% else %}pending{% endif %}</li>
+                    <li>Processing your data to deliver the learning hub — {% if consent.data_processing_accepted %}<span class="text-success">accepted</span>{% else %}pending{% endif %}</li>
+                  </ul>
+                </div>
+
+                <form method="post" action="{% url 'accounts:settings' %}" novalidate>
+                  {% csrf_token %}
+                  <input type="hidden" name="form_name" value="consent">
+                  <p class="text-uppercase small fw-bold text-muted mb-2">Optional — opt in or out</p>
+                  <div class="row g-2">
+                    {% for field in consent_form %}
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        {{ field }}
+                        <label class="form-check-label small" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                      </div>
+                    </div>
+                    {% endfor %}
+                  </div>
+                  <div class="text-muted small mt-3">
+                    {% if consent.consent_date %}Last updated {{ consent.consent_date|date:'d M Y, H:i' }}{% endif %}
+                    {% if consent.consent_version %} · consent version {{ consent.consent_version }}{% endif %}
+                  </div>
+                  <div class="mt-3 text-end"><button type="submit" class="btn btn-primary">Save privacy choices</button></div>
+                </form>
+
+                <hr class="my-4">
+                <h6 class="mb-2"><i class="bi bi-person-lock me-2"></i>Your data rights</h6>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                  <form method="post" action="{% url 'accounts:data-export-pdf' %}" class="mb-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>Download my data (PDF)</button>
+                  </form>
+                  <form method="post" action="{% url 'accounts:data-export' %}" class="mb-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-link btn-sm text-muted p-0">or as JSON</button>
+                  </form>
+                  <a href="{% url 'accounts:close-account' %}" class="btn btn-outline-danger btn-sm ms-auto"><i class="bi bi-trash3 me-1"></i>Request account deletion</a>
+                </div>
+                <p class="small text-muted mt-2 mb-0">
+                  <strong>Access:</strong> download a copy of the personal information we hold about you.
+                  <strong>Erasure:</strong> close your account — a 30-day grace period applies before permanent deletion.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade {% if active_tab == 'calendar' %}show active{% endif %}" id="tab-calendar">
+            <div class="card">
+              <div class="card-header border-0 pb-0">
+                <h5 class="card-title mb-0">Academic calendar</h5>
+                <p class="mb-0 small text-muted">Add your key dates — exams, assignments and practicals. They show up on your grade feed and drive reminders and study planning.</p>
+              </div>
+              <div class="card-body">
+                <form method="post" action="{% url 'accounts:settings' %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="form_name" value="calendar">
+                  {% for cat in calendar_cats %}
+                  <div class="mb-4 cal-group" data-prefix="{{ cat.prefix }}">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <h6 class="mb-0"><i class="bi {{ cat.icon }} text-primary me-2"></i>{{ cat.title }}</h6>
+                      <button type="button" class="btn btn-sm btn-outline-primary cal-add"><i class="bi bi-plus-lg me-1"></i>Add</button>
+                    </div>
+                    <div class="cal-rows">
+                      {% for row in cat.rows %}
+                      <div class="row g-2 mb-2 cal-row">
+                        <div class="col-7"><input type="text" name="{{ cat.prefix }}_label" class="form-control form-control-sm" placeholder="Label (e.g. FREP paper)" value="{{ row.label }}"></div>
+                        <div class="col-4"><input type="date" name="{{ cat.prefix }}_date" class="form-control form-control-sm" value="{{ row.date }}"></div>
+                        <div class="col-1 d-flex align-items-center"><button type="button" class="btn btn-sm btn-link text-danger p-0 cal-del"><i class="bi bi-x-lg"></i></button></div>
+                      </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                  {% endfor %}
+                  <div class="text-end"><button type="submit" class="btn btn-primary">Save calendar</button></div>
+                </form>
+                <script>
+                (function () {
+                  document.querySelectorAll('#tab-calendar .cal-group').forEach(function (g) {
+                    var prefix = g.getAttribute('data-prefix');
+                    var rows = g.querySelector('.cal-rows');
+                    var add = g.querySelector('.cal-add');
+                    if (add) add.addEventListener('click', function () {
+                      var div = document.createElement('div');
+                      div.className = 'row g-2 mb-2 cal-row';
+                      div.innerHTML =
+                        '<div class="col-7"><input type="text" name="' + prefix + '_label" class="form-control form-control-sm" placeholder="Label"></div>' +
+                        '<div class="col-4"><input type="date" name="' + prefix + '_date" class="form-control form-control-sm"></div>' +
+                        '<div class="col-1 d-flex align-items-center"><button type="button" class="btn btn-sm btn-link text-danger p-0 cal-del"><i class="bi bi-x-lg"></i></button></div>';
+                      rows.appendChild(div);
+                    });
+                  });
+                  document.addEventListener('click', function (e) {
+                    var del = e.target.closest('#tab-calendar .cal-del');
+                    if (del) { e.preventDefault(); var r = del.closest('.cal-row'); if (r) r.remove(); }
+                  });
+                })();
+                </script>
+              </div>
+            </div>
+          </div>
+
+          {% comment %}
+          Export and import, both over plain iCalendar feeds rather than OAuth.
+          Google, Outlook and Apple each publish a private .ics address from
+          their own settings and each subscribe to one, so a feed needs no
+          consent screen, no token refresh and no API quota — and, importantly,
+          cannot write to anybody's calendar. See docs/LIVE_SESSIONS.md.
+          {% endcomment %}
+          <div class="tab-pane fade {% if active_tab == 'connected' %}show active{% endif %}" id="tab-connected">
+
+            <div class="card mb-3">
+              <div class="card-header border-0 pb-0">
+                <h5 class="card-title mb-0">Your school calendar, in your own app</h5>
+                <p class="mb-0 small text-muted">Add this address to Google Calendar, Outlook or Apple Calendar
+                  and your sessions, tests, deadlines and reminders appear there automatically — and keep
+                  updating as they change.</p>
+              </div>
+              <div class="card-body">
+                <label class="form-label small text-muted">Your private calendar address</label>
+                <div class="input-group mb-2">
+                  <input type="text" class="form-control" id="calFeedUrl" readonly
+                         value="{{ calendar_feed_url }}" onclick="this.select()">
+                  <button class="btn btn-outline-primary" type="button" id="calFeedCopy">
+                    <i class="bi bi-clipboard me-1"></i><span>Copy</span></button>
+                </div>
+                <div class="alert alert-warning py-2 small mb-3">
+                  <i class="bi bi-shield-lock me-1"></i>
+                  Treat this like a password — anyone who has it can read your whole schedule.
+                </div>
+
+                <details class="mb-3">
+                  <summary class="small text-primary" style="cursor:pointer">How do I add it?</summary>
+                  <div class="small text-muted mt-2">
+                    <p class="mb-1"><strong>Google Calendar</strong> — Other calendars → <em>+</em> →
+                       From URL → paste → Add calendar.</p>
+                    <p class="mb-1"><strong>Outlook / Microsoft 365</strong> — Add calendar →
+                       Subscribe from web → paste → Import.</p>
+                    <p class="mb-0"><strong>Apple Calendar</strong> — File → New Calendar Subscription → paste.</p>
+                  </div>
+                </details>
+
+                <form method="post" action="{% url 'livesessions:rotate-calendar-token' %}"
+                      onsubmit="return confirm('Reset the link? Any calendar app still using the old address will stop updating.')">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.path }}?tab=connected">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">
+                    <i class="bi bi-arrow-repeat me-1"></i>Reset this link</button>
+                  <span class="small text-muted ms-2">Use this if you have shared it by mistake.</span>
+                </form>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header border-0 pb-0">
+                <h5 class="card-title mb-0">Bring your own calendar in</h5>
+                <p class="mb-0 small text-muted">Connect your Google, Outlook or Apple calendar and its events
+                  show on your school calendar as busy time. Read-only — we never change anything in it.</p>
+              </div>
+              <div class="card-body">
+
+                {% if calendar_subscriptions %}
+                <div class="list-group list-group-flush mb-3">
+                  {% for sub in calendar_subscriptions %}
+                  <div class="list-group-item d-flex justify-content-between align-items-start flex-wrap gap-2">
+                    <div class="min-w-0">
+                      <span class="d-inline-block rounded-circle me-2" style="width:.7rem;height:.7rem;background:{{ sub.colour }}"></span>
+                      <strong>{{ sub.name }}</strong>
+                      <span class="badge bg-light text-muted ms-1">{{ sub.get_provider_display }}</span>
+                      {% if not sub.is_active %}<span class="badge bg-danger ms-1">Disconnected</span>
+                      {% elif sub.last_status == 'failed' %}<span class="badge bg-warning text-dark ms-1">Failing</span>{% endif %}
+                      <br>
+                      <small class="text-muted">
+                        {{ sub.safe_url }} ·
+                        {% if sub.last_synced_at %}{{ sub.event_count }} event{{ sub.event_count|pluralize }},
+                          updated {{ sub.last_synced_at|timesince }} ago{% else %}not synced yet{% endif %}
+                        {% if not sub.blocks_time %} · does not block time{% endif %}
+                      </small>
+                      {% if sub.last_error %}<br><small class="text-danger">{{ sub.last_error }}</small>{% endif %}
+                    </div>
+                    <div class="d-flex gap-1">
+                      <form method="post" action="{% url 'livesessions:refresh-calendar' sub.pk %}">
+                        {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}?tab=connected">
+                        <button class="btn btn-sm btn-outline-secondary" type="submit" title="Refresh now">
+                          <i class="bi bi-arrow-clockwise"></i></button>
+                      </form>
+                      <form method="post" action="{% url 'livesessions:disconnect-calendar' sub.pk %}"
+                            onsubmit="return confirm('Disconnect “{{ sub.name|escapejs }}” and remove its events?')">
+                        {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}?tab=connected">
+                        <button class="btn btn-sm btn-outline-danger" type="submit" title="Disconnect">
+                          <i class="bi bi-x-lg"></i></button>
+                      </form>
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+
+                <form method="post" action="{% url 'livesessions:connect-calendar' %}" novalidate>
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.path }}?tab=connected">
+                  <div class="row g-2">
+                    {% for field in calendar_form %}
+                    <div class="{% if field.name == 'url' %}col-12{% elif field.name == 'blocks_time' %}col-md-12{% else %}col-md-4{% endif %}">
+                      {% if field.field.widget.input_type == 'checkbox' %}
+                        <div class="form-check mt-2">{{ field }}
+                          <label class="form-check-label small" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+                      {% else %}
+                        <label class="form-label small" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+                      {% endif %}
+                      {% if field.help_text %}<small class="form-text text-muted d-block">{{ field.help_text }}</small>{% endif %}
+                    </div>
+                    {% endfor %}
+                  </div>
+                  <div class="text-end mt-3"><button class="btn btn-primary" type="submit">
+                    <i class="bi bi-plug me-1"></i>Connect calendar</button></div>
+                </form>
+
+                <details class="mt-3">
+                  <summary class="small text-primary" style="cursor:pointer">Where do I find my calendar's address?</summary>
+                  <div class="small text-muted mt-2">
+                    <p class="mb-1"><strong>Google Calendar</strong> — Settings → your calendar →
+                       Integrate calendar → <em>Secret address in iCal format</em>.</p>
+                    <p class="mb-1"><strong>Outlook / Microsoft 365</strong> — Settings → Calendar →
+                       Shared calendars → Publish a calendar → choose <em>Can view all details</em> → copy the ICS link.</p>
+                    <p class="mb-0"><strong>Apple iCloud</strong> — right-click the calendar →
+                       Share Calendar → Public Calendar → copy the link.</p>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade {% if active_tab == 'notifications' %}show active{% endif %}" id="tab-notifications">
+            <div class="card">
+              <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Notifications</h5>
+                <p class="mb-0 small text-muted">Choose which alerts you receive, pick e-mail vs. browser delivery, set a digest and quiet hours.</p>
+              </div>
+              <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between rounded border px-3 py-3">
+                  <div class="me-3">
+                    <h6 class="mb-1"><i class="bi bi-sliders me-2"></i>Notification preferences</h6>
+                    <p class="small text-muted mb-0">Manage channels, per-category switches, digest frequency, reminders and quiet hours.</p>
+                  </div>
+                  <a href="{% url 'communication:notification-preferences' %}" class="btn btn-primary flex-shrink-0"><i class="bi bi-arrow-right-circle me-1"></i>Open</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <script>
+          (function () {
+            var btn = document.getElementById('calFeedCopy');
+            var field = document.getElementById('calFeedUrl');
+            if (!btn || !field) return;
+            btn.addEventListener('click', function () {
+              var done = function () {
+                var label = btn.querySelector('span');
+                if (!label) return;
+                var was = label.textContent;
+                label.textContent = 'Copied';
+                setTimeout(function () { label.textContent = was; }, 1600);
+              };
+              if (navigator.clipboard) { navigator.clipboard.writeText(field.value).then(done, function () {}); }
+              else { field.select(); try { document.execCommand('copy'); done(); } catch (e) {} }
+            });
+          })();
+          </script>
+
+          <div class="tab-pane fade" id="tab-danger">
+            <div class="card border-danger">
+              <div class="card-header border-0 pb-0"><h5 class="card-title mb-0 text-danger">Close account</h5>
+                <p class="mb-0 small text-muted">Closing soft-deactivates your account now. We keep a copy for 30 days in case you change your mind — contact an admin to cancel. After that it is permanently purged and archived.</p>
+              </div>
+              <div class="card-body">
+                <h6>Before you go…</h6>
+                <ul class="small text-muted">
+                  <li>You will be signed out immediately and your account deactivated.</li>
+                  <li>Your data is retained for 30 days, then archived and removed.</li>
+                  <li>You can ask an administrator to reactivate within those 30 days.</li>
+                </ul>
+                <a href="{% url 'accounts:close-account' %}" class="btn btn-danger"><i class="bi bi-trash3 me-1"></i>Continue to close my account</a>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

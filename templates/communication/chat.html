@@ -1,0 +1,82 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}
+Messaging (social-theme look) over the DRF API at /api/communication/. Left:
+conversations the user belongs to — course, module, direct (1:1), custom groups
+and the platform-wide General chat — plus a "New chat" person picker. Right:
+the thread, which reads like a phone messenger: a header naming you and whoever
+you are talking to, day dividers that float over the scroll, messages grouped by
+sender with the sender's photo beside them, read ticks on your own bubbles, and
+reply-to-a-message quoting.
+{% endcomment %}
+
+{% block additional_css %}
+{% include 'communication/_chat_styles.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  {% csrf_token %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">{{ page_title }}</h3>
+    <a href="{% url 'communication:meetings' %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-camera-video me-1"></i>Meetings</a>
+  </div>
+
+  <div class="msgr">
+    <div class="msgr-list">
+      <div class="head d-flex justify-content-between align-items-center">
+        <strong>Conversations</strong>
+        <div class="dropdown">
+          <button class="btn btn-sm btn-primary" data-bs-toggle="dropdown" title="Start a new chat">
+            <i class="bi bi-pencil-square me-1"></i>New chat</button>
+          <div class="dropdown-menu dropdown-menu-end p-2" style="max-height:340px;overflow:auto;min-width:260px">
+            <button id="newGroupBtn" class="dropdown-item"><i class="bi bi-people me-2"></i>New group…</button>
+            <h6 class="dropdown-header">Direct message</h6>
+            {% for u in people %}
+              {% if u.pk != request.user.pk %}
+              <a class="dropdown-item d-flex align-items-center gap-2" href="{% url 'communication:chat-direct' u.pk %}">
+                <span class="ava ava-28">
+                  {% if u.profile %}<img src="{{ u.profile.avatar_url }}" alt="">
+                  {% else %}{{ u|person_name|slice:":1" }}{% endif %}
+                </span>
+                <span class="text-truncate">{{ u|person_name }}</span>
+              </a>
+              {% endif %}
+            {% empty %}<span class="dropdown-item-text text-muted small">No other members.</span>{% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="p-2"><input id="convoSearch" class="form-control form-control-sm" type="search" placeholder="Search conversations…"></div>
+      <div class="msgr-convos" id="groupList">
+        {% for g in groups %}
+        <a class="convo {% if active_group and g.id == active_group.id %}active{% endif %}" data-name="{{ g.chat_title|lower }}" data-group="{{ g.id }}"
+           href="{% url 'communication:chat-room' g.id %}">
+          <span class="ava ava-42 {% if not g.is_direct %}ava-group{% endif %}">
+            {% if g.avatar %}<img src="{{ g.avatar }}" alt="{{ g.chat_title }}">
+            {% elif g.is_direct %}{{ g.avatar_initials }}
+            {% else %}<i class="bi bi-people-fill"></i>{% endif %}
+          </span>
+          <span class="flex-grow-1 min-w-0">
+            <span class="d-flex align-items-center gap-1">
+              <span class="conv-name d-block fw-semibold text-truncate">{{ g.chat_title }}</span>
+              <span class="new-dot d-none ms-auto"><span class="g-pulse"></span>New</span>
+            </span>
+            <small class="text-muted">{{ g.get_kind_display }} · {{ g.member_count }} member{{ g.member_count|pluralize }}</small>
+          </span>
+        </a>
+        {% empty %}
+        <p class="text-muted small p-3">No conversations yet. Enrol in a course/subject or start one with the “New chat” button.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% include 'communication/_chat_thread.html' %}
+  </div>
+</div></div>
+
+{% include 'communication/_chat_call_ui.html' %}
+
+{% comment %}The chat behaviour script lives INSIDE the content block (not
+additional_js) so HTMX's hx-select="#appContentCol" includes it when the page is
+boosted in, and the chat initialises. Registers its teardown via window.Thrive.{% endcomment %}
+{% include 'communication/_chat_script.html' %}
+{% endblock %}

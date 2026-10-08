@@ -1,0 +1,215 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}
+One session's own page — the link that goes in the calendar, the reminders and
+the e-mails.
+
+Before it happens: the details and a Join button. Afterwards the same page grows
+the recording player, the transcript, the automatic recap and the Claude session
+pack. Deliberately one page and not two: a student who missed Tuesday's class
+follows the same link they were sent on Monday.
+{% endcomment %}
+
+{% block additional_css %}
+<style>
+  .session-hero{border-radius:.75rem;overflow:hidden;background:var(--bs-tertiary-bg)}
+  .session-hero img{width:100%;height:auto;display:block}
+  .player-wrap{position:relative;padding-top:56.25%;border-radius:.5rem;overflow:hidden;background:#000}
+  .player-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .pack-body{white-space:pre-wrap;font-size:.9rem;line-height:1.6}
+  .join-as{max-width:22rem}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+    <div class="min-w-0">
+      <h3 class="mb-1 text-truncate">{{ meeting.title }}</h3>
+      <small class="text-muted">
+        {{ meeting.get_session_kind_display }} · {{ meeting.audience_label }}
+        {% if meeting.module %} · <a href="{{ meeting.module.get_absolute_url|default:'#' }}">{{ meeting.module.label }}</a>{% endif %}
+      </small>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      {% if can_manage %}
+        <a class="btn btn-light" href="{% url 'livesessions:session-register' meeting.pk %}"><i class="bi bi-person-check me-1"></i>Register</a>
+        <a class="btn btn-light" href="{% url 'livesessions:session-edit' meeting.pk %}"><i class="bi bi-pencil me-1"></i>Edit</a>
+        <form method="post" action="{% url 'livesessions:session-cancel' meeting.pk %}"
+              onsubmit="return confirm('Cancel this session? Everyone invited will be told.')">
+          {% csrf_token %}
+          <button class="btn btn-outline-danger" type="submit"><i class="bi bi-x-lg me-1"></i>Cancel</button>
+        </form>
+      {% endif %}
+      <a class="btn btn-light" href="{% url 'livesessions:calendar' %}"><i class="bi bi-calendar3 me-1"></i>Calendar</a>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-8">
+
+      {% if artifact and artifact.is_watchable %}
+        <div class="card mb-3"><div class="card-body">
+          <h6 class="mb-3"><i class="bi bi-play-btn me-1"></i>Recording</h6>
+          {% if artifact.embed_url %}
+            <div class="player-wrap"><iframe src="{{ artifact.embed_url }}" allowfullscreen
+                    allow="accelerometer; encrypted-media; picture-in-picture"
+                    title="{{ meeting.title }}"></iframe></div>
+          {% else %}
+            <a class="btn btn-primary" href="{{ artifact.watch_url }}" target="_blank" rel="noopener">
+              <i class="bi bi-box-arrow-up-right me-1"></i>Watch the recording</a>
+          {% endif %}
+          <div class="mt-2 d-flex gap-3 flex-wrap small text-muted">
+            {% if artifact.transcript_web_url %}<a href="{{ artifact.transcript_web_url }}" target="_blank" rel="noopener"><i class="bi bi-file-text me-1"></i>Transcript</a>{% endif %}
+            {% if artifact.summary_web_url %}<a href="{{ artifact.summary_web_url }}" target="_blank" rel="noopener"><i class="bi bi-journal-text me-1"></i>Summary</a>{% endif %}
+            {% if can_manage and artifact.folder_web_url %}<a href="{{ artifact.folder_web_url }}" target="_blank" rel="noopener"><i class="bi bi-folder2-open me-1"></i>Session folder</a>{% endif %}
+          </div>
+        </div></div>
+      {% elif meeting.has_ended %}
+        <div class="alert alert-secondary">
+          <i class="bi bi-hourglass-split me-1"></i>
+          The recording is still being processed.
+          {% if artifact %}<span class="text-muted">({{ artifact.get_state_display|lower }})</span>{% endif %}
+          It will appear here automatically — you do not need to check back.
+        </div>
+      {% else %}
+        <div class="card mb-3"><div class="card-body text-center py-4">
+          {% if meeting.is_live_now %}
+            <p class="mb-3"><span class="badge bg-success">Live now</span></p>
+          {% elif meeting.scheduled_start %}
+            <p class="text-muted mb-3">Starts {{ meeting.scheduled_start|date:"l j F, H:i" }}</p>
+          {% endif %}
+          <a class="btn btn-primary btn-lg" id="joinBtn"
+             href="{% url 'livesessions:session-join' meeting.pk %}"
+             data-join-name="{{ join_name }}">
+            <i class="bi bi-camera-video-fill me-1"></i>
+            {% if meeting.is_teams %}Join the Teams session{% else %}Join the session{% endif %}
+          </a>
+
+          {% if meeting.is_teams %}
+          {% comment %}Teams asks anonymous joiners to type a name, and Microsoft
+          offers no supported way to pre-fill it. Whatever they type is all the
+          attendance report carries — so we show them the exact name their
+          attendance is filed under and copy it ready to paste. The platform has
+          already recorded who they are server-side either way; this only makes
+          the Teams-side report agree.{% endcomment %}
+          <div class="join-as mt-3 mx-auto">
+            <p class="text-muted small mb-1">Teams will ask for your name. Enter it exactly as:</p>
+            <div class="input-group input-group-sm">
+              <input class="form-control text-center fw-semibold" id="joinName"
+                     value="{{ join_name }}" readonly onclick="this.select()">
+              <button class="btn btn-outline-secondary" type="button" id="copyName">
+                <i class="bi bi-clipboard"></i><span class="ms-1">Copy</span>
+              </button>
+            </div>
+            <p class="text-muted small mt-2 mb-0">
+              Your attendance is recorded against your {{ brand.short_name|default:"UCS" }} account
+              {% if request.user.email %}({{ request.user.email }}){% endif %} either way.
+            </p>
+          </div>
+          {% endif %}
+
+          {% if meeting.record_automatically %}
+            <p class="text-muted small mt-3 mb-0"><i class="bi bi-record-circle me-1"></i>This session is recorded automatically.</p>
+          {% endif %}
+        </div></div>
+      {% endif %}
+
+      {% if meeting.description %}
+        <div class="card mb-3"><div class="card-body">
+          <h6>About this session</h6>
+          <p class="mb-0">{{ meeting.description|linebreaksbr }}</p>
+        </div></div>
+      {% endif %}
+
+      {% if pack %}
+        <div class="card mb-3"><div class="card-body">
+          <h6 class="mb-3"><i class="bi bi-stars me-1"></i>Session pack</h6>
+          <div class="pack-body">{{ pack.content }}</div>
+        </div></div>
+      {% elif recap %}
+        <div class="card mb-3"><div class="card-body">
+          <h6 class="mb-3"><i class="bi bi-list-ul me-1"></i>Recap</h6>
+          <div class="pack-body">{{ recap.content }}</div>
+        </div></div>
+      {% endif %}
+
+    </div>
+
+    <div class="col-lg-4">
+      {% if meeting.thumbnail %}
+        <div class="session-hero mb-3"><img src="{{ meeting.thumbnail.url }}" alt="{{ meeting.title }}"></div>
+      {% endif %}
+
+      <div class="card mb-3"><div class="card-body">
+        <h6 class="mb-3">Details</h6>
+        <dl class="row mb-0 small">
+          {% if meeting.scheduled_start %}
+            <dt class="col-5">When</dt><dd class="col-7">{{ meeting.scheduled_start|date:"D j M Y, H:i" }}</dd>
+            <dt class="col-5">Duration</dt><dd class="col-7">{{ meeting.duration_minutes }} min</dd>
+            <dt class="col-5">Your time zone</dt><dd class="col-7">{{ request.ui_timezone }}</dd>
+          {% endif %}
+          <dt class="col-5">For</dt><dd class="col-7">{{ meeting.audience_label }}</dd>
+          {% if meeting.resolved_institution %}<dt class="col-5">School</dt><dd class="col-7">{{ meeting.resolved_institution.display_name }}</dd>{% endif %}
+          {% if meeting.module %}<dt class="col-5">Subject</dt><dd class="col-7">{{ meeting.module.display_name }}</dd>{% endif %}
+          {% if meeting.week %}<dt class="col-5">Covers</dt><dd class="col-7">{{ meeting.week.display_title }}</dd>{% endif %}
+          {% if meeting.calendar_event %}<dt class="col-5">Prepares for</dt><dd class="col-7">{{ meeting.calendar_event.title }}</dd>{% endif %}
+          {% if meeting.host %}<dt class="col-5">Host</dt><dd class="col-7">{{ meeting.host|person_name }}</dd>{% endif %}
+        </dl>
+      </div></div>
+
+      {% if attendance %}
+        <div class="card mb-3"><div class="card-body">
+          <h6 class="mb-2">Your attendance</h6>
+          <p class="mb-1"><span class="badge bg-{% if attendance.status == 'present' %}success{% elif attendance.status == 'late' %}warning{% elif attendance.status == 'excused' %}info{% else %}secondary{% endif %}">{{ attendance.get_status_display }}</span></p>
+          <p class="text-muted small mb-0">{{ attendance.minutes_attended }} minute{{ attendance.minutes_attended|pluralize }} of the session ({{ attendance.attended_pct }}%), recorded from the {{ attendance.get_source_display|lower }}.</p>
+        </div></div>
+      {% endif %}
+
+      {% if can_manage and artifact %}
+        <div class="card"><div class="card-body">
+          <h6 class="mb-2">Processing</h6>
+          <p class="mb-1 small">{{ artifact.get_state_display }}</p>
+          {% if artifact.folder_path %}<p class="text-muted small mb-1"><i class="bi bi-folder me-1"></i>{{ artifact.folder_path }}</p>{% endif %}
+          {% if artifact.youtube_video_id %}<p class="text-muted small mb-1"><i class="bi bi-youtube me-1"></i>{{ artifact.youtube_video_id }}</p>{% endif %}
+          {% if artifact.last_error %}<p class="text-danger small mb-0">{{ artifact.last_error|truncatechars:200 }}</p>{% endif %}
+        </div></div>
+      {% endif %}
+    </div>
+  </div>
+
+</div></div>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+(function () {
+  // Put the join name on the clipboard as they leave, so the Teams name box is
+  // a paste rather than a retype. Best effort — the link works regardless, and
+  // The platform has already recorded who clicked it.
+  var btn = document.getElementById('joinBtn');
+  var copy = document.getElementById('copyName');
+  var field = document.getElementById('joinName');
+
+  function put(text) {
+    if (navigator.clipboard) { return navigator.clipboard.writeText(text).catch(function () {}); }
+    if (field) { field.select(); try { document.execCommand('copy'); } catch (e) {} }
+    return Promise.resolve();
+  }
+  if (btn && btn.dataset.joinName) {
+    btn.addEventListener('click', function () { put(btn.dataset.joinName); });
+  }
+  if (copy && field) {
+    copy.addEventListener('click', function () {
+      put(field.value).then(function () {
+        var label = copy.querySelector('span');
+        if (!label) return;
+        var was = label.textContent;
+        label.textContent = 'Copied';
+        setTimeout(function () { label.textContent = was; }, 1600);
+      });
+    });
+  }
+})();
+</script>
+{% endblock %}

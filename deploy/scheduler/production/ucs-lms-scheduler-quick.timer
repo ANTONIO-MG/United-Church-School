@@ -1,0 +1,18 @@
+# The quick tick: session reminders, scheduled notifications, automatic
+# "new material" notices and releasing
+# unpaid 1-on-1 slots, every 15 minutes from 06:00 to 22:45 (SAST).
+#
+# These are the jobs where an hour is too coarse — a session starting at 10:50
+# would otherwise miss its 30-minute reminder. Each is a few cheap queries.
+
+[Unit]
+Description=Quarter-hourly UCS LMS reminders (06:00-22:45 SAST)
+
+[Timer]
+OnCalendar=*-*-* 06..22:00/15:00 Africa/Johannesburg
+AccuracySec=30s
+Persistent=true
+Unit=ucs-lms-scheduler-quick.service
+
+[Install]
+WantedBy=timers.target

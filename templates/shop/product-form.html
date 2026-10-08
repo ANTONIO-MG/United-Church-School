@@ -1,0 +1,333 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static commerce %}
+{% comment %}Add / edit a shop item (staff). The fulfilment type is picked first;
+sections carry data-for="digital shipped …" and only the ones for the chosen
+type are shown. Hidden sections still post, so switching type loses nothing.{% endcomment %}
+
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+
+  <div class="tc-head">
+    <div>
+      <a class="small" href="{% url 'shop:all-products' %}"><i class="bi bi-arrow-left me-1"></i>Products &amp; services</a>
+      <h3 class="mt-1">{{ page_title }}</h3>
+      <p>Everything a buyer sees on the card and the product page, and what they receive once they've paid.</p>
+    </div>
+    {% if object %}<div class="tc-head__actions"><a class="btn btn-sm btn-outline-secondary" href="{% url 'shop:product-detail' object.pk %}"><i class="bi bi-eye me-1"></i>View in shop</a></div>{% endif %}
+  </div>
+
+  <form method="post" enctype="multipart/form-data" novalidate id="productForm">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="tc-alert tc-alert--danger mb-3"><i class="bi bi-exclamation-circle"></i><div>{{ form.non_field_errors }}</div></div>{% endif %}
+
+    <div class="tc-card">
+      {# ---- Type ---- #}
+      <div class="tc-section">
+        <div class="tc-section__title"><i class="bi bi-ui-radios-grid"></i><h6>{{ form.fulfilment.label }}</h6></div>
+        <div class="tc-types" role="radiogroup" aria-label="{{ form.fulfilment.label }}">
+          {% for radio in form.fulfilment %}
+            <div class="tc-type">
+              {{ radio.tag }}
+              <label for="{{ radio.id_for_label }}">
+                {% for key, meta in fulfilment_help.items %}{% if key == radio.data.value %}<i class="bi {{ meta.0 }}"></i>{% endif %}{% endfor %}
+                <b>{{ radio.choice_label }}</b>
+                <small>{% for key, meta in fulfilment_help.items %}{% if key == radio.data.value %}{{ meta.1 }}{% endif %}{% endfor %}</small>
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# ---- Basics ---- #}
+      <div class="tc-section">
+        <div class="tc-section__title"><i class="bi bi-card-text"></i><h6>Basics</h6></div>
+        <div class="row g-3">
+          <div class="col-md-8">{% include 'shop/_field.html' with field=form.name %}</div>
+          <div class="col-md-4">{% include 'shop/_field.html' with field=form.category %}
+            <a class="small" href="{% url 'shop:categories' %}" target="_blank" rel="noopener">Manage categories <i class="bi bi-box-arrow-up-right"></i></a></div>
+          <div class="col-12">{% include 'shop/_field.html' with field=form.summary %}</div>
+          <div class="col-12">{% include 'shop/_field.html' with field=form.description %}</div>
+        </div>
+      </div>
+
+      {# ---- Price ---- #}
+      <div class="tc-section">
+        <div class="tc-section__title"><i class="bi bi-tag"></i><h6>Price</h6>
+          <small>{% if vat_registered %}Prices include {{ vat_rate }}% VAT{% endif %}</small></div>
+        <div class="row g-3 align-items-end">
+          <div class="col-sm-4">
+            <label class="form-label" for="{{ form.price.id_for_label }}"><span data-for="digital shipped none">Price (R)</span><span data-for="booking">Default rate per hour (R)</span></label>
+            {{ form.price }}
+            {% if form.price.errors %}<div class="tc-field-error">{{ form.price.errors|join:" " }}</div>{% endif %}
+          </div>
+          <div class="col-sm-3">{% include 'shop/_field.html' with field=form.discount_percent %}</div>
+          <div class="col-sm-5">
+            <div class="tc-sale-preview" aria-live="polite"><i class="bi bi-eye text-primary"></i><span>Buyers see <b id="salePreview" class="num">—</b></span></div>
+          </div>
+        </div>
+      </div>
+
+      {# ---- Files (digital) ---- #}
+      <div class="tc-section" data-for="digital">
+        <div class="tc-section__title"><i class="bi bi-file-earmark-arrow-down"></i><h6>Files the buyer downloads</h6><small>Unlocked when the order is paid</small></div>
+        {% if existing_files or object.digital_file %}
+          <ul class="tc-files mb-3">
+            {% if object.digital_file %}
+            <li class="tc-file">
+              <span class="tc-file__icon"><i class="bi {{ object.digital_file.name|file_icon }}"></i></span>
+              <span><span class="tc-file__name">{{ object.digital_file.name|cut:"shop/downloads/" }}</span></span>
+              <label class="small text-danger"><input type="checkbox" class="form-check-input me-1" name="remove_legacy_file" value="1">Remove</label>
+            </li>
+            {% endif %}
+            {% for f in existing_files %}
+            <li class="tc-file">
+              <span class="tc-file__icon"><i class="bi {{ f.original_name|file_icon }}"></i></span>
+              <span><span class="tc-file__name">{{ f.label }}</span><br><span class="tc-file__meta">{{ f.size|filesizeformat }}</span></span>
+              <label class="small text-danger"><input type="checkbox" class="form-check-input me-1" name="remove_file" value="{{ f.pk }}">Remove</label>
+            </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        <div class="tc-drop" data-drop>
+          <i class="bi bi-cloud-arrow-up"></i>
+          <div class="fw-semibold">Drop files here or choose them</div>
+          <div class="small text-muted">{{ form.new_files.help_text }}</div>
+          {{ form.new_files }}
+          <ul class="tc-drop__list" data-drop-list></ul>
+        </div>
+        {% if form.new_files.errors %}<div class="tc-field-error">{{ form.new_files.errors|join:" " }}</div>{% endif %}
+        <div class="row g-3 mt-1">
+          <div class="col-sm-4">{% include 'shop/_field.html' with field=form.validity_days %}</div>
+        </div>
+      </div>
+
+      {# ---- Session (booking) ---- #}
+      <div class="tc-section" data-for="booking">
+        <div class="tc-section__title"><i class="bi bi-person-video3"></i><h6>1-on-1 session</h6></div>
+        <label class="form-label">{{ form.lengths.label }}</label>
+        <div class="d-flex flex-wrap gap-3 mb-1">
+          {% for box in form.lengths %}<div class="form-check">{{ box.tag }}<label class="form-check-label" for="{{ box.id_for_label }}">{{ box.choice_label }}</label></div>{% endfor %}
+        </div>
+        {% if form.lengths.errors %}<div class="tc-field-error">{{ form.lengths.errors|join:" " }}</div>{% endif %}
+        <div class="row g-3 mt-1">
+          <div class="col-6 col-md-3">{% include 'shop/_field.html' with field=form.buffer_minutes %}</div>
+          <div class="col-6 col-md-3">{% include 'shop/_field.html' with field=form.min_notice_hours %}</div>
+          <div class="col-6 col-md-3">{% include 'shop/_field.html' with field=form.reschedule_cutoff_hours %}</div>
+          <div class="col-6 col-md-3">{% include 'shop/_field.html' with field=form.booking_window_days %}</div>
+        </div>
+
+        <div class="tc-section__title mt-4"><i class="bi bi-person-badge"></i><h6>Educators &amp; hourly rates</h6><small>Price = rate × length</small></div>
+        {{ rates.management_form }}
+        {% if rates.non_form_errors %}<div class="tc-field-error">{{ rates.non_form_errors }}</div>{% endif %}
+        <div class="tc-table-wrap">
+          <table class="tc-table" id="rateTable">
+            <thead><tr><th>Educator</th><th class="r">Rate per hour (R)</th><th>Taking bookings</th><th><span class="visually-hidden">Remove</span></th></tr></thead>
+            <tbody>
+              {% for rf in rates %}
+              <tr class="tc-variant-row">
+                {% for hidden in rf.hidden_fields %}{{ hidden }}{% endfor %}
+                <td>{{ rf.educator }}{% if rf.educator.errors %}<div class="tc-field-error">{{ rf.educator.errors|join:" " }}</div>{% endif %}{% if rf.non_field_errors %}<div class="tc-field-error">{{ rf.non_field_errors|join:" " }}</div>{% endif %}</td>
+                <td>{{ rf.hourly_rate }}</td>
+                <td class="text-center">{{ rf.is_active }}</td>
+                <td class="text-center">{% if rf.instance.pk %}<label class="small text-danger">{{ rf.DELETE }} Remove</label>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <template id="rateTemplate">
+          <tr class="tc-variant-row">
+            {% for hidden in rates.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+            <td>{{ rates.empty_form.educator }}</td><td>{{ rates.empty_form.hourly_rate }}</td>
+            <td class="text-center">{{ rates.empty_form.is_active }}</td><td></td>
+          </tr>
+        </template>
+        <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
+          <button type="button" class="btn btn-sm tc-btn-soft" data-add-rate><i class="bi bi-plus-lg me-1"></i>Add an educator</button>
+          <a class="small" href="{% url 'shop:educators' %}" target="_blank" rel="noopener">Set educators' working hours <i class="bi bi-box-arrow-up-right"></i></a>
+        </div>
+        <div class="row g-3 mt-2">
+          <div class="col-md-6">{% include 'shop/_field.html' with field=form.duration %}</div>
+        </div>
+      </div>
+
+      {# ---- Stock & sizes (shipped) ---- #}
+      <div class="tc-section" data-for="shipped">
+        <div class="tc-section__title"><i class="bi bi-box-seam"></i><h6>Stock &amp; sizes</h6></div>
+        <div class="row g-3 align-items-end mb-3">
+          <div class="col-sm-4"><div class="form-check form-switch">{{ form.track_stock }}<label class="form-check-label" for="{{ form.track_stock.id_for_label }}">Track stock — stop selling at zero</label></div></div>
+          <div class="col-sm-3">{% include 'shop/_field.html' with field=form.stock %}<div class="form-text">Used when there are no sizes.</div></div>
+        </div>
+        {{ variants.management_form }}
+        {% if variants.non_form_errors %}<div class="tc-field-error">{{ variants.non_form_errors }}</div>{% endif %}
+        <div class="tc-table-wrap">
+          <table class="tc-table" id="variantTable">
+            <thead><tr><th>Size / option</th><th>SKU</th><th class="r">Price +/− (R)</th><th class="r">Stock</th><th>On sale</th><th><span class="visually-hidden">Remove</span></th></tr></thead>
+            <tbody>
+              {% for vf in variants %}
+              <tr class="tc-variant-row">
+                {% for hidden in vf.hidden_fields %}{{ hidden }}{% endfor %}
+                <td>{{ vf.name }}{% if vf.name.errors %}<div class="tc-field-error">{{ vf.name.errors|join:" " }}</div>{% endif %}</td>
+                <td>{{ vf.sku }}</td>
+                <td>{{ vf.price_adjustment }}</td>
+                <td>{{ vf.stock }}</td>
+                <td class="text-center">{{ vf.is_active }}</td>
+                <td class="text-center">{% if vf.instance.pk %}<label class="small text-danger">{{ vf.DELETE }} Remove</label>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <template id="variantTemplate">
+          <tr class="tc-variant-row">
+            {% for hidden in variants.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+            <td>{{ variants.empty_form.name }}</td><td>{{ variants.empty_form.sku }}</td>
+            <td>{{ variants.empty_form.price_adjustment }}</td><td>{{ variants.empty_form.stock }}</td>
+            <td class="text-center">{{ variants.empty_form.is_active }}</td><td></td>
+          </tr>
+        </template>
+        <div class="d-flex flex-wrap gap-2 mt-2">
+          <button type="button" class="btn btn-sm tc-btn-soft" data-add-variant><i class="bi bi-plus-lg me-1"></i>Add a size</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-add-sizes="S,M,L,XL,XXL">Add S – XXL</button>
+        </div>
+
+        <div class="tc-section__title mt-4"><i class="bi bi-rulers"></i><h6>Parcel</h6><small>The courier quotes on this</small></div>
+        <div class="row g-3">
+          <div class="col-6 col-md-3">{% include 'shop/_field.html' with field=form.weight_kg %}</div>
+          <div class="col-6 col-md-3">{% include 'shop/_field.html' with field=form.length_cm %}</div>
+          <div class="col-6 col-md-3">{% include 'shop/_field.html' with field=form.width_cm %}</div>
+          <div class="col-6 col-md-3">{% include 'shop/_field.html' with field=form.height_cm %}</div>
+        </div>
+      </div>
+
+      {# ---- Images ---- #}
+      <div class="tc-section">
+        <div class="tc-section__title"><i class="bi bi-images"></i><h6>Images</h6></div>
+        <div class="row g-3">
+          <div class="col-md-5">{% include 'shop/_field.html' with field=form.image %}</div>
+          <div class="col-md-7">
+            <label class="form-label" for="{{ form.new_images.id_for_label }}">{{ form.new_images.label }}</label>
+            {{ form.new_images }}
+            <div class="form-text">{{ form.new_images.help_text }}</div>
+            {% if form.new_images.errors %}<div class="tc-field-error">{{ form.new_images.errors|join:" " }}</div>{% endif %}
+          </div>
+        </div>
+        {% if existing_images %}
+          <div class="tc-images mt-3">
+            {% for pic in existing_images %}
+              <figure><img src="{{ pic.image.url }}" alt="{{ pic.alt }}"><figcaption><label class="text-danger"><input type="checkbox" class="form-check-input me-1" name="remove_image" value="{{ pic.pk }}">Remove</label></figcaption></figure>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+
+      {# ---- Audience ---- #}
+      <div class="tc-section">
+        <div class="tc-section__title"><i class="bi bi-people"></i><h6>Who can see it</h6><small>Leave school blank for everyone</small></div>
+        <div class="row g-3">
+          <div class="col-md-4">{% include 'shop/_field.html' with field=form.institution %}</div>
+          <div class="col-md-4">{% include 'shop/_field.html' with field=form.programme %}</div>
+          <div class="col-md-4">{% include 'shop/_field.html' with field=form.module %}</div>
+        </div>
+      </div>
+
+      {# ---- Display & status ---- #}
+      <div class="tc-section">
+        <div class="tc-section__title"><i class="bi bi-sliders"></i><h6>Listing</h6></div>
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3">{% include 'shop/_field.html' with field=form.status %}</div>
+          <div class="col-md-3">{% include 'shop/_field.html' with field=form.sku %}</div>
+          <div class="col-md-3" data-for="digital none">{% include 'shop/_field.html' with field=form.level %}</div>
+          <div class="col-md-3">{% include 'shop/_field.html' with field=form.educator %}</div>
+          <div class="col-md-3"><div class="form-check form-switch">{{ form.featured }}<label class="form-check-label" for="{{ form.featured.id_for_label }}">Feature at the top of the shop</label></div></div>
+        </div>
+      </div>
+
+      <div class="tc-savebar">
+        {% if not object %}<button class="btn btn-outline-secondary" name="then" value="another">Save &amp; add another</button>{% endif %}
+        <a class="btn btn-link" href="{% url 'shop:all-products' %}">Cancel</a>
+        <button class="btn btn-primary" name="then" value="list"><i class="bi bi-check2 me-1"></i>{% if object %}Save changes{% else %}Add to shop{% endif %}</button>
+      </div>
+    </div>
+  </form>
+</div></div>
+
+<script>
+(function () {
+  var form = document.getElementById('productForm');
+  if (!form) { return; }
+
+  // Show only the sections for the chosen fulfilment type.
+  function currentType() { var c = form.querySelector('input[name="fulfilment"]:checked'); return c ? c.value : 'digital'; }
+  function applyType() {
+    var type = currentType();
+    form.querySelectorAll('[data-for]').forEach(function (el) {
+      el.hidden = el.dataset.for.split(' ').indexOf(type) === -1;
+    });
+  }
+  form.querySelectorAll('input[name="fulfilment"]').forEach(function (r) { r.addEventListener('change', applyType); });
+  applyType();
+
+  // Live "buyers see" price.
+  var price = form.querySelector('[name="price"]'), pct = form.querySelector('[name="discount_percent"]');
+  var out = document.getElementById('salePreview');
+  function money(n) { return 'R' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+  function preview() {
+    var p = parseFloat(price.value || 0), d = Math.min(Math.max(parseFloat(pct.value || 0), 0), 100);
+    var sale = Math.round(p * (100 - d)) / 100;
+    out.innerHTML = p ? (d ? money(sale) + ' <s class="text-muted fw-normal">' + money(p) + '</s> · ' + d + '% off' : money(p)) : 'Free';
+  }
+  [price, pct].forEach(function (el) { if (el) { el.addEventListener('input', preview); } });
+  if (price && pct && out) { preview(); }
+
+  // Selected files, listed so staff can see what is about to upload.
+  form.querySelectorAll('[data-drop]').forEach(function (zone) {
+    var input = zone.querySelector('input[type=file]'), list = zone.querySelector('[data-drop-list]');
+    function render() {
+      list.innerHTML = '';
+      Array.prototype.forEach.call(input.files || [], function (f) {
+        var li = document.createElement('li');
+        li.textContent = '• ' + f.name + ' — ' + (f.size / 1048576).toFixed(1) + ' MB';
+        list.appendChild(li);
+      });
+    }
+    input.addEventListener('change', render);
+    ['dragenter', 'dragover'].forEach(function (ev) { zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('is-over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { zone.addEventListener(ev, function () { zone.classList.remove('is-over'); }); });
+    zone.addEventListener('drop', function (e) { e.preventDefault(); if (e.dataTransfer && e.dataTransfer.files.length) { input.files = e.dataTransfer.files; render(); } });
+  });
+
+  // Size rows: clone the formset's empty form.
+  var total = form.querySelector('#id_variants-TOTAL_FORMS');
+  var tpl = document.getElementById('variantTemplate'), body = form.querySelector('#variantTable tbody');
+  function addVariant(name) {
+    var index = parseInt(total.value, 10);
+    var html = tpl.innerHTML.replace(/__prefix__/g, index);
+    body.insertAdjacentHTML('beforeend', html);
+    total.value = index + 1;
+    var row = body.lastElementChild, nameInput = row.querySelector('[name$="-name"]');
+    var active = row.querySelector('[name$="-is_active"]');
+    if (active) { active.checked = true; }
+    if (name && nameInput) { nameInput.value = name; } else if (nameInput) { nameInput.focus(); }
+  }
+  var rateTotal = form.querySelector('#id_rates-TOTAL_FORMS');
+  var rateTpl = document.getElementById('rateTemplate'), rateBody = form.querySelector('#rateTable tbody');
+  var addRate = form.querySelector('[data-add-rate]');
+  if (addRate) {
+    addRate.addEventListener('click', function () {
+      var index = parseInt(rateTotal.value, 10);
+      rateBody.insertAdjacentHTML('beforeend', rateTpl.innerHTML.replace(/__prefix__/g, index));
+      rateTotal.value = index + 1;
+      var active = rateBody.lastElementChild.querySelector('[name$="-is_active"]');
+      if (active) { active.checked = true; }
+    });
+  }
+  var addBtn = form.querySelector('[data-add-variant]');
+  if (addBtn) { addBtn.addEventListener('click', function () { addVariant(''); }); }
+  var sizesBtn = form.querySelector('[data-add-sizes]');
+  if (sizesBtn) { sizesBtn.addEventListener('click', function () { sizesBtn.dataset.addSizes.split(',').forEach(addVariant); }); }
+})();
+</script>
+{% endblock %}

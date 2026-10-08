@@ -1,0 +1,144 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Lessons — a card grid or a compact list of the study content available
+to this user, with course / module filters and a small past · today · upcoming
+rail down the side. Every filter lives in the query string, so a filtered view is
+a link you can send someone.{% endcomment %}
+
+{% block additional_css %}
+<style>
+  .lessons.as-list .lesson-col{ width:100%; flex:0 0 100%; max-width:100%; }
+  .lessons.as-list .lesson-card .card-body{ display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+  .lessons.as-list .lesson-card .lesson-main{ flex:1 1 260px; min-width:0; }
+  .lessons.as-list .lesson-card .lesson-badges{ order:-1; flex:0 0 auto; }
+  .lessons.as-list .lesson-card h6{ margin:0 0 .15rem; }
+  .lessons.as-list .lesson-card .lesson-actions{ margin-left:auto; }
+  .when-rail .list-group-item.active{ background:#0d6efd; border-color:#0d6efd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body d-sm-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="h4 mb-1"><i class="bi bi-journal-richtext text-primary me-2"></i>Lessons</h1>
+            <p class="mb-0 small text-muted">Study content for your subjects. Open a lesson to read it and track your study time.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2 mt-2 mt-sm-0">
+          <div class="btn-group btn-group-sm" role="group" aria-label="Layout">
+            <button type="button" class="btn btn-primary-soft active" id="gridModeBtn" title="Grid view">
+              <i class="bi bi-grid-3x3-gap-fill me-1"></i>Grid</button>
+            <button type="button" class="btn btn-primary-soft" id="listModeBtn" title="List view">
+              <i class="bi bi-list-ul me-1"></i>List</button>
+          </div>
+          {% if can_teach %}
+          <a href="{% url 'learning:lesson-manage' %}" class="btn btn-primary btn-sm"><i class="bi bi-pencil-square me-1"></i>Lesson creator</a>
+          {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-3">
+    <div class="card mb-3 when-rail">
+      <div class="card-header border-0 pb-0"><h6 class="card-title mb-0"><i class="bi bi-calendar3 text-primary me-2"></i>When</h6></div>
+      <div class="card-body pt-2">
+        {% with base_qs=request.GET.urlencode %}
+        <div class="list-group list-group-flush small">
+          <a class="list-group-item list-group-item-action border-0 rounded {% if not active_when %}active text-white{% endif %}"
+             href="?{% if active_programme %}programme={{ active_programme }}&{% endif %}{% if active_module %}module={{ active_module }}{% endif %}">
+            <i class="bi bi-collection me-2"></i>All lessons</a>
+          <a class="list-group-item list-group-item-action border-0 rounded {% if active_when == 'past' %}active text-white{% endif %}"
+             href="?when=past{% if active_programme %}&programme={{ active_programme }}{% endif %}{% if active_module %}&module={{ active_module }}{% endif %}">
+            <i class="bi bi-clock-history me-2"></i>Past</a>
+          <a class="list-group-item list-group-item-action border-0 rounded {% if active_when == 'today' %}active text-white{% endif %}"
+             href="?when=today{% if active_programme %}&programme={{ active_programme }}{% endif %}{% if active_module %}&module={{ active_module }}{% endif %}">
+            <i class="bi bi-brightness-high me-2"></i>Today</a>
+          <a class="list-group-item list-group-item-action border-0 rounded {% if active_when == 'upcoming' %}active text-white{% endif %}"
+             href="?when=upcoming{% if active_programme %}&programme={{ active_programme }}{% endif %}{% if active_module %}&module={{ active_module }}{% endif %}">
+            <i class="bi bi-hourglass-split me-2"></i>Upcoming</a>
+        </div>
+        {% endwith %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header border-0 pb-0"><h6 class="card-title mb-0"><i class="bi bi-funnel text-primary me-2"></i>Filter</h6></div>
+      <div class="card-body pt-2">
+        <form method="get" id="lessonFilters">
+          {% if active_when %}<input type="hidden" name="when" value="{{ active_when }}">{% endif %}
+          <label class="form-label small mb-1">Grade</label>
+          <select name="programme" class="form-select form-select-sm mb-3" onchange="this.form.submit()">
+            <option value="">All grades</option>
+            {% for p in programmes %}<option value="{{ p.pk }}" {% if active_programme == p.pk %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+          </select>
+          <label class="form-label small mb-1">Subject</label>
+          <select name="module" class="form-select form-select-sm mb-3" onchange="this.form.submit()">
+            <option value="">All subjects</option>
+            {% for m in modules %}<option value="{{ m.pk }}" {% if active_module == m.pk %}selected{% endif %}>{{ m.display_name }}</option>{% endfor %}
+          </select>
+          {% if active_programme or active_module or active_when %}
+          <a href="{% url 'learning:lessons' %}" class="btn btn-sm btn-light w-100"><i class="bi bi-x-lg me-1"></i>Clear filters</a>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-9">
+    <div class="row g-3 lessons" id="lessonGrid">
+        {% for lesson in lessons %}
+        <div class="col-md-6 col-xl-4 lesson-col">
+            <div class="card h-100 lesson-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between lesson-badges gap-1">
+                        <span class="badge bg-light text-dark">{{ lesson.module }}</span>
+                        <span class="badge bg-{% if lesson.status == 'published' %}success{% else %}secondary{% endif %} bg-opacity-10 text-{% if lesson.status == 'published' %}success{% else %}secondary{% endif %}">{{ lesson.get_status_display }}</span>
+                    </div>
+                    <div class="lesson-main">
+                      <h6 class="mt-2 mb-1">{{ lesson.title }}</h6>
+                      {% if lesson.unit %}<p class="small text-muted mb-2">{{ lesson.unit.title }}</p>{% endif %}
+                      <p class="small text-muted mb-0"><i class="bi bi-clock me-1"></i>~{{ lesson.estimated_minutes }} min · v{{ lesson.version }}
+                        {% if lesson.publish_at %} · <i class="bi bi-calendar-event me-1"></i>{{ lesson.publish_at|date:"j M Y" }}{% endif %}</p>
+                    </div>
+                    <div class="d-flex gap-2 mt-2 lesson-actions">
+                      <a class="btn btn-sm btn-primary" href="{% url 'learning:lesson-view' lesson.id %}"><i class="bi bi-book me-1"></i>Open lesson</a>
+                      {% if can_teach %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'learning:lesson-editor' lesson.id %}"><i class="bi bi-pencil"></i></a>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12"><div class="card"><div class="card-body text-center text-muted py-5">
+          <i class="bi bi-journal-x display-6 d-block mb-2"></i>
+          {% if active_programme or active_module or active_when %}
+            No lessons match these filters.
+            <div class="mt-3"><a class="btn btn-sm btn-primary-soft" href="{% url 'learning:lessons' %}">Clear filters</a></div>
+          {% else %}No lessons available yet.{% endif %}
+        </div></div></div>
+        {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var grid = document.getElementById('lessonGrid');
+  var gridBtn = document.getElementById('gridModeBtn');
+  var listBtn = document.getElementById('listModeBtn');
+  if(!grid || !gridBtn || !listBtn) return;
+  var KEY = 'thrivehub.lessons.layout';
+  function apply(mode){
+    var list = mode === 'list';
+    grid.classList.toggle('as-list', list);
+    listBtn.classList.toggle('active', list);
+    gridBtn.classList.toggle('active', !list);
+    try{ localStorage.setItem(KEY, mode); }catch(e){}
+  }
+  gridBtn.addEventListener('click', function(){ apply('grid'); });
+  listBtn.addEventListener('click', function(){ apply('list'); });
+  var saved = 'grid';
+  try{ saved = localStorage.getItem(KEY) || 'grid'; }catch(e){}
+  apply(saved);
+})();
+</script>
+{% endblock %}

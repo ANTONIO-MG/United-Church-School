@@ -1,0 +1,78 @@
+{% extends 'soft_ui/auth_base.html' %}
+{% load static %}
+{% comment %}Step 3 of the UCS application — application form page 2: the
+learner's identity document and background, the general questions, the parents
+/ guardians, an emergency contact and the previous school.{% endcomment %}
+{% block title %}Learner &amp; family · {{ brand.name|default:"United Church School" }}{% endblock %}
+{% block card_col %}col-xl-9 col-lg-11{% endblock %}
+{% block oblique %}{% endblock %}
+
+{% block auth_card %}
+<div class="card mt-7 mb-4 shadow-lg">
+  <div class="card-body p-4">
+    {% include 'accounts/register/_steps.html' with step=3 %}
+
+    <div class="text-center mb-4">
+      <h4 class="font-weight-bolder text-info text-gradient mb-1">Learner &amp; family</h4>
+      <p class="text-sm text-muted mb-0">Complete this as it appears on the learner's ID, birth certificate or
+        passport. Please notify the school immediately if any address or contact number changes.</p>
+    </div>
+
+    <form method="post" id="regForm" novalidate>
+      {% csrf_token %}
+      <div class="accordion wz-accordion" id="famAcc">
+
+        <div class="accordion-item rf-sec border rounded-3 mb-2 overflow-hidden">
+          <h2 class="accordion-header"><button class="accordion-button py-3" type="button" data-bs-toggle="collapse" data-bs-target="#sec-learner" aria-expanded="true">
+            <span class="sec-chev" aria-hidden="true"></span><span class="sec-title">The learner</span></button></h2>
+          <div id="sec-learner" class="accordion-collapse collapse show"><div class="accordion-body rf-body">
+            <p class="text-xs text-muted mb-2">Unabridged birth certificates are only accepted up to Grade 9. Grade 10 – 12 requires an ID, passport or asylum document.</p>
+            {% include 'accounts/register/_formgrid.html' with form=learner_form %}
+          </div></div>
+        </div>
+
+        <div class="accordion-item rf-sec border rounded-3 mb-2 overflow-hidden">
+          <h2 class="accordion-header"><button class="accordion-button py-3" type="button" data-bs-toggle="collapse" data-bs-target="#sec-general" aria-expanded="true">
+            <span class="sec-chev" aria-hidden="true"></span><span class="sec-title">General</span></button></h2>
+          <div id="sec-general" class="accordion-collapse collapse show"><div class="accordion-body rf-body">
+            <p class="text-xs text-muted mb-2">Please refer to the Terms &amp; Conditions (point 18) regarding non-payment of fees.
+              The SMSWEB number is how the school stays in contact with parents.</p>
+            {% include 'accounts/register/_formgrid.html' with form=general_form %}
+          </div></div>
+        </div>
+
+        {% for role, form in guardian_forms %}
+        <div class="accordion-item rf-sec border rounded-3 mb-2 overflow-hidden">
+          <h2 class="accordion-header"><button class="accordion-button {% if forloop.counter > 2 %}collapsed{% endif %} py-3" type="button" data-bs-toggle="collapse" data-bs-target="#sec-{{ role.0 }}" aria-expanded="{% if forloop.counter > 2 %}false{% else %}true{% endif %}">
+            <span class="sec-chev" aria-hidden="true"></span>
+            <span class="sec-title">Parent / guardian — {{ role.1 }}{% if forloop.counter > 2 %} <span class="text-muted fw-normal">(if applicable)</span>{% endif %}</span></button></h2>
+          <div id="sec-{{ role.0 }}" class="accordion-collapse collapse {% if forloop.counter <= 2 %}show{% endif %}"><div class="accordion-body rf-body">
+            <p class="text-xs text-muted mb-2">Leave the name blank to skip. Parents with an e-mail address are invited to a parent
+              account linked to the learner, where they can follow progress, reports and fees.</p>
+            {% include 'accounts/register/_formgrid.html' with form=form %}
+          </div></div>
+        </div>
+        {% endfor %}
+
+        <div class="accordion-item rf-sec border rounded-3 mb-2 overflow-hidden">
+          <h2 class="accordion-header"><button class="accordion-button py-3" type="button" data-bs-toggle="collapse" data-bs-target="#sec-emergency" aria-expanded="true">
+            <span class="sec-chev" aria-hidden="true"></span><span class="sec-title">In case of emergency — friend or relative</span></button></h2>
+          <div id="sec-emergency" class="accordion-collapse collapse show"><div class="accordion-body rf-body">
+            {% include 'accounts/register/_formgrid.html' with form=emergency_form %}
+          </div></div>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mt-4">
+        <button type="submit" name="nav" value="back" class="btn btn-light mb-0" formnovalidate>
+          <i class="bi bi-arrow-left-circle me-2"></i>Back
+        </button>
+        <button type="submit" class="btn bg-gradient-info mb-0">Continue to medical &amp; documents<i class="bi bi-arrow-right-circle ms-2"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}{% include 'accounts/register/_reg_styles.html' %}{% endblock %}
+{% block extra_js %}{% include 'accounts/register/_reg_scripts.html' %}{% endblock %}

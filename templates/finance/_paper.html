@@ -1,0 +1,60 @@
+{% load commerce %}
+{% comment %}The invoice / estimate as a document on screen, drawn like the PDF
+(Wave layout: logo left, title and business right, bill-to and facts, cyan
+items band, totals, notes). Context: doc, kind ('invoice' | 'estimate'), items.{% endcomment %}
+<div class="tc-paper" aria-label="{{ kind|title }} {{ doc.number }}">
+  <div class="tc-paper__hd">
+    <img src="{% load static %}{% static brand.logo|default:'images/brand/ucs-mark.png' %}" alt="" class="tc-paper__logo">
+    <div class="tc-paper__biz">
+      <div class="tc-paper__title">{% if kind == 'estimate' %}ESTIMATE{% elif doc.is_tax_invoice %}TAX INVOICE{% else %}INVOICE{% endif %}</div>
+      {% if doc.summary %}<div class="tc-paper__summary">{{ doc.summary }}</div>{% endif %}
+      <b>{{ brand.invoice_name|default:brand.name }}</b>
+      {% for addr in brand.contact.address_lines %}<div>{{ addr }}</div>{% endfor %}
+      <div>{{ brand.contact.email }}</div>
+      {% if doc.is_tax_invoice and vat_number %}<div>VAT No. {{ vat_number }}</div>{% endif %}
+    </div>
+  </div>
+  <div class="tc-paper__meta">
+    <div><span class="tc-paper__label">BILL TO</span><b>{{ doc.bill_to_name }}</b><div>{{ doc.customer.email }}</div></div>
+    <dl>
+      <dt>{% if kind == 'estimate' %}Estimate{% else %}Invoice{% endif %} number</dt><dd>{{ doc.number }}</dd>
+      {% if doc.po_number %}<dt>P.O./S.O. number</dt><dd>{{ doc.po_number }}</dd>{% endif %}
+      <dt>{% if kind == 'estimate' %}Estimate{% else %}Invoice{% endif %} date</dt><dd>{{ doc.issue_date|date:"j F Y" }}</dd>
+      {% if kind == 'estimate' %}<dt>Valid until</dt><dd>{{ doc.valid_until|date:"j F Y" }}</dd>
+        <dt class="is-due">Grand total (ZAR)</dt><dd class="is-due">{{ doc.total|rand }}</dd>
+      {% else %}{% if doc.due_date %}<dt>Payment due</dt><dd>{{ doc.due_date|date:"j F Y" }}</dd>{% endif %}
+        <dt class="is-due">Amount due (ZAR)</dt><dd class="is-due">{{ doc.balance|rand }}</dd>{% endif %}
+    </dl>
+  </div>
+  <div class="tc-table-wrap">
+  <table class="tc-paper__items">
+    <thead><tr><th>Items</th><th class="r">Quantity</th><th class="r">Price</th><th class="r">Amount</th></tr></thead>
+    <tbody>
+      {% for it in items %}<tr>
+        <td><b>{{ it.description }}</b>{% if it.detail %}<small>{{ it.detail }}{% if it.discount_amount %} · −{{ it.discount_amount|rand }}{% endif %}</small>{% elif it.discount_amount %}<small>Discount −{{ it.discount_amount|rand }}</small>{% endif %}</td>
+        <td class="r">{{ it.quantity }}</td><td class="r">{{ it.unit_price|rand }}</td><td class="r">{{ it.amount|rand }}</td></tr>
+      {% empty %}<tr><td colspan="4" class="text-muted">No items yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="tc-paper__totals">
+    {% if doc.discount_total %}<div><span>Subtotal</span><span>{{ doc.gross_subtotal|rand }}</span></div>
+      <div><span>Discount</span><span>−{{ doc.discount_total|rand }}</span></div>{% endif %}
+    <div class="is-total"><span>Total</span><span>{{ doc.total|rand }}</span></div>
+    {% if doc.is_tax_invoice %}<div class="is-muted"><span>{% if doc.tax_inclusive %}Includes{% endif %} VAT {{ doc.tax_rate|floatformat:"-2" }}%</span><span>{{ doc.tax_amount|rand }}</span></div>{% endif %}
+    {% if kind == 'invoice' %}
+      {% if doc.amount_paid %}<div><span>Paid</span><span>−{{ doc.amount_paid|rand }}</span></div>{% endif %}
+      <div class="is-due"><span>Amount due (ZAR)</span><span>{{ doc.balance|rand }}</span></div>
+    {% endif %}
+  </div>
+  {% if doc.notes or doc.footer or kind == 'invoice' %}<div class="tc-paper__notes">
+    <b>Notes / Terms</b>
+    {% if doc.notes %}<p>{{ doc.notes|linebreaksbr }}</p>{% endif %}
+    {% if kind == 'invoice' %}<p class="text-muted">Bank: {{ brand.banking.account_name }}, {{ brand.banking.bank }} · Acc {{ brand.banking.account_number }} · Branch {{ brand.banking.branch_code }} · Reference: <b>{{ doc.payment_reference }}</b></p>
+      {% if brand.banking.reference_hint %}<p class="text-muted small">{{ brand.banking.reference_hint }}</p>{% endif %}{% endif %}
+    {% if doc.footer %}<p class="text-muted small">{{ doc.footer }}</p>{% endif %}
+  </div>{% endif %}
+  {% if strings.school.registration or strings.school.memberships %}<div class="tc-paper__notes text-center">
+    <p class="text-muted small mb-0">{{ brand.legal_name|default:brand.invoice_name }}{% if strings.school.registration %}<br>{{ strings.school.registration }}{% endif %}{% if strings.school.memberships %}<br>{{ strings.school.memberships }}{% endif %}</p>
+  </div>{% endif %}
+</div>

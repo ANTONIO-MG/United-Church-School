@@ -1,0 +1,255 @@
+{% comment %}
+Global media kit — one component, loaded on every page (from base.html and the
+admin layout). Three cooperating pieces, all vanilla JS, no dependencies:
+
+  1. LIGHTBOX  — click any [data-media] element to open the file at full size in
+                 an overlay (image / video / document) with a close button, Esc,
+                 click-outside, and ←/→ to move through the group it belongs to.
+                 Nothing opens in a new tab any more.
+
+  2. MEDIA GRID — `.media-grid[data-count=N]` lays attachments out like a social
+                 network: 1 big, 2 side-by-side, 3 (one tall + two), 4-up, and a
+                 "+N more" tile beyond four. Used by both the wall and the chat.
+
+  3. DROPZONE  — progressively enhances any `.mediazone` (a wrapper around a real
+                 <input type=file>) into a drag-and-drop area with live thumbnail
+                 previews, matching the Social theme's dropzone look/icons. The
+                 underlying <input> still carries the files, so normal form/FormData
+                 submission just works.
+
+Reusable helper `window.OrgMedia.grid(attachments, opts)` builds the grid HTML
+from a list of {url, kind, name} — the chat uses it to render messages client-side.
+{% endcomment %}
+{% load static %}
+
+<style>
+  /* ---------------- media grid ---------------- */
+  .media-grid{ display:grid; gap:3px; border-radius:12px; overflow:hidden; margin-top:8px; max-width:520px; }
+  .media-grid .cell{ position:relative; overflow:hidden; background:#0b1220; cursor:zoom-in; }
+  .media-grid .cell img,.media-grid .cell video{ width:100%; height:100%; object-fit:cover; display:block; }
+  .media-grid .cell.doc{ cursor:pointer; background:#eef1f6; }
+  .media-grid .cell.doc .doc-inner{ display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:6px; padding:18px 10px; text-align:center; color:#334; height:100%; }
+  .media-grid .cell.doc .doc-inner i{ font-size:1.8rem; }
+  .media-grid .cell.doc .doc-name{ font-size:.72rem; word-break:break-word; max-width:100%; }
+  .media-grid .cell .play-badge{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      background:rgba(0,0,0,.28); color:#fff; font-size:2rem; pointer-events:none; }
+  .media-grid .cell .more{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      background:rgba(0,0,0,.55); color:#fff; font-size:1.5rem; font-weight:700; }
+  /* counts → layouts (mirrors social feeds) */
+  .media-grid[data-count="1"]{ grid-template-columns:1fr; }
+  .media-grid[data-count="1"] .cell{ max-height:460px; }
+  .media-grid[data-count="1"] .cell img,.media-grid[data-count="1"] .cell video{ object-fit:contain; background:#0b1220; }
+  .media-grid[data-count="2"]{ grid-template-columns:1fr 1fr; }
+  .media-grid[data-count="2"] .cell{ aspect-ratio:1/1; }
+  .media-grid[data-count="3"]{ grid-template-columns:2fr 1fr; grid-template-rows:1fr 1fr; }
+  .media-grid[data-count="3"] .cell:first-child{ grid-row:1 / span 2; aspect-ratio:auto; }
+  .media-grid[data-count="3"] .cell:not(:first-child){ aspect-ratio:1/1; }
+  .media-grid[data-count="4"],.media-grid[data-count="more"]{ grid-template-columns:1fr 1fr; }
+  .media-grid[data-count="4"] .cell,.media-grid[data-count="more"] .cell{ aspect-ratio:1/1; }
+
+  /* ---------------- lightbox ---------------- */
+  .orgml-backdrop{ position:fixed; inset:0; z-index:2000; background:rgba(6,10,20,.92);
+      display:none; align-items:center; justify-content:center; }
+  .orgml-backdrop.open{ display:flex; }
+  .orgml-stage{ max-width:94vw; max-height:88vh; display:flex; align-items:center; justify-content:center; }
+  .orgml-stage img,.orgml-stage video{ max-width:94vw; max-height:88vh; border-radius:8px; box-shadow:0 12px 60px rgba(0,0,0,.6); }
+  .orgml-stage iframe{ width:90vw; height:86vh; border:0; border-radius:8px; background:#fff; }
+  .orgml-doc{ background:#fff; border-radius:12px; padding:34px 40px; text-align:center; max-width:460px; }
+  .orgml-doc i{ font-size:3rem; color:#0d6efd; } .orgml-doc h6{ margin:14px 0 4px; word-break:break-word; }
+  .orgml-btn{ position:absolute; top:18px; width:44px; height:44px; border-radius:50%; border:0; cursor:pointer;
+      background:rgba(255,255,255,.14); color:#fff; font-size:1.3rem; display:flex; align-items:center; justify-content:center; }
+  .orgml-btn:hover{ background:rgba(255,255,255,.26); }
+  .orgml-close{ right:18px; }
+  .orgml-nav{ position:fixed; top:50%; transform:translateY(-50%); width:52px; height:52px; }
+  .orgml-prev{ left:18px; } .orgml-next{ right:18px; }
+  .orgml-nav[hidden]{ display:none; }
+  .orgml-caption{ position:fixed; bottom:16px; left:0; right:0; text-align:center; color:#dfe3ea; font-size:.85rem; }
+</style>
+
+<div class="orgml-backdrop" id="orgLightbox" aria-hidden="true">
+  <button class="orgml-btn orgml-close" data-ml-close title="Close (Esc)"><i class="bi bi-x-lg"></i></button>
+  <button class="orgml-btn orgml-nav orgml-prev" data-ml-prev title="Previous"><i class="bi bi-chevron-left"></i></button>
+  <div class="orgml-stage" id="orgLightboxStage"></div>
+  <button class="orgml-btn orgml-nav orgml-next" data-ml-next title="Next"><i class="bi bi-chevron-right"></i></button>
+  <div class="orgml-caption" id="orgLightboxCaption"></div>
+</div>
+
+<script>
+window.OrgMedia = (function(){
+  const IMG = 'image', VID = 'video', DOC = 'file';
+
+  function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function icon(name){
+    const n=(name||'').toLowerCase();
+    if(/\.pdf$/.test(n)) return 'bi-file-earmark-pdf';
+    if(/\.(docx?|odt|rtf)$/.test(n)) return 'bi-file-earmark-word';
+    if(/\.(pptx?|key)$/.test(n)) return 'bi-file-earmark-slides';
+    if(/\.(xlsx?|csv)$/.test(n)) return 'bi-file-earmark-spreadsheet';
+    if(/\.(zip|rar|7z|tar|gz)$/.test(n)) return 'bi-file-earmark-zip';
+    if(/\.(mp3|wav|m4a|ogg)$/.test(n)) return 'bi-file-earmark-music';
+    return 'bi-file-earmark-text';
+  }
+
+  // ---- Lightbox ----
+  const box = document.getElementById('orgLightbox');
+  const stage = document.getElementById('orgLightboxStage');
+  const caption = document.getElementById('orgLightboxCaption');
+  const prevBtn = box ? box.querySelector('[data-ml-prev]') : null;
+  const nextBtn = box ? box.querySelector('[data-ml-next]') : null;
+  let group = [], idx = 0;
+
+  function renderStage(){
+    const it = group[idx]; if(!it) return;
+    let html;
+    if(it.kind===IMG)      html = `<img src="${esc(it.url)}" alt="${esc(it.name||'')}">`;
+    else if(it.kind===VID) html = `<video src="${esc(it.url)}" controls autoplay playsinline></video>`;
+    else if(/\.pdf$/i.test(it.url||it.name||'')) html = `<iframe src="${esc(it.url)}"></iframe>`;
+    else html = `<div class="orgml-doc"><i class="bi ${icon(it.name||it.url)}"></i>
+                   <h6>${esc(it.name||'Document')}</h6>
+                   <a class="btn btn-primary btn-sm mt-2" href="${esc(it.url)}" target="_blank" rel="noopener">
+                     <i class="bi bi-download me-1"></i>Open / download</a></div>`;
+    stage.innerHTML = html;
+    caption.textContent = group.length>1 ? `${idx+1} / ${group.length}` : (it.name||'');
+    const many = group.length>1;
+    if(prevBtn) prevBtn.hidden = !many;
+    if(nextBtn) nextBtn.hidden = !many;
+  }
+  function open(items, start){ group = items||[]; idx = start||0; if(!group.length) return;
+    renderStage(); box.classList.add('open'); box.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; }
+  function close(){ box.classList.remove('open'); box.setAttribute('aria-hidden','true'); stage.innerHTML=''; document.body.style.overflow=''; }
+  function step(d){ if(!group.length) return; idx = (idx + d + group.length) % group.length; renderStage(); }
+
+  if(box){
+    box.addEventListener('click', e=>{
+      if(e.target.closest('[data-ml-close]')) return close();
+      if(e.target.closest('[data-ml-prev]')) return step(-1);
+      if(e.target.closest('[data-ml-next]')) return step(1);
+      if(e.target === box) close();               // click the dark area
+    });
+    document.addEventListener('keydown', e=>{
+      if(!box.classList.contains('open')) return;
+      if(e.key==='Escape') close();
+      else if(e.key==='ArrowLeft') step(-1);
+      else if(e.key==='ArrowRight') step(1);
+    });
+  }
+
+  // Delegate clicks from any server-rendered grid (data-media on each cell).
+  document.addEventListener('click', e=>{
+    const cell = e.target.closest('[data-media]');
+    if(!cell) return;
+    const container = cell.closest('[data-media-group]') || cell.parentElement;
+    const cells = [...container.querySelectorAll('[data-media]')];
+    const items = cells.map(c=>({ url:c.dataset.media, kind:c.dataset.kind||IMG, name:c.dataset.name||'' }));
+    e.preventDefault();
+    open(items, cells.indexOf(cell));
+  });
+
+  // ---- Grid builder (used by the chat's client-side rendering) ----
+  function grid(atts, opts){
+    opts = opts||{};
+    if(!atts || !atts.length) return '';
+    const shown = atts.slice(0, 4);
+    const extra = atts.length - shown.length;
+    const count = atts.length===1 ? '1' : atts.length===2 ? '2' : atts.length===3 ? '3' : atts.length===4 ? '4' : 'more';
+    const cells = shown.map((a,i)=>{
+      const kind = a.kind || IMG;
+      const overlayMore = (i===3 && extra>0) ? `<div class="more">+${extra}</div>` : '';
+      let inner;
+      if(kind===IMG) inner = `<img src="${esc(a.url)}" alt="${esc(a.name||'')}" loading="lazy">`;
+      else if(kind===VID) inner = `<video src="${esc(a.url)}" muted preload="metadata"></video><div class="play-badge"><i class="bi bi-play-circle-fill"></i></div>`;
+      else return `<div class="cell doc" data-media="${esc(a.url)}" data-kind="file" data-name="${esc(a.name||'')}">
+                     <div class="doc-inner"><i class="bi ${icon(a.name||a.url)}"></i><span class="doc-name">${esc(a.name||'Document')}</span></div>${overlayMore}</div>`;
+      return `<div class="cell" data-media="${esc(a.url)}" data-kind="${kind}" data-name="${esc(a.name||'')}">${inner}${overlayMore}</div>`;
+    }).join('');
+    return `<div class="media-grid" data-count="${count}" data-media-group>${cells}</div>`;
+  }
+
+  // ---- Dropzone: progressively enhance every .mediazone ----
+  function wireDropzone(zone){
+    if(zone.__wired) return; zone.__wired = true;
+    const input = zone.querySelector('input[type=file]');
+    if(!input) return;
+    const prompt = zone.querySelector('.mediazone-prompt');
+    const preview = zone.querySelector('.mediazone-preview') || (()=>{ const d=document.createElement('div'); d.className='mediazone-preview'; zone.appendChild(d); return d; })();
+    // A DataTransfer lets us add/remove files from the real <input>.
+    let dt = new DataTransfer();
+
+    function render(){
+      preview.innerHTML='';
+      [...dt.files].forEach((f,i)=>{
+        const url = URL.createObjectURL(f);
+        const isImg = f.type.startsWith('image'), isVid = f.type.startsWith('video');
+        const thumb = document.createElement('div'); thumb.className='mz-thumb';
+        thumb.innerHTML = (isImg ? `<img src="${url}">`
+                          : isVid ? `<video src="${url}" muted></video><i class="bi bi-play-circle-fill mz-play"></i>`
+                          : `<div class="mz-doc"><i class="bi ${icon(f.name)}"></i><span>${esc(f.name)}</span></div>`)
+                          + `<button type="button" class="mz-x" data-i="${i}" title="Remove"><i class="bi bi-x"></i></button>`;
+        preview.appendChild(thumb);
+      });
+      if(prompt) prompt.classList.toggle('d-none', dt.files.length>0);
+      zone.classList.toggle('has-files', dt.files.length>0);
+    }
+    function sync(){ input.files = dt.files; render(); zone.dispatchEvent(new CustomEvent('mediazone:change',{bubbles:true})); }
+    function add(files){ for(const f of files){ if(!zone.dataset.accept || f.type.match(zone.dataset.accept)) dt.items.add(f); } sync(); }
+    function pick(accept){ input.accept = accept || zone.dataset.accept || ''; input.click(); }
+    zone.mzPick = pick;   // let host buttons open the picker with a chosen type
+
+    zone.addEventListener('click', e=>{
+      if(e.target.closest('.mz-x') || e.target.closest('a') || e.target.closest('[data-mz-open]')) return;
+      // In "manual" mode (e.g. the chat bar) only explicit buttons open the picker,
+      // so clicking the textarea / send button doesn't pop a file dialog.
+      if(zone.hasAttribute('data-mz-manual')) return;
+      pick();
+    });
+    // Explicit open buttons anywhere in/around the zone: <button data-mz-open="image|video|file">
+    zone.addEventListener('click', e=>{
+      const b = e.target.closest('[data-mz-open]'); if(!b) return;
+      e.preventDefault();
+      const t = b.dataset.mzOpen;
+      pick(t==='image' ? 'image/*' : t==='video' ? 'video/*' : '');
+    });
+    input.addEventListener('change', ()=>{ add(input.files); input.value=''; });
+    preview.addEventListener('click', e=>{ const x=e.target.closest('.mz-x'); if(!x) return;
+      e.stopPropagation(); const i=+x.dataset.i; const keep=new DataTransfer();
+      [...dt.files].forEach((f,j)=>{ if(j!==i) keep.items.add(f); }); dt=keep; sync(); });
+    ['dragenter','dragover'].forEach(ev=> zone.addEventListener(ev, e=>{ e.preventDefault(); zone.classList.add('dragging'); }));
+    ['dragleave','drop'].forEach(ev=> zone.addEventListener(ev, e=>{ e.preventDefault(); if(ev!=='dragleave'||e.target===zone) zone.classList.remove('dragging'); }));
+    zone.addEventListener('drop', e=>{ if(e.dataTransfer && e.dataTransfer.files.length) add(e.dataTransfer.files); });
+    // Host clears us after submit. NB: named mzReset, not reset — the chat's
+    // compose <form> *is* the zone, and clobbering native form.reset() would break it.
+    zone.mzReset = ()=>{ dt=new DataTransfer(); sync(); };
+  }
+  function scan(root){ (root||document).querySelectorAll('.mediazone').forEach(wireDropzone); }
+
+  if(document.readyState !== 'loading') scan();
+  else document.addEventListener('DOMContentLoaded', ()=>scan());
+  // modals/wall injected later → rescan when shown
+  document.addEventListener('shown.bs.modal', e=> scan(e.target));
+
+  return { open, close, grid, scan, icon };
+})();
+</script>
+
+<style>
+  /* ---------------- dropzone (.mediazone) ---------------- */
+  .mediazone{ border:2px dashed #cfd6e4; border-radius:12px; padding:20px; text-align:center; cursor:pointer;
+      transition:border-color .15s ease, background .15s ease; background:#fbfcfe; }
+  .mediazone.dragging{ border-color:#0d6efd; background:#eef4ff; }
+  .mediazone.has-files{ text-align:left; }
+  .mediazone-prompt i{ font-size:2.2rem; color:#8a94a6; display:block; margin-bottom:6px; }
+  .mediazone-prompt p{ margin:0; color:#6c757d; font-size:.9rem; }
+  .mediazone-preview{ display:flex; flex-wrap:wrap; gap:8px; }
+  .mediazone-preview:empty{ display:none; }
+  .mz-thumb{ position:relative; width:88px; height:88px; border-radius:10px; overflow:hidden; background:#0b1220; }
+  .mz-thumb img,.mz-thumb video{ width:100%; height:100%; object-fit:cover; display:block; }
+  .mz-thumb .mz-play{ position:absolute; inset:0; margin:auto; width:1.6rem; height:1.6rem; color:#fff; font-size:1.6rem;
+      display:flex; align-items:center; justify-content:center; pointer-events:none; }
+  .mz-doc{ display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:4px;
+      background:#eef1f6; color:#334; padding:6px; }
+  .mz-doc i{ font-size:1.4rem; } .mz-doc span{ font-size:.6rem; text-align:center; word-break:break-word; line-height:1.1; }
+  .mz-x{ position:absolute; top:3px; right:3px; width:22px; height:22px; border-radius:50%; border:0; cursor:pointer;
+      background:rgba(0,0,0,.6); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.8rem; }
+  .mz-x:hover{ background:rgba(0,0,0,.85); }
+</style>

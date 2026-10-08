@@ -1,0 +1,21 @@
+{% extends 'communication/email/base_email.html' %}
+{% comment %}
+allauth "no account for this address" e-mail (HTML alternative). Sent by
+ACCOUNT_PREVENT_ENUMERATION when a password reset names an address that isn't
+registered — the reset page responds identically either way, so this e-mail is
+what makes the two cases indistinguishable from outside. Context from allauth:
+`email`, `signup_url`, `request`. Without this override the message falls back
+to allauth's unbranded default, which greets the reader from "example.com".
+{% endcomment %}
+{% block preheader %}No {{ brand.name|default:"United Church School" }} account uses this address.{% endblock %}
+{% block heading %}We couldn't find that account{% endblock %}
+{% block content %}
+  <p style="margin:0 0 14px">Hi,</p>
+  <p style="margin:0 0 14px">Someone — possibly you — asked to reset the password for <strong>{{ email }}</strong> at <strong>{{ brand.name|default:"United Church School" }}</strong>. We don't have an account registered with that address, so there's no password to reset.</p>
+  <p style="margin:0 0 14px">If that was you, you may have signed up with a different e-mail address — or you can create an account:</p>
+{% endblock %}
+{% block cta %}{% include 'communication/email/_button.html' with url=signup_url label="CREATE AN ACCOUNT" %}{% endblock %}
+{% block disclaimer %}
+  <table class="paragraph_block" width="100%" border="0" cellpadding="10" cellspacing="0" role="presentation" style="mso-table-lspace:0;mso-table-rspace:0;word-break:break-word"><tr><td class="pad"><div style="color:#40507a;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;font-size:14px;line-height:120%"><p style="margin:0">Wasn't you? You can safely ignore this message — no account exists and nothing has changed.</p></div></td></tr></table>
+{% endblock %}
+{% block expiry_note %}{% if brand.support_email %}Need help? {{ brand.support_email }}.{% endif %}{% endblock %}

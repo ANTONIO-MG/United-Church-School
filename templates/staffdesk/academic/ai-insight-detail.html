@@ -1,0 +1,25 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}One AI insight, with a way to acknowledge, dismiss or mark it actioned.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow"><a href="{% url 'staffdesk:ai-insights' %}">AI insights</a> · {{ insight.kind }}</span><h3>{{ insight.title }}</h3>
+      <p>{{ insight.created_at|date:"j M Y, H:i" }}{% if insight.module %} · {{ insight.module.reference }}{% endif %}{% if insight.student %} · about {{ insight.student|person_name }}{% endif %}{% if insight.owner %} · for {{ insight.owner|person_name }}{% endif %}</p></div>
+    <div class="tc-head__actions">
+      <span class="tc-chip {% if insight.severity == 'critical' %}tc-chip--danger{% elif insight.severity == 'warning' %}tc-chip--warning{% else %}tc-chip--primary{% endif %}">{{ insight.get_severity_display }}</span>
+      <form method="post" action="{% url 'staffdesk:ai-insight-status' insight.pk %}" class="d-flex gap-1">{% csrf_token %}
+        <label class="visually-hidden" for="iSt">Status</label>
+        <select id="iSt" name="status" class="form-select form-select-sm">{% for v, l in statuses %}<option value="{{ v }}" {% if v == insight.status %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+        <button class="btn btn-sm btn-primary">Update</button>
+      </form>
+    </div>
+  </div>
+  <div class="tc-card"><div class="tc-card__body pt-3"><div class="sda-doc">{{ insight.body|default:"(no detail)" }}</div></div></div>
+  {% if insight.student %}<p class="small mt-2"><a href="{% url 'staffdesk:grades' %}?student={{ insight.student_id }}">{{ insight.student|person_name }}'s grades</a></p>{% endif %}
+  {% if data %}
+  <details class="tc-card mt-3 sda-details"><summary class="tc-card__head"><h6>Structured data</h6></summary>
+    <div class="tc-card__body"><pre class="sda-pre">{{ data }}</pre></div></details>
+  {% endif %}
+</div></div>
+{% endblock %}

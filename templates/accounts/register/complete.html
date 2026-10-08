@@ -1,0 +1,82 @@
+{% extends 'soft_ui/auth_base.html' %}
+{% comment %}
+The hand-off screen at the end of registration — "payment completed" (PayFast)
+or "registration completed, setting up your account" (the EFT / free-week route).
+Holds for `seconds`, then forwards to the dashboard.
+
+Everything here is inline SVG and CSS on purpose: this page can be the first
+thing a student sees after paying, and it must render its tick and its progress
+ring even if an icon font is still in flight.
+{% endcomment %}
+{% block title %}{{ outcome.heading }} · {{ brand.name|default:"United Church School" }}{% endblock %}
+{% block card_col %}col-xl-5 col-lg-6 col-md-8{% endblock %}
+{% block oblique %}{% endblock %}
+
+{% block auth_card %}
+<div class="card mt-7 mb-4 shadow-lg">
+  <div class="card-body p-4 p-md-5 text-center">
+
+    <div class="rc-mark rc-{{ outcome.tone }}" aria-hidden="true">
+      <svg viewBox="0 0 52 52" role="presentation">
+        <circle class="rc-ring" cx="26" cy="26" r="24" fill="none"/>
+        <path class="rc-tick" fill="none" d="M15 27.5 L22.5 35 L37.5 19"/>
+      </svg>
+    </div>
+
+    <h4 class="font-weight-bolder mt-4 mb-2">{{ outcome.heading }}</h4>
+    <p class="text-sm text-muted mb-2">{{ outcome.detail }}</p>
+    <p class="text-xs text-muted mb-4">{{ outcome.note }}</p>
+
+    <div class="rc-progress" role="progressbar" aria-label="Redirecting to your dashboard">
+      <span class="rc-bar" style="animation-duration:{{ seconds }}s"></span>
+    </div>
+    <p class="text-xs text-muted mt-3 mb-0">
+      Taking you to your dashboard in <span id="rcCount">{{ seconds }}</span>s —
+      <a href="{{ next_url }}" class="text-info font-weight-bold">go now</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .rc-mark{ width:88px; height:88px; margin:0 auto; }
+  .rc-mark svg{ width:100%; height:100%; }
+  .rc-ring{ stroke:#2dce89; stroke-width:2; stroke-dasharray:151; stroke-dashoffset:151;
+    animation:rcRing .6s cubic-bezier(.65,0,.45,1) forwards; }
+  .rc-tick{ stroke:#2dce89; stroke-width:3.5; stroke-linecap:round; stroke-linejoin:round;
+    stroke-dasharray:36; stroke-dashoffset:36;
+    animation:rcTick .35s cubic-bezier(.65,0,.45,1) .55s forwards; }
+  .rc-info .rc-ring, .rc-info .rc-tick{ stroke:#17c1e8; }
+  @keyframes rcRing{ to{ stroke-dashoffset:0; } }
+  @keyframes rcTick{ to{ stroke-dashoffset:0; } }
+
+  .rc-progress{ height:4px; border-radius:4px; background:#eef1f6; overflow:hidden; }
+  .rc-bar{ display:block; height:100%; width:100%; border-radius:4px;
+    background:linear-gradient(310deg,#2dce89,#17c1e8); transform-origin:left center;
+    animation:rcBar linear forwards; }
+  @keyframes rcBar{ from{ transform:scaleX(0); } to{ transform:scaleX(1); } }
+
+  /* Someone who asked for less motion still gets the screen and the redirect,
+     just without the drawing and the sliding bar. */
+  @media (prefers-reduced-motion: reduce){
+    .rc-ring, .rc-tick{ animation:none; stroke-dashoffset:0; }
+    .rc-bar{ animation:none; }
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var seconds = {{ seconds }};
+  var next = "{{ next_url|escapejs }}";
+  var out = document.getElementById('rcCount');
+  var timer = setInterval(function () {
+    seconds -= 1;
+    if (out) out.textContent = seconds > 0 ? seconds : 0;
+    if (seconds <= 0) { clearInterval(timer); window.location.replace(next); }
+  }, 1000);
+})();
+</script>
+{% endblock %}

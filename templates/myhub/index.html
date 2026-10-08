@@ -1,0 +1,115 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% comment %}Home (MyHub) — the student dashboard.
+
+Top: where the candidate stands on the academic spine (institution, programme,
+modules, next exam), then the run to that exam as a line. Left column: study
+insights, their registered modules, assessment readiness, what's coming up,
+online sessions and the notice board. Right rail: messages, notifications,
+achievements, analytics, forecast and fees.
+
+Every panel lives in myhub/dashboard/ and reads context assembled by
+apps.myhub.dashboard.student_dashboard.{% endcomment %}
+
+{% block additional_css %}
+<link href="{% static 'css/dashboard.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="dash vstack gap-4">
+
+  {% include 'myhub/dashboard/_hero.html' %}
+
+  {% include 'myhub/dashboard/_countdown.html' %}
+
+  {% include 'myhub/dashboard/_focus.html' %}
+
+  {% include 'myhub/dashboard/_insights.html' %}
+
+  <div class="row g-4">
+
+    <div class="col-xl-8 vstack gap-4">
+
+      {% include 'myhub/dashboard/_modules.html' %}
+      {% include 'myhub/dashboard/_engagement.html' %}
+      {% include 'myhub/dashboard/_prediction.html' %}
+      {% include 'myhub/dashboard/_readiness.html' %}
+      {% include 'myhub/dashboard/_marking.html' %}
+
+      <div class="row g-4">
+        <div class="col-md-6">{% include 'myhub/dashboard/_events.html' %}</div>
+        <div class="col-md-6">{% include 'myhub/dashboard/_live.html' %}</div>
+      </div>
+
+      {% include 'myhub/dashboard/_noticeboard.html' %}
+
+      <div class="row g-4">
+        <div class="col-md-6">{% include 'myhub/dashboard/_questions.html' %}</div>
+        <div class="col-md-6">
+
+      <div class="dash-card h-100">
+        <div class="dash-card__head">
+          <span class="dash-glyph dash-glyph--info"><i class="bi bi-check2-square"></i></span>
+          <h6>Your tasks</h6>
+          <a class="dash-link" href="/tasks/">See all</a>
+        </div>
+        <div class="dash-card__body dash-card__body--flush pt-1">
+          {% for assignment in my_tasks %}
+          <a class="dash-row" href="{{ assignment.task.get_absolute_url|default:'/tasks/' }}">
+            <span class="dash-row__initials dash-glyph--secondary"><i class="bi bi-list-task"></i></span>
+            <div class="dash-row__main">
+              <p class="dash-row__name">{{ assignment.task.title }}</p>
+              <p class="dash-row__text">{{ assignment.get_status_display|default:"Assigned" }}</p>
+            </div>
+            {% if assignment.task.due_date %}
+            <span class="dash-row__time">{{ assignment.task.due_date|date:"d M" }}</span>
+            {% endif %}
+          </a>
+          {% empty %}
+          <div class="dash-empty"><i class="bi bi-check2-circle"></i>Nothing due — you're all caught up.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="col-xl-4 vstack gap-4">
+
+      {% include 'myhub/dashboard/_messages.html' %}
+      {% include 'myhub/dashboard/_notifications.html' %}
+      {% include 'myhub/dashboard/_analytics.html' %}
+      {% include 'myhub/dashboard/_attendance.html' %}
+      {% include 'myhub/dashboard/_cohort.html' %}
+      {% include 'myhub/dashboard/_achievements.html' %}
+      {% include 'myhub/dashboard/_forecast.html' %}
+      {% include 'myhub/dashboard/_finance.html' %}
+
+      <div class="dash-card">
+        <div class="dash-card__head">
+          <span class="dash-glyph dash-glyph--warning"><i class="bi bi-lightning-charge"></i></span>
+          <h6>Quick links</h6>
+        </div>
+        <div class="dash-card__body">
+          <div class="dash-quick">
+            <a href="{% url 'learning:my-modules' %}"><i class="bi bi-grid-1x2-fill" style="color:var(--dash-primary)"></i>My subjects</a>
+            <a href="/communication/meetings/"><i class="bi bi-camera-video" style="color:var(--dash-success)"></i>Online sessions</a>
+            <a href="/learning/"><i class="bi bi-journal-richtext" style="color:var(--dash-success)"></i>Study guides</a>
+            <a href="/assessments/"><i class="bi bi-ui-checks" style="color:var(--dash-danger)"></i>Assessments</a>
+            <a href="{% url 'reports:my-progress' %}"><i class="bi bi-graph-up" style="color:var(--dash-info)"></i>My progress</a>
+            <a href="/communication/chat/"><i class="bi bi-chat-left-text" style="color:var(--dash-primary)"></i>Messages</a>
+            <a href="/communication/discussions/"><i class="bi bi-people" style="color:var(--dash-info)"></i>Discussions</a>
+            <a href="{% url 'myhub:events' %}"><i class="bi bi-calendar-week" style="color:var(--dash-primary)"></i>Calendar</a>
+            <a href="/shop/"><i class="bi bi-bag" style="color:var(--dash-warning)"></i>Shop</a>
+          </div>
+        </div>
+      </div>
+
+      <p class="small text-center text-muted mb-0">{{ brand.copyright|default:"© United Church School" }}</p>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

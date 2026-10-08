@@ -1,0 +1,60 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Edit one module's weighting. The five components must total 100%.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow"><a href="{% url 'staffdesk:weightings' %}">Weightings</a></span><h3>{{ module.reference }}</h3>
+      <p>{% if is_new %}This subject uses the default weighting until you save one.{% else %}{{ n_grades }} grade{{ n_grades|pluralize }} depend on this.{% endif %}</p></div>
+  </div>
+
+  <form method="post" class="tc-card" novalidate>{% csrf_token %}
+    {% if form.non_field_errors %}<div class="tc-section"><div class="tc-alert tc-alert--danger"><i class="bi bi-exclamation-circle"></i><div>{{ form.non_field_errors|join:" " }}</div></div></div>{% endif %}
+    <div class="tc-section">
+      <div class="tc-section__title"><i class="bi bi-pie-chart"></i><h6>Components</h6><small>Total: <b id="sdaTotal">—</b></small></div>
+      <div class="row g-3">
+        {% for field in form %}{% if field.name != 'grade_scale' and field.name != 'pass_mark_pct' and field.name != 'extra_credit_pct' %}
+        <div class="col-6 col-md-4 col-xl"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          <input class="form-control sda-weight" type="number" min="0" max="100" name="{{ field.html_name }}" id="{{ field.id_for_label }}" value="{{ field.value|default_if_none:'' }}">
+          {% for e in field.errors %}<div class="tc-field-error">{{ e }}</div>{% endfor %}</div>
+        {% endif %}{% endfor %}
+      </div>
+    </div>
+    <div class="tc-section">
+      <div class="tc-section__title"><i class="bi bi-flag"></i><h6>Pass mark & extra credit</h6></div>
+      <div class="row g-3">
+        {% for field in form %}{% if field.name == 'pass_mark_pct' or field.name == 'extra_credit_pct' %}
+        <div class="col-6 col-md-3"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          <input class="form-control" type="number" min="0" max="100" name="{{ field.html_name }}" id="{{ field.id_for_label }}" value="{{ field.value|default_if_none:'' }}">
+          {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+          {% for e in field.errors %}<div class="tc-field-error">{{ e }}</div>{% endfor %}</div>
+        {% endif %}{% endfor %}
+      </div>
+    </div>
+    <div class="tc-section">
+      <div class="tc-section__title"><i class="bi bi-alphabet-uppercase"></i><h6>Letter-grade scale</h6></div>
+      <label class="form-label" for="{{ form.grade_scale.id_for_label }}">Bands (JSON)</label>
+      <textarea class="form-control font-monospace" rows="4" name="{{ form.grade_scale.html_name }}" id="{{ form.grade_scale.id_for_label }}">{{ form.grade_scale.value|default_if_none:'' }}</textarea>
+      <div class="form-text">{{ form.grade_scale.help_text }}</div>
+      {% for e in form.grade_scale.errors %}<div class="tc-field-error">{{ e }}</div>{% endfor %}
+      <details class="sd-output small mt-2"><summary>Default scale</summary><pre>{{ default_scale }}</pre></details>
+    </div>
+    <div class="tc-savebar">
+      <div class="form-check me-auto"><input class="form-check-input" type="checkbox" name="recompute" id="sdaRecompute" value="1" {% if n_grades %}checked{% endif %}>
+        <label class="form-check-label small" for="sdaRecompute">Recompute this subject's grades now</label></div>
+      <a class="btn btn-outline-secondary btn-sm" href="{% url 'staffdesk:weightings' %}">Cancel</a>
+      <button class="btn btn-primary btn-sm"><i class="bi bi-check2 me-1"></i>Save weighting</button>
+    </div>
+  </form>
+</div></div>
+{% endblock %}
+{% block additional_js %}
+<script>
+(function(){
+  var inputs = document.querySelectorAll('.sda-weight'), out = document.getElementById('sdaTotal');
+  function sum(){ var t = 0; inputs.forEach(function(i){ t += parseInt(i.value || 0, 10) || 0; });
+    out.textContent = t + '%'; out.className = t === 100 ? 'text-success' : 'text-danger'; }
+  inputs.forEach(function(i){ i.addEventListener('input', sum); }); sum();
+})();
+</script>
+{% endblock %}

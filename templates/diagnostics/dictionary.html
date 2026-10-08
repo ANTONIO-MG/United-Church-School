@@ -1,0 +1,120 @@
+{% extends 'diagnostics/_shell.html' %}
+{% comment %}The error dictionary — every documented code, what causes it, what a
+developer should fix and what to tell the user. Occurrence counts come from the
+log, so the reference doubles as a heat map of what is actually going wrong.
+{% endcomment %}
+{% block nav_dict %}btn-primary{% endblock %}
+
+{% block diagnostics %}
+
+{% if problems %}
+<div class="alert alert-danger">
+  <strong>The catalog itself has {{ problems|length }} problem(s):</strong>
+  <ul class="mb-0 small mt-2">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<div class="card mb-3">
+  <div class="card-body">
+    <h6 class="mb-2">How to read a code</h6>
+    <p class="small text-muted mb-3">
+      A code is <span class="diag-code">DOMAIN-Nxxx</span>. The prefix says which part of the
+      system failed; <strong>the first digit of the number says what kind of failure it is</strong>,
+      and means the same thing in every domain — so <span class="diag-code">CERT-8001</span> and
+      <span class="diag-code">FIN-8001</span> are both rendering/storage problems.
+      {{ total_codes }} codes are documented.
+    </p>
+    <div class="row g-2">
+      {% for digit, cause in causes %}
+      <div class="col-md-6 col-xl-4">
+        <div class="border rounded p-2 h-100">
+          <span class="diag-code text-primary">{{ digit }}xxx</span>
+          <strong class="small ms-1">{{ cause.0 }}</strong>
+          <p class="small text-muted mb-0 mt-1">{{ cause.1 }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-md-5">
+        <input type="search" name="q" value="{{ query }}" class="form-control form-control-sm"
+               placeholder="Search codes, titles, causes and fixes…">
+      </div>
+      <div class="col-md-4">
+        <select name="domain" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">All domains</option>
+          {% for code, label in domains %}
+          <option value="{{ code }}" {% if active_domain == code %}selected{% endif %}>{{ code }} — {{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-sm btn-primary flex-grow-1"><i class="bi bi-search me-1"></i>Search</button>
+        {% if query or active_domain %}
+        <a class="btn btn-sm btn-light" href="{% url 'diagnostics:dictionary' %}">Clear</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+{% for domain, entries in grouped %}
+<div class="card mb-3">
+  <div class="card-header border-0 pb-0 d-flex justify-content-between align-items-center">
+    <h6 class="card-title mb-0">
+      <span class="diag-code text-primary">{{ domain }}</span>
+      <span class="text-muted fw-normal small ms-2">{{ entries|length }} code{{ entries|length|pluralize }}</span>
+    </h6>
+  </div>
+  <div class="card-body pt-2">
+    <div class="accordion accordion-flush" id="acc{{ domain }}">
+      {% for entry in entries %}
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse"
+                  data-bs-target="#e{{ entry.spec.code|slugify }}">
+            <span class="diag-code me-3">{{ entry.spec.code }}</span>
+            <span class="flex-grow-1 small">{{ entry.spec.title }}</span>
+            <span class="diag-chip sev-{{ entry.spec.severity }} me-2">{{ entry.spec.severity }}</span>
+            {% if entry.seen %}
+            <span class="badge bg-danger-subtle text-danger-emphasis me-2" title="Times recorded">
+              seen {{ entry.seen }}×</span>
+            {% endif %}
+          </button>
+        </h2>
+        <div id="e{{ entry.spec.code|slugify }}" class="accordion-collapse collapse"
+             data-bs-parent="#acc{{ domain }}">
+          <div class="accordion-body pt-2">
+            <p class="small text-muted mb-2"><strong>Class:</strong> {{ entry.cause }}</p>
+            <div class="diag-remedy">
+              <h6>Why it happens</h6><p>{{ entry.spec.why }}</p>
+            </div>
+            <div class="diag-remedy diag-remedy--fix">
+              <h6>Developer — what to check or change</h6><p>{{ entry.spec.fix }}</p>
+            </div>
+            <div class="diag-remedy diag-remedy--user">
+              <h6>User — what to tell them to do</h6><p>{{ entry.spec.action }}</p>
+            </div>
+            {% if entry.seen %}
+            <a class="btn btn-sm btn-outline-danger mt-1"
+               href="{% url 'diagnostics:log' %}?q={{ entry.spec.code }}&status=">
+              <i class="bi bi-list-columns-reverse me-1"></i>See the {{ entry.seen }} logged occurrence{{ entry.seen|pluralize }}</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% empty %}
+<div class="card"><div class="card-body text-center text-muted py-5">
+  <i class="bi bi-search display-6 d-block mb-2"></i>No codes match that search.
+</div></div>
+{% endfor %}
+{% endblock %}

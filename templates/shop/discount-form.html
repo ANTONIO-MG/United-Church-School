@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <h3 class="mb-3">{{ page_title }}</h3>
+  <div class="card"><div class="card-body">
+    <p class="text-muted small">Leave <strong>code</strong> blank for a promotion that applies on its own.
+      Leave the scope fields blank to discount the whole catalogue.</p>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn btn-primary">Save</button>
+      <a class="btn btn-outline-secondary" href="{% url 'shop:discounts' %}">Cancel</a>
+    </form>
+  </div></div>
+</div>
+{% endblock %}

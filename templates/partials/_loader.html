@@ -1,0 +1,51 @@
+{% comment %}Global loading indicator — a slim top progress bar + a centre spinner
+overlay. Shows automatically on same-origin navigation and form submits, and is
+controllable from JS via window.appLoader.show() / .hide() (e.g. around fetch()).{% endcomment %}
+<div id="appLoader" aria-hidden="true">
+  <div class="app-loader-bar"></div>
+  <div class="app-loader-veil"><div class="app-loader-spin"></div></div>
+</div>
+<style>
+  #appLoader{ position:fixed; inset:0 0 auto 0; z-index:2000; pointer-events:none; }
+  #appLoader .app-loader-bar{ height:3px; width:0; background:linear-gradient(90deg,#0d6efd,#6610f2);
+    box-shadow:0 0 8px rgba(13,110,253,.5); transition:width .3s ease, opacity .3s ease; opacity:0; }
+  #appLoader.on .app-loader-bar{ width:92%; opacity:1; }
+  #appLoader.done .app-loader-bar{ width:100%; opacity:0; }
+  #appLoader .app-loader-veil{ position:fixed; inset:0; background:rgba(255,255,255,.45); backdrop-filter:blur(1px);
+    display:none; align-items:center; justify-content:center; pointer-events:all; }
+  #appLoader.veil .app-loader-veil{ display:flex; }
+  #appLoader .app-loader-spin{ width:46px;height:46px;border:4px solid rgba(13,110,253,.2);border-top-color:#0d6efd;
+    border-radius:50%; animation:appspin .7s linear infinite; }
+  @keyframes appspin{ to{ transform:rotate(360deg); } }
+</style>
+<script>
+(function(){
+  var el = document.getElementById('appLoader');
+  var t = null;
+  function start(veil){ if(!el) return; el.classList.remove('done'); el.classList.add('on'); if(veil) el.classList.add('veil'); }
+  function stop(){ if(!el) return; el.classList.remove('on','veil'); el.classList.add('done'); }
+  window.appLoader = { show:function(veil){ start(veil!==false); }, hide:stop };
+
+  // Same-origin navigation → show the top bar.
+  document.addEventListener('click', function(e){
+    var a = e.target.closest && e.target.closest('a');
+    if(!a) return;
+    var href = a.getAttribute('href') || '';
+    if(a.target === '_blank' || a.hasAttribute('download') || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    if(href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+    if(a.getAttribute('data-bs-toggle')) return;        // tabs/dropdowns/modals
+    if(/^https?:\/\//.test(href) && a.host !== location.host) return;  // external
+    start(false);
+  }, true);
+
+  // Form submits (skip GET search-as-you-type style if marked data-no-loader).
+  document.addEventListener('submit', function(e){
+    if(e.target && e.target.hasAttribute('data-no-loader')) return;
+    start(false);
+  }, true);
+
+  // Hide once the new page has painted (covers bfcache restores too).
+  window.addEventListener('pageshow', stop);
+  document.addEventListener('DOMContentLoaded', stop);
+})();
+</script>

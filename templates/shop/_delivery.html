@@ -1,0 +1,101 @@
+{% load commerce %}
+{% comment %}Checkout delivery step (orders with shipped items). Door: saved address
+or a new one. Locker: live locker search when the courier API is configured,
+otherwise the buyer names the Pudo locker they want.{% endcomment %}
+<div class="tc-card" id="delivery">
+  <div class="tc-card__head"><h5>Delivery</h5>
+    {% if choice and not editing_delivery %}<a class="tc-link" href="?change=1#delivery">Change</a>{% endif %}</div>
+  <div class="tc-card__body">
+    {% if choice and not editing_delivery %}
+      <div class="tc-file">
+        <span class="tc-file__icon"><i class="bi {% if choice.method == 'locker' %}bi-box2{% else %}bi-house-door{% endif %}"></i></span>
+        <span>
+          <span class="tc-file__name">{% if choice.method == 'locker' %}Pudo locker · {{ choice.locker_name|default:choice.locker_id }}{% else %}{{ choice.address.recipient }} · {{ choice.address.one_line }}{% endif %}</span><br>
+          <span class="tc-file__meta">{{ choice.option.label }}{% if choice.option.detail %} · {{ choice.option.detail }}{% endif %}</span>
+        </span>
+        <b class="num">{% if choice.amount %}{{ choice.amount|rand }}{% else %}Free{% endif %}</b>
+      </div>
+      {% if free_over and choice.amount and goods_total < free_over %}<p class="small text-muted mt-2 mb-0"><i class="bi bi-gift me-1"></i>Spend {{ free_over|rand }} or more for free delivery.</p>{% endif %}
+    {% else %}
+      <form method="post" action="{% url 'finance:checkout' %}#delivery" novalidate id="deliveryForm">
+        {% csrf_token %}<input type="hidden" name="action" value="delivery">
+        <div class="tc-types mb-3" role="radiogroup" aria-label="Delivery method">
+          <div class="tc-type"><input type="radio" name="method" value="door" id="mDoor" {% if choice.method != 'locker' %}checked{% endif %}>
+            <label for="mDoor"><i class="bi bi-house-door"></i><b>To my door</b><small>{% if courier_live %}Live Courier Guy rates{% else %}{% if flat_door.amount %}{{ flat_door.amount|rand }}{% else %}Free{% endif %} · courier to your address{% endif %}</small></label></div>
+          <div class="tc-type"><input type="radio" name="method" value="locker" id="mLocker" {% if choice.method == 'locker' or lockers or locker_search %}checked{% endif %}>
+            <label for="mLocker"><i class="bi bi-box2"></i><b>To a Pudo locker</b><small>{% if courier_live %}Usually cheaper{% else %}{% if flat_locker.amount %}{{ flat_locker.amount|rand }}{% else %}Free{% endif %} · collect with a PIN, any time{% endif %}</small></label></div>
+        </div>
+
+        <div data-method="door">
+          {% if addresses %}
+            <div class="d-grid gap-2 mb-3">
+              {% for a in addresses %}
+                <label class="tc-file" style="cursor:pointer">
+                  <input class="form-check-input" type="radio" name="address" value="{{ a.pk }}" {% if forloop.first %}checked{% endif %}>
+                  <span><span class="tc-file__name">{{ a.recipient }}{% if a.is_default %} <span class="tc-chip">Default</span>{% endif %}</span><br><span class="tc-file__meta">{{ a.one_line }} · {{ a.phone }}</span></span>
+                  <span></span>
+                </label>
+              {% endfor %}
+              <label class="tc-file" style="cursor:pointer"><input class="form-check-input" type="radio" name="address" value="new" {% if address_form.errors %}checked{% endif %}><span class="tc-file__name">Use a new address</span><span></span></label>
+            </div>
+          {% else %}<input type="hidden" name="address" value="new">{% endif %}
+          <div data-new-address {% if addresses and not address_form.errors %}hidden{% endif %}>
+            <div class="row g-2">
+              <div class="col-sm-6">{% include 'shop/_field.html' with field=address_form.recipient %}</div>
+              <div class="col-sm-6">{% include 'shop/_field.html' with field=address_form.phone %}</div>
+              <div class="col-sm-8">{% include 'shop/_field.html' with field=address_form.street_address %}</div>
+              <div class="col-sm-4">{% include 'shop/_field.html' with field=address_form.complex %}</div>
+              <div class="col-sm-6">{% include 'shop/_field.html' with field=address_form.suburb %}</div>
+              <div class="col-sm-6">{% include 'shop/_field.html' with field=address_form.city %}</div>
+              <div class="col-sm-5">{% include 'shop/_field.html' with field=address_form.province %}</div>
+              <div class="col-sm-3">{% include 'shop/_field.html' with field=address_form.postal_code %}</div>
+              <div class="col-sm-4">{% include 'shop/_field.html' with field=address_form.address_type %}</div>
+            </div>
+          </div>
+        </div>
+
+        <div data-method="locker" hidden>
+          {% if courier_live %}
+            <div class="tc-coupon mb-2">
+              <label class="visually-hidden" for="lockerSearch">Suburb or city</label>
+              <input id="lockerSearch" class="form-control form-control-sm" value="{{ locker_search }}" placeholder="Suburb or city, e.g. Sandton">
+              <button type="button" class="btn btn-sm btn-outline-primary" data-locker-search>Find lockers</button>
+            </div>
+            {% for l in lockers %}
+              <label class="tc-file mb-2" style="cursor:pointer">
+                <input class="form-check-input" type="radio" name="locker_id" value="{{ l.id }}" {% if forloop.first %}checked{% endif %}>
+                <span><span class="tc-file__name">{{ l.name }}</span><br><span class="tc-file__meta">{{ l.address }}</span></span><span></span>
+                <input type="hidden" name="locker_label_{{ l.id }}" value="{{ l.name }}">
+              </label>
+            {% empty %}{% if locker_search %}<p class="small text-muted">No lockers found near “{{ locker_search }}”.</p>{% endif %}{% endfor %}
+          {% else %}
+            <label class="form-label" for="lockerName">Which Pudo locker?</label>
+            <input id="lockerName" name="locker_name" class="form-control" placeholder="e.g. Pudo Killarney Mall, Johannesburg" value="{{ choice.locker_name }}">
+            <div class="form-text">Find your nearest locker at <a href="https://www.pudo.co.za" target="_blank" rel="noopener">pudo.co.za</a>. You'll get an SMS with a PIN to collect.</div>
+          {% endif %}
+        </div>
+
+        <button class="btn btn-primary mt-3"><i class="bi bi-truck me-1"></i>Use this delivery</button>
+        {% if free_over %}<p class="small text-muted mt-2 mb-0"><i class="bi bi-gift me-1"></i>Free delivery on orders of {{ free_over|rand }} or more.</p>{% endif %}
+      </form>
+      <script>
+      (function () {
+        var form = document.getElementById('deliveryForm'); if (!form) { return; }
+        function sync() {
+          var m = form.querySelector('input[name="method"]:checked').value;
+          form.querySelectorAll('[data-method]').forEach(function (el) { el.hidden = el.dataset.method !== m; });
+          var pick = form.querySelector('input[name="address"]:checked');
+          var box = form.querySelector('[data-new-address]');
+          if (box && pick) { box.hidden = pick.value !== 'new'; }
+        }
+        form.addEventListener('change', sync); sync();
+        var find = form.querySelector('[data-locker-search]');
+        if (find) { find.addEventListener('click', function () {
+          var q = document.getElementById('lockerSearch').value.trim();
+          if (q) { window.location = '?change=1&locker_search=' + encodeURIComponent(q) + '#delivery'; }
+        }); }
+      })();
+      </script>
+    {% endif %}
+  </div>
+</div>

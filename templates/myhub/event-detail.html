@@ -1,0 +1,122 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% comment %}Event details page (social "event-details-2" look).{% endcomment %}
+
+{% block content %}
+<section class="position-relative rounded overflow-hidden"
+  style="background-image: url({% static 'images/bg/07.jpg' %}); background-repeat: no-repeat; background-size: cover; background-position: top center;">
+  <div class="bg-overlay bg-dark opacity-8"></div>
+  <div class="p-4 p-sm-5 position-relative">
+    <div class="row">
+      <div class="col-xl-9 mx-auto text-center py-4 py-sm-5">
+        <ul class="nav nav-divider justify-content-center text-white pt-2 small mb-3">
+          <li class="nav-item"><a class="nav-link text-white" href="{% url 'myhub:events' %}">Events</a></li>
+          <li class="nav-item">
+            <span class="nav-link text-white">
+              <i class="bi bi-tag me-1"></i>{{ event.get_category_display }}
+            </span>
+          </li>
+        </ul>
+        <h1 class="text-white mb-3">{{ event.title }}</h1>
+        <ul class="nav nav-divider justify-content-center text-white small mb-0">
+          <li class="nav-item">
+            <span class="nav-link text-white">
+              <i class="bi bi-calendar-check me-1"></i>
+              {% if event.all_day %}{{ event.start|date:"l, j M Y" }} · All day
+              {% else %}{{ event.start|date:"l, j M Y · H:i" }}{% endif %}
+            </span>
+          </li>
+          {% if event.location %}
+          <li class="nav-item">
+            <span class="nav-link text-white"><i class="bi bi-geo-alt me-1"></i>{{ event.location }}</span>
+          </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="row g-4">
+
+  <div class="col-lg-8">
+    <div class="card card-body">
+      <span class="badge mb-3 align-self-start" style="background:{{ event.color|default:'#3a87ad' }}1a;color:{{ event.color|default:'#3a87ad' }};">
+        <i class="bi bi-tag-fill me-1"></i>{{ event.get_category_display }}
+      </span>
+      <h4>About this event</h4>
+      <div style="line-height:1.7;">
+        {{ event.description|linebreaks|default:"No description provided." }}
+      </div>
+
+      <div class="card card-body bg-light border-0 mt-4">
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <div class="d-flex">
+              <i class="bi bi-calendar-event fs-4" style="color:{{ event.color|default:'#3a87ad' }};"></i>
+              <div class="ms-3">
+                <h6 class="mb-0">Starts</h6>
+                <p class="mb-0 small text-muted">
+                  {% if event.all_day %}{{ event.start|date:"j M Y" }} · All day
+                  {% else %}{{ event.start|date:"j M Y · H:i" }}{% endif %}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="d-flex">
+              <i class="bi bi-hourglass-split fs-4" style="color:{{ event.color|default:'#3a87ad' }};"></i>
+              <div class="ms-3">
+                <h6 class="mb-0">Ends</h6>
+                <p class="mb-0 small text-muted">
+                  {% if event.all_day %}Same day
+                  {% elif event.end %}{{ event.end|date:"j M Y · H:i" }}
+                  {% else %}Not specified{% endif %}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card card-body">
+      <div class="text-center mb-4">
+        <div class="d-inline-block rounded text-white px-4 py-3 shadow-sm" style="background:{{ event.color|default:'#3a87ad' }};">
+          <div class="display-6 fw-bold lh-1">{{ event.start|date:"d" }}</div>
+          <div class="text-uppercase small">{{ event.start|date:"M Y" }}</div>
+        </div>
+        <p class="mb-0 mt-2 text-muted">{{ event.start|date:"l" }}{% if event.all_day %} · All day{% endif %}</p>
+      </div>
+
+      <ul class="list-unstyled mb-4">
+        <li class="d-flex justify-content-between mb-3">
+          <strong class="w-150px"><i class="bi bi-clock me-1"></i>Date &amp; time:</strong>
+          <span class="text-end">
+            {% if event.all_day %}{{ event.start|date:"j M Y" }}<br><span class="text-muted small">All day</span>
+            {% else %}{{ event.start|date:"j M Y" }}<br><span class="text-muted small">{{ event.start|date:"H:i" }}{% if event.end %} – {{ event.end|date:"H:i" }}{% endif %}</span>{% endif %}
+          </span>
+        </li>
+        <li class="d-flex justify-content-between mb-3">
+          <strong class="w-150px"><i class="bi bi-geo-alt me-1"></i>Location:</strong>
+          <span class="text-end">{{ event.location|default:"To be announced" }}</span>
+        </li>
+        <li class="d-flex justify-content-between mb-0">
+          <strong class="w-150px"><i class="bi bi-tag me-1"></i>Category:</strong>
+          <span class="text-end">{{ event.get_category_display }}</span>
+        </li>
+      </ul>
+
+      <a class="btn btn-primary w-100 mb-2" href="{% url 'myhub:event-management' %}">
+        <i class="bi bi-calendar3 me-1"></i> Open calendar
+      </a>
+      <a class="btn btn-primary-soft w-100" href="{% url 'myhub:events' %}">
+        <i class="bi bi-arrow-left me-1"></i> Back to all events
+      </a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

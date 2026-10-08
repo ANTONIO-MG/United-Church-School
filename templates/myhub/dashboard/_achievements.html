@@ -1,0 +1,37 @@
+{% comment %}Achievements: earned badges (locked ones stay visible as goals) plus any
+certificates already issued.{% endcomment %}
+
+<div class="dash-card">
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--primary"><i class="bi bi-trophy"></i></span>
+    <h6>Achievements</h6>
+    <span class="dash-chip dash-chip--primary">{{ achievements.earned }}/{{ achievements.total }}</span>
+  </div>
+
+  <div class="dash-card__body">
+    <div class="dash-badges">
+      {% for badge in achievements.badges %}
+      <div class="dash-badge {% if badge.earned %}dash-badge--earned{% endif %}"
+           title="{% if badge.earned %}Earned — {{ badge.name }}{% else %}Locked — {{ badge.goal }}{% endif %}">
+        <span class="dash-badge__ico"><i class="bi {{ badge.icon }}"></i></span>
+        <span class="dash-badge__name">{{ badge.name }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if achievements.certificates %}
+    <hr class="my-3" style="opacity:.08">
+    <p class="dash-module__meta fw-bold mb-2 text-uppercase" style="letter-spacing:.06em; font-size:.66rem;">
+      Certificates
+    </p>
+    <div class="dash-quick">
+      {% for certificate in achievements.certificates %}
+      <a href="{% url 'reports:my-reports' %}">
+        <i class="bi bi-patch-check-fill" style="color:var(--dash-success)"></i>
+        {{ certificate.title|truncatechars:26 }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>

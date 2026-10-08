@@ -1,0 +1,61 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Shared chrome for the two developer diagnostics pages.
+
+Deliberately plain and dense: this is a tool for reading logs, not a dashboard to
+be admired. Monospace where a developer will be comparing strings, and every code
+rendered as a copyable token.{% endcomment %}
+
+{% block additional_css %}
+<style>
+  .diag-nav{ display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin-bottom:1rem; }
+  .diag-code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:700;
+              letter-spacing:.02em; white-space:nowrap; }
+  .diag-chip{ display:inline-block; font-size:.68rem; font-weight:600; padding:.15rem .5rem;
+              border-radius:999px; text-transform:uppercase; letter-spacing:.04em; }
+  .sev-info{ background:rgba(13,110,253,.12); color:#0a58ca; }
+  .sev-warning{ background:rgba(255,193,7,.18); color:#9a6b00; }
+  .sev-error{ background:rgba(220,53,69,.13); color:#b02a37; }
+  .sev-critical{ background:#b02a37; color:#fff; }
+  .diag-table td, .diag-table th{ font-size:.84rem; vertical-align:middle; }
+  .diag-mono{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.78rem; }
+  .diag-pre{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.76rem;
+             background:#0f172a; color:#e2e8f0; padding:1rem; border-radius:.5rem;
+             overflow:auto; max-height:34rem; white-space:pre; line-height:1.5; }
+  .diag-kv dt{ font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:#8392ab; }
+  .diag-kv dd{ margin-bottom:.7rem; font-size:.85rem; word-break:break-word; }
+  .diag-remedy{ border-left:3px solid #0d6efd; background:#f5f9ff; padding:.75rem 1rem;
+                border-radius:.35rem; margin-bottom:.75rem; }
+  .diag-remedy h6{ font-size:.7rem; text-transform:uppercase; letter-spacing:.06em;
+                   color:#0d6efd; margin-bottom:.25rem; }
+  .diag-remedy p{ margin:0; font-size:.86rem; }
+  .diag-remedy--fix{ border-left-color:#198754; background:#f4fbf7; }
+  .diag-remedy--fix h6{ color:#198754; }
+  .diag-remedy--user{ border-left-color:#fd7e14; background:#fff8f2; }
+  .diag-remedy--user h6{ color:#c2570a; }
+  .diag-stat{ text-align:center; padding:.6rem .25rem; }
+  .diag-stat .n{ font-size:1.6rem; font-weight:700; line-height:1; }
+  .diag-stat .l{ font-size:.66rem; text-transform:uppercase; letter-spacing:.06em; color:#8392ab; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+    <div>
+      <h3 class="mb-0"><i class="bi bi-bug-fill text-danger me-2"></i>{{ page_title }}</h3>
+      <small class="text-muted">Developer &amp; administrator tools — not visible to other roles.</small>
+    </div>
+    <div class="diag-nav">
+      <a class="btn btn-sm {% block nav_log %}btn-light{% endblock %}" href="{% url 'diagnostics:log' %}">
+        <i class="bi bi-list-columns-reverse me-1"></i>Error log</a>
+      <a class="btn btn-sm {% block nav_dict %}btn-light{% endblock %}" href="{% url 'diagnostics:dictionary' %}">
+        <i class="bi bi-journal-code me-1"></i>Dictionary</a>
+      <a class="btn btn-sm btn-light" href="{% url 'diagnostics:dictionary-json' %}">
+        <i class="bi bi-filetype-json me-1"></i>JSON</a>
+    </div>
+  </div>
+
+  {% block diagnostics %}{% endblock %}
+</div></div>
+{% endblock %}

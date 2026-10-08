@@ -1,0 +1,6 @@
+{% comment %}Shared tabs across grades, certificates and weightings. `here` names the active one.{% endcomment %}
+<nav class="tc-aisles" aria-label="Grades and certificates">
+  <a class="tc-aisle {% if here == 'grades' %}is-active{% endif %}" href="{% url 'staffdesk:grades' %}"><i class="bi bi-clipboard-data"></i>Grades</a>
+  <a class="tc-aisle {% if here == 'certificates' %}is-active{% endif %}" href="{% url 'staffdesk:certificates' %}"><i class="bi bi-award"></i>Certificates</a>
+  <a class="tc-aisle {% if here == 'weightings' %}is-active{% endif %}" href="{% url 'staffdesk:weightings' %}"><i class="bi bi-sliders"></i>Weightings</a>
+</nav>

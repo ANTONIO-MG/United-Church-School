@@ -1,0 +1,396 @@
+{% extends base_template|default:'profiles/shell.html' %}
+{% load static %}
+{% comment %}
+SUBJECT (module) FEED — the page a subject opens onto.
+
+Same shell as a person/course/module profile (cover → title → tab strip →
+content → rail), so a module reads like everything else in the hub. The landing
+tab is the **schedule**: the six preparation blocks of the year as nested
+accordions — block → week → material — which is the old class-lessons dropdown,
+one level deeper.
+
+Every other tab is the same material filtered by kind, rendered through the same
+`_module_item.html` partial, so a study guide looks the same on the schedule as it
+does under its own tab.
+
+Context comes from apps.learning.module_feed.
+{% endcomment %}
+
+{% block additional_css %}
+{{ block.super }}
+<link href="{% static 'css/module-feed.css' %}" rel="stylesheet">
+{% comment %}The Messages tab embeds the real messenger, so it needs the
+messenger's stylesheet — the same one templates/communication/chat.html loads,
+which is why an embedded thread looks identical rather than merely similar.{% endcomment %}
+{% include 'communication/_chat_styles.html' %}
+<style>
+  /* Inside a tab the thread has the page header and the tab strip above it, so
+     it gets a little less height than it does on the full Messages page — and
+     no conversation list beside it, so it spans the full width. */
+  .mf .msgr { height: calc(100vh - 320px); min-height: 420px; }
+  .mf .msgr-thread { border-left: 1px solid var(--bs-border-color, #e6e8ee); border-radius: 12px; }
+  /* Topic sub-sections inside a week — a series of topics, each with its materials. */
+  .mf-topic { margin: .35rem 0 .6rem; }
+  .mf-topic + .mf-topic { border-top: 1px dashed var(--bs-border-color, #e6e8ee); padding-top: .5rem; }
+  .mf-topic__title { font-size: .82rem; font-weight: 600; color: var(--bs-emphasis-color, #1a2035);
+    margin: 0 0 .35rem; }
+  .mf-topic__ref { font-weight: 400; color: var(--bs-secondary-color, #6c757d); }
+</style>
+{% endblock additional_css %}
+
+{% block additional_js %}
+{{ block.super }}
+{% comment %}The Messages tab's chat script now lives inside profile_content (so it
+swaps with the tab under HTMX) — see the messages tab below.{% endcomment %}
+{% endblock additional_js %}
+
+{% block profile_content %}
+<div class="mf">
+
+{# ======================= SCHEDULE (landing tab) ======================= #}
+{% if active_tab == 'schedule' %}
+
+  {% if not gate.module_open %}
+  <div class="card"><div class="card-body">
+    <div class="mf-notice">
+      <i class="bi bi-lock-fill"></i>
+      <div>
+        <p><strong>{{ gate.module_status_label }}.</strong> You can see the whole plan for
+          {{ offering.display_name }} below — unlock the subject to open the material.</p>
+        <small>Paying for the subject opens every study guide, worksheet, question pack, live
+          session and assessment in it. Individual items can also be bought on their own.</small>
+        <div class="mt-2">
+          <a class="btn btn-sm bg-gradient-info mb-0" href="{% url 'learning:module-unlock' offering.pk %}">
+            <i class="bi bi-unlock me-1"></i>Unlock — R{{ offering.price_per_month|floatformat:2 }}/month</a>
+        </div>
+      </div>
+    </div>
+  </div></div>
+  {% endif %}
+
+  {% if next_phase %}
+  <div class="card"><div class="card-body">
+    <div class="mf-next">
+      <div class="text-center">
+        {% if next_phase.days_away is not None and next_phase.days_away >= 0 %}
+          <div class="mf-next__days">{{ next_phase.days_away }}</div>
+          <div class="mf-next__label">day{{ next_phase.days_away|pluralize }} to go</div>
+        {% else %}
+          <div class="mf-next__days"><i class="bi bi-flag"></i></div>
+          <div class="mf-next__label">current block</div>
+        {% endif %}
+      </div>
+      <div class="min-w-0">
+        <p class="mf-next__title">{{ next_phase.display_title }}</p>
+        <p class="mf-next__meta">
+          {% if next_phase.assessment_date %}{{ next_phase.short_label }} on {{ next_phase.assessment_date|date:"l j F Y" }}{% endif %}
+          {% if next_phase.summary %} · {{ next_phase.summary }}{% endif %}
+        </p>
+      </div>
+    </div>
+  </div></div>
+  {% endif %}
+
+  {% comment %}Trial countdown — only for a student actually on a live trial
+  (gate.enrolment is None for staff/authors, so guard it before the property).{% endcomment %}
+  {% if gate.enrolment and gate.enrolment.trial_days_left is not None %}
+  <div class="alert alert-info d-flex align-items-center flex-wrap gap-2 py-2 px-3 mb-3" role="alert">
+    <i class="bi bi-hourglass-split"></i>
+    <span class="text-sm mb-0">You're on the free trial —
+      <strong>{{ gate.enrolment.trial_days_left }} day{{ gate.enrolment.trial_days_left|pluralize }} left</strong>.
+      Unlock to keep access after it ends.</span>
+    <a href="{% url 'learning:module-unlock' offering.pk %}" class="btn btn-sm bg-gradient-info ms-auto mb-0">
+      <i class="bi bi-unlock me-1"></i>Unlock</a>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-header border-0 pb-0 d-flex justify-content-between align-items-center">
+      <div>
+        <h5 class="card-title mb-0">Subject schedule</h5>
+        <p class="text-xs text-muted mb-0">Open a block to see its weeks, and a week to see its material.</p>
+        {% if view_cohort %}<span class="badge bg-gradient-info mt-1"><i class="bi bi-people me-1"></i>Class: {{ view_cohort.code }}{% if view_cohort.name %} — {{ view_cohort.name }}{% endif %}</span>{% endif %}
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        {% if gate.can_author and cohorts %}
+        {# Per-cohort content (Option B): preview / build any intake's schedule. #}
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle mb-0" type="button" data-bs-toggle="dropdown">
+            <i class="bi bi-people me-1"></i>{% if view_cohort %}{{ view_cohort.code }}{% else %}All classes{% endif %}</button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item{% if not view_cohort %} active{% endif %}" href="?">All classes &amp; shared</a></li>
+            {% for c in cohorts %}
+            <li><a class="dropdown-item{% if view_cohort.pk == c.pk %} active{% endif %}" href="?cohort={{ c.pk }}">{{ c.code }}{% if c.name %} — {{ c.name }}{% endif %}</a></li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        {% if gate.can_author %}
+        <a class="btn btn-sm btn-outline-primary mb-0" href="{% url 'learning:module-build' offering.pk %}{% if view_cohort %}?cohort={{ view_cohort.pk }}{% endif %}">
+          <i class="bi bi-tools me-1"></i>Build</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card-body">
+      {% for block in schedule %}
+      <div class="mf-phase{% if block.is_current %} mf-phase--current{% endif %}">
+
+        {# ---- Block header (outer tear-drop) ---- #}
+        <button class="mf-phase__btn" type="button" data-bs-toggle="collapse"
+                data-bs-target="#mfPhase{{ block.phase.pk }}"
+                aria-expanded="{% if block.is_current or forloop.first %}true{% else %}false{% endif %}"
+                aria-controls="mfPhase{{ block.phase.pk }}">
+          <span class="mf-phase__seq">
+            <small>{{ block.phase.get_kind_display|slice:":4" }}</small>{{ block.phase.sequence }}
+          </span>
+          <span class="mf-phase__main">
+            <p class="mf-phase__title">{{ block.phase.display_title }}</p>
+            <p class="mf-phase__meta">
+              <span><i class="bi bi-collection me-1"></i>{{ block.weeks|length }} week{{ block.weeks|length|pluralize }}</span>
+              <span><i class="bi bi-journals me-1"></i>{{ block.total }} item{{ block.total|pluralize }}</span>
+              {% if block.locked %}<span><i class="bi bi-lock-fill me-1"></i>{{ block.locked }} locked</span>{% endif %}
+              {% if block.phase.assessment_date %}
+                <span><i class="bi bi-calendar-event me-1"></i>{{ block.phase.short_label }} {{ block.phase.assessment_date|date:"j M" }}</span>
+              {% endif %}
+              {% if block.is_current %}<span class="mf-tag">In progress</span>{% endif %}
+              {% if not block.phase.is_published %}<span class="mf-tag mf-tag--warning">Draft</span>{% endif %}
+            </p>
+          </span>
+          <i class="bi bi-chevron-down mf-phase__chev"></i>
+        </button>
+
+        {# ---- Block body: its own material, then the weeks ---- #}
+        <div class="collapse{% if block.is_current or forloop.first %} show{% endif %}" id="mfPhase{{ block.phase.pk }}">
+          <div class="mf-phase__body">
+
+            {% if block.phase.summary %}
+            <p class="text-xs text-muted pt-2 mb-2">{{ block.phase.summary }}</p>
+            {% endif %}
+
+            {% if block.materials %}
+            <div class="pt-2 pb-1">
+              <p class="text-xs text-uppercase fw-bold mb-1" style="color:var(--mf-muted); letter-spacing:.06em">
+                For the whole block</p>
+              {% for row in block.materials %}
+                {% include 'learning/_module_item.html' with row=row %}
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            {% for wk in block.weeks %}
+            <div class="mf-week{% if wk.is_current %} mf-week--current{% endif %}">
+              <button class="mf-week__btn" type="button" data-bs-toggle="collapse"
+                      data-bs-target="#mfWeek{{ wk.week.pk }}"
+                      aria-expanded="{% if wk.is_current %}true{% else %}false{% endif %}"
+                      aria-controls="mfWeek{{ wk.week.pk }}">
+                <span class="mf-week__dot"></span>
+                <span class="min-w-0">
+                  <p class="mf-week__title">{{ wk.week.display_title }}</p>
+                  <p class="mf-week__meta">
+                    {% if wk.week.reference %}{{ wk.week.reference }} · {% endif %}
+                    {{ wk.total }} item{{ wk.total|pluralize }}
+                    {% if wk.locked %} · {{ wk.locked }} locked{% endif %}
+                    {% if wk.week.starts_on %} · {{ wk.week.starts_on|date:"j M" }}{% if wk.week.ends_on %}–{{ wk.week.ends_on|date:"j M" }}{% endif %}{% endif %}
+                  </p>
+                </span>
+                <i class="bi bi-chevron-down mf-week__chev"></i>
+              </button>
+
+              <div class="collapse{% if wk.is_current %} show{% endif %}" id="mfWeek{{ wk.week.pk }}">
+                <div class="mf-week__body">
+                  {% if wk.week.summary %}<p class="text-xs text-muted mb-2">{{ wk.week.summary }}</p>{% endif %}
+                  {% for grp in wk.topic_groups %}
+                    <div class="mf-topic">
+                      <p class="mf-topic__title">
+                        <i class="bi bi-bookmark-fill me-1"></i>{{ grp.topic.code }} · {{ grp.topic.title }}
+                        {% if grp.topic.reference %}<span class="mf-topic__ref">· {{ grp.topic.reference }}</span>{% endif %}
+                      </p>
+                      {% for row in grp.materials %}
+                        {% include 'learning/_module_item.html' with row=row next_step_id=wk.next_step_id %}
+                      {% empty %}
+                        <p class="text-xs text-muted mb-1 ps-2">Nothing published for this topic yet.</p>
+                      {% endfor %}
+                    </div>
+                  {% endfor %}
+                  {% for row in wk.loose %}
+                    {% include 'learning/_module_item.html' with row=row next_step_id=wk.next_step_id %}
+                  {% endfor %}
+                  {% if not wk.topic_groups and not wk.loose %}
+                    <p class="text-xs text-muted mb-0 ps-2">Nothing published for this week yet.</p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% empty %}
+            <p class="text-xs text-muted mb-0 pt-2">No weeks in this block yet.</p>
+            {% endfor %}
+
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="mf-empty">
+        <i class="bi bi-calendar3-week"></i>
+        This subject's schedule hasn't been built yet.
+        {% if gate.can_author %}
+        <div class="mt-3">
+          <form method="post" action="{% url 'learning:module-scaffold' offering.pk %}">{% csrf_token %}
+            <button class="btn btn-sm bg-gradient-info mb-0" type="submit">
+              <i class="bi bi-magic me-1"></i>Create the standard year (4 tests + 2 exams)</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+{# ======================= MESSAGES ======================= #}
+{% comment %}The module's group chat, in the page. It used to be a card with a
+button that threw you out to /communication/chat/ and left you to find the right
+conversation — so the tab was a signpost, not a feature. This is the same
+messenger component the Messages page renders, scoped to this module's group.
+{% endcomment %}
+{% elif active_tab == 'messages' %}
+  {% if chat_group %}
+    {% csrf_token %}
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div>
+        <h5 class="mb-0">{{ offering.display_name }} group</h5>
+        <span class="small text-muted">Everyone studying {{ offering.code }} — classmates and teachers.</span>
+      </div>
+      <a href="{% url 'communication:chat-room' chat_group.id %}" class="btn btn-sm btn-light"
+         title="Open this conversation on the Messages page">
+        <i class="bi bi-arrows-angle-expand me-1"></i>Open in Messages</a>
+    </div>
+    <div class="msgr">
+      {% include 'communication/_chat_thread.html' %}
+    </div>
+    {% include 'communication/_chat_call_ui.html' %}
+    {% comment %}Chat behaviour lives INSIDE the tab content so it swaps in with
+    the Messages tab under HTMX (and tears its socket down when you switch tab).{% endcomment %}
+    {% include 'communication/_chat_script.html' %}
+  {% else %}
+    <div class="card"><div class="card-body text-center py-5">
+      <i class="bi bi-chat-left-text display-5" style="color:var(--mf-accent)"></i>
+      <h5 class="mt-3 mb-1">{{ offering.display_name }} group</h5>
+      <p class="small text-muted mb-0">No group chat has been created for this subject yet.</p>
+    </div></div>
+  {% endif %}
+
+{# ======================= NOTIFICATIONS ======================= #}
+{% elif active_tab == 'notifications' %}
+  <div class="card">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Subject notifications</h5></div>
+    <div class="card-body">
+      {% for n in notifications %}
+      <a class="prof-row" href="{{ n.url|default:'#' }}">
+        <span class="prof-row__ico"><i class="bi bi-bell"></i></span>
+        <span class="prof-row__main">
+          <span class="prof-row__title">{{ n.title|default:n.verb }}</span>
+          <span class="prof-row__meta">{{ n.body|truncatechars:110 }}</span>
+        </span>
+        <span class="prof-row__side">
+          <span class="prof-chip {% if n.is_read %}prof-chip--muted{% endif %}">{{ n.created_at|date:"j M" }}</span>
+        </span>
+      </a>
+      {% empty %}
+      <div class="mf-empty"><i class="bi bi-bell"></i>Nothing from this subject yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+{# ======================= LIVE SESSIONS ======================= #}
+{% elif active_tab == 'live' %}
+  <div class="card">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Live sessions</h5></div>
+    <div class="card-body">
+      {% if live_upcoming %}
+        <p class="text-xs text-uppercase fw-bold mb-2" style="color:var(--mf-muted); letter-spacing:.06em">Coming up</p>
+        <div class="mf-list mb-3">
+          {% for r in live_upcoming %}{% include 'learning/_module_item.html' with row=r.state phase=r.phase week=r.week show_where=1 %}{% endfor %}
+        </div>
+      {% endif %}
+      {% if live_past %}
+        <p class="text-xs text-uppercase fw-bold mb-2" style="color:var(--mf-muted); letter-spacing:.06em">Past sessions &amp; recordings</p>
+        <div class="mf-list">
+          {% for r in live_past %}{% include 'learning/_module_item.html' with row=r.state phase=r.phase week=r.week show_where=1 %}{% endfor %}
+        </div>
+      {% endif %}
+      {% if not live_upcoming and not live_past %}
+        <div class="mf-empty"><i class="bi bi-camera-video"></i>No live sessions scheduled yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+{# ======================= FILTERED MATERIAL TABS ======================= #}
+{% else %}
+  <div class="card">
+    <div class="card-header border-0 pb-0">
+      <h5 class="card-title mb-0">
+        {% for t in tabs %}{% if t.key == active_tab %}{{ t.label }}{% endif %}{% endfor %}
+      </h5>
+      <p class="text-xs text-muted mb-0">Across every block of {{ offering.display_name }}.</p>
+    </div>
+    <div class="card-body">
+      <div class="mf-list">
+        {% for r in rows %}
+          {% include 'learning/_module_item.html' with row=r.state phase=r.phase week=r.week show_where=1 %}
+        {% empty %}
+          <div class="mf-empty"><i class="bi bi-folder2-open"></i>Nothing here yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+{# Imported YouTube session recordings mapped to this module + intake. #}
+{% if recordings %}
+<div class="card mt-3">
+  <div class="card-header border-0 pb-0">
+    <h5 class="card-title mb-0"><i class="bi bi-youtube text-danger me-1"></i>Session recordings</h5>
+    <p class="text-xs text-muted mb-0">Past live sessions for this subject{% if view_cohort %} · class {{ view_cohort.code }}{% endif %}.</p>
+  </div>
+  <div class="card-body">
+    {% include 'livesessions/_yt_videos.html' with videos=recordings %}
+  </div>
+</div>
+{% endif %}
+
+</div>
+{% endblock profile_content %}
+
+{% block profile_rail %}
+<div class="card">
+  <div class="card-header border-0 pb-0">
+    <h5 class="card-title mb-0"><i class="bi bi-mortarboard me-2"></i>This subject</h5>
+  </div>
+  <div class="card-body pt-2">
+    <p class="text-xs text-muted mb-2">{{ offering.programme.institution.display_name }}</p>
+    <p class="text-sm mb-1"><strong>{{ offering.code }}</strong> — {{ offering.display_name }}</p>
+    {% if offering.description %}<p class="text-xs text-muted">{{ offering.description|truncatewords:35 }}</p>{% endif %}
+
+    <div class="d-flex align-items-center gap-2 mt-3">
+      {% if gate.module_open %}
+        <span class="mf-tag mf-tag--success"><i class="bi bi-unlock-fill"></i>{{ gate.module_status_label }}</span>
+      {% else %}
+        <span class="mf-tag mf-tag--warning"><i class="bi bi-lock-fill"></i>{{ gate.module_status_label }}</span>
+      {% endif %}
+    </div>
+
+    {% if not gate.module_open %}
+    <a class="btn btn-sm bg-gradient-info w-100 mt-3 mb-0" href="{% url 'learning:module-unlock' offering.pk %}">
+      Unlock — R{{ offering.price_per_month|floatformat:2 }}/month</a>
+    {% endif %}
+
+    {% if offering.educators.exists %}
+    <hr class="horizontal dark my-3">
+    <p class="text-xs text-uppercase fw-bold mb-2" style="color:var(--mf-muted); letter-spacing:.06em">Teachers</p>
+    {% for e in offering.educators.all %}
+      <p class="text-sm mb-1"><i class="bi bi-person-circle me-1" style="color:var(--mf-accent)"></i>{{ e }}</p>
+    {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endblock profile_rail %}

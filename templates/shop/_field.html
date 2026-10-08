@@ -1,0 +1,5 @@
+{% comment %}One labelled form field in the commerce style. {% include 'shop/_field.html' with field=form.x %}{% endcomment %}
+<label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="text-danger" aria-hidden="true">*</span>{% endif %}</label>
+{{ field }}
+{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+{% if field.errors %}<div class="tc-field-error">{{ field.errors|join:" " }}</div>{% endif %}

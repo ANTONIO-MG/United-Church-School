@@ -1,0 +1,21 @@
+# The main tick: every job that is due, hourly from 06:05 to 22:05 (SAST).
+#
+# Hourly keeps the background load low; each job's own interval in
+# apps/scheduler/jobs.py still decides whether it runs on a given tick. Nothing
+# runs overnight — the first tick of the morning catches up on anything due.
+#
+#   systemctl list-timers 'ucs-lms-scheduler*'
+
+[Unit]
+Description=Hourly UCS LMS background jobs (06:05-22:05 SAST)
+
+[Timer]
+OnCalendar=*-*-* 06..22:05:00 Africa/Johannesburg
+RandomizedDelaySec=60
+AccuracySec=30s
+# Run a missed tick after downtime instead of waiting for the next slot.
+Persistent=true
+Unit=ucs-lms-scheduler.service
+
+[Install]
+WantedBy=timers.target

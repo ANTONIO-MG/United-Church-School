@@ -1,0 +1,109 @@
+{% extends base_template|default:'profiles/shell.html' %}
+{% load static %}
+{% comment %}Person profile — rendered on the SAME shell as a course/module profile.
+Tabs: feed · about · modules · progress · documents · activity.
+Private details (email/phone/address/DOB/grades) render only when `can_see_private`
+— i.e. the viewer is the person themselves, or staff. See core.profiles.person_context.{% endcomment %}
+
+{% block profile_content %}
+
+{# ---------------- FEED — the shared wall (same component as course/module) ---------------- #}
+{% if active_tab == 'feed' %}
+  {% include 'profiles/_wall.html' %}
+
+{# ---------------- ABOUT ---------------- #}
+{% elif active_tab == 'about' %}
+  <div class="card">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">About</h5></div>
+    <div class="card-body">
+      <ul class="list-unstyled mb-0 small">
+        <li class="mb-2"><i class="bi bi-person-badge fa-fw pe-1"></i>Role: <strong>{{ person.get_user_type_display }}</strong></li>
+        {% if person.course_id %}<li class="mb-2"><i class="bi bi-journal-bookmark fa-fw pe-1"></i>Course: <strong>{{ person.course }}</strong></li>{% endif %}
+        {% if person.gender %}<li class="mb-2"><i class="bi bi-gender-ambiguous fa-fw pe-1"></i>Gender: <strong>{{ person.get_gender_display }}</strong></li>{% endif %}
+        {% if person.user %}<li class="mb-2"><i class="bi bi-calendar2-plus fa-fw pe-1"></i>Joined: <strong>{{ person.user.date_joined|date:"d M Y" }}</strong></li>{% endif %}
+
+        {% if can_see_private %}
+          {% if person.date_of_birth %}<li class="mb-2"><i class="bi bi-cake2 fa-fw pe-1"></i>Date of birth: <strong>{{ person.date_of_birth|date:"d M Y" }}</strong></li>{% endif %}
+          {% if person.user.email %}<li class="mb-2"><i class="bi bi-envelope fa-fw pe-1"></i>Email: <strong>{{ person.user.email }}</strong></li>{% endif %}
+          {% if person.phone %}<li class="mb-2"><i class="bi bi-telephone fa-fw pe-1"></i>Phone: <strong>{{ person.phone }}</strong></li>{% endif %}
+          {% if person.contact.city %}<li class="mb-2"><i class="bi bi-geo-alt fa-fw pe-1"></i>Location: <strong>{{ person.contact.suburb }}{% if person.contact.suburb %}, {% endif %}{{ person.contact.city }}{% if person.contact.province %}, {{ person.contact.province }}{% endif %}</strong></li>{% endif %}
+        {% else %}
+          <li class="text-muted mt-3"><i class="bi bi-lock fa-fw pe-1"></i>Contact details are only visible to {{ person.first_name }} and staff.</li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+
+{# ---------------- SUBJECTS ---------------- #}
+{% elif active_tab == 'modules' %}
+  <div class="card">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Subjects</h5></div>
+    <div class="card-body">
+      {% for s in taught_modules %}
+      <a href="{% url 'learning:module-profile' s.id 'feed' %}" class="d-flex align-items-center text-reset text-decoration-none py-2 border-bottom">
+        <i class="bi bi-easel fs-5 text-warning me-3"></i>
+        <span class="flex-grow-1 min-w-0"><span class="d-block">{{ s.name }}</span>
+          <small class="text-muted">Teaching{% if s.code %} · {{ s.code }}{% endif %}</small></span>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+      {% endfor %}
+      {% for s in selected_modules %}
+      <a href="{% url 'learning:module-profile' s.id 'feed' %}" class="d-flex align-items-center text-reset text-decoration-none py-2 border-bottom">
+        <i class="bi bi-journal-bookmark fs-5 text-primary me-3"></i>
+        <span class="flex-grow-1 min-w-0"><span class="d-block">{{ s.name }}</span>
+          <small class="text-muted">Enrolled{% if s.code %} · {{ s.code }}{% endif %}</small></span>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+      {% empty %}
+      {% if not taught_modules %}<p class="text-muted small mb-0">Not enrolled in any subjects yet.</p>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+{# ---------------- PROGRESS ---------------- #}
+{% elif active_tab == 'progress' %}
+  <div class="card">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Progress</h5></div>
+    <div class="card-body">
+      {% if can_see_private %}
+        {% for g in grades %}
+        <div class="py-2 border-bottom">
+          <div class="d-flex justify-content-between align-items-center">
+            <span>{{ g.module.name }}</span>
+            <span class="small">
+              <strong>{{ g.final_pct|floatformat:0 }}%</strong>
+              {% if g.letter %}<span class="badge bg-{% if g.passed %}success{% else %}danger{% endif %} ms-1">{{ g.letter }}</span>{% endif %}
+            </span>
+          </div>
+          <div class="progress mt-1" style="height:5px">
+            <div class="progress-bar bg-{% if g.passed %}success{% else %}danger{% endif %}" style="width:{{ g.final_pct|floatformat:0 }}%"></div>
+          </div>
+        </div>
+        {% empty %}<p class="text-muted small mb-0">No grades recorded yet.</p>{% endfor %}
+      {% else %}
+        <p class="text-muted small mb-0"><i class="bi bi-lock me-1"></i>Progress is private.</p>
+      {% endif %}
+    </div>
+  </div>
+
+{# ---------------- DOCUMENTS ---------------- #}
+{% elif active_tab == 'documents' %}
+  {% include 'profiles/_documents.html' %}
+
+{# ---------------- ACTIVITY ---------------- #}
+{% elif active_tab == 'activity' %}
+  <div class="card">
+    <div class="card-header border-0 pb-0"><h5 class="card-title mb-0">Activity</h5></div>
+    <div class="card-body">
+      {% for a in activity %}
+      <div class="d-flex align-items-center py-2 border-bottom">
+        <i class="bi {{ a.icon }} fs-5 text-primary me-3"></i>
+        <span class="flex-grow-1"><span class="d-block small">{{ a.text }}</span>
+          <small class="text-muted">{{ a.when|timesince }} ago</small></span>
+      </div>
+      {% empty %}<p class="text-muted small mb-0">No learning activity recorded yet.</p>{% endfor %}
+    </div>
+  </div>
+{% endif %}
+
+{% endblock profile_content %}

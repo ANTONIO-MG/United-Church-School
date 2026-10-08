@@ -1,0 +1,189 @@
+{% comment %}Shared registration JS: green-tick on valid required fields, per-section
+  completion check, and the phone-number country picker. Expects a form#regForm
+  containing one or more .rf-sec sections whose fields live in a .rf-body.
+  Include inside {% block extra_js %}.{% endcomment %}
+{% load reg_tags %}
+<script>
+(function () {
+  var form = document.getElementById('regForm');
+  if (!form) return;
+
+  // ---------------------------------------------------------------- validation
+  function fieldOk(el) {
+    if (el.type === 'checkbox') return el.checked;
+    return (el.value || '').trim().length > 0 && el.checkValidity();
+  }
+  function markField(el) { if (el.required) el.classList.toggle('wz-ok', fieldOk(el)); }
+  function refreshSection(sec) {
+    var required = sec.querySelectorAll('[required]');
+    var check = sec.querySelector('.sec-check');
+    if (!required.length) { sec.classList.add('sec-optional'); if (check) check.title = 'Optional'; return; }
+    sec.classList.toggle('sec-done', Array.prototype.every.call(required, fieldOk));
+  }
+  document.querySelectorAll('.rf-sec').forEach(function (sec) {
+    sec.querySelectorAll('input, select, textarea').forEach(function (el) {
+      markField(el);
+      ['input', 'change'].forEach(function (ev) {
+        el.addEventListener(ev, function () { markField(el); refreshSection(sec); });
+      });
+    });
+    refreshSection(sec);
+  });
+
+  // ------------------------------------------------------------- phone picker
+  // Every country, with its dialling code, from core/countries.py.
+  var COUNTRIES = {% country_dial_json %};
+  var FALLBACK = '{% default_country %}';
+
+  function byIso(iso) {
+    iso = (iso || '').toUpperCase();
+    for (var i = 0; i < COUNTRIES.length; i++) {
+      if (COUNTRIES[i].iso === iso) return COUNTRIES[i];
+    }
+    return null;
+  }
+
+  document.querySelectorAll('[data-phone-field]').forEach(function (wrap) {
+    var toggle = wrap.querySelector('[data-phone-toggle]');
+    var menu   = wrap.querySelector('[data-phone-menu]');
+    var list   = wrap.querySelector('[data-phone-list]');
+    var search = wrap.querySelector('[data-phone-search]');
+    var empty  = wrap.querySelector('[data-phone-empty]');
+    var flagEl = wrap.querySelector('[data-phone-flag]');
+    var dialEl = wrap.querySelector('[data-phone-dial]');
+    var number = wrap.querySelector('input[type="tel"]');
+    var hidden = wrap.querySelector('input[type="hidden"]');
+    if (!toggle || !menu || !list || !number) return;
+
+    var current = byIso(hidden && hidden.value) || byIso(FALLBACK) || COUNTRIES[0];
+
+    // Show the country whose code the saved number already starts with, so
+    // re-opening a completed form does not silently relabel the number.
+    (function matchSaved() {
+      var val = (number.value || '').trim();
+      if (val.charAt(0) !== '+') return;
+      var best = null;
+      COUNTRIES.forEach(function (c) {
+        if (val.indexOf(c.dial) === 0 && (!best || c.dial.length > best.dial.length)) best = c;
+      });
+      if (best) current = best;
+    })();
+
+    function paint() {
+      flagEl.textContent = current.flag;
+      dialEl.textContent = current.dial;
+      if (hidden) hidden.value = current.iso;
+      toggle.setAttribute('aria-label', 'Country: ' + current.name + ' ' + current.dial);
+    }
+
+    function applyCountry(next, focusNumber) {
+      var prev = current;
+      current = next;
+      paint();
+      // Swap the old dialling code for the new one, keeping what was typed.
+      var val = (number.value || '').trim();
+      var rest = val.indexOf(prev.dial) === 0 ? val.slice(prev.dial.length).trim() : '';
+      if (!rest && val && val.charAt(0) !== '+') rest = val;
+      number.value = (current.dial + (rest ? ' ' + rest : ' ')).trim() + (rest ? '' : ' ');
+      number.dispatchEvent(new Event('input', { bubbles: true }));
+      if (focusNumber) {
+        number.focus();
+        var end = number.value.length;
+        number.setSelectionRange(end, end);
+      }
+    }
+
+    function renderList(query) {
+      var q = (query || '').trim().toLowerCase().replace(/^\+/, '');
+      list.innerHTML = '';
+      var shown = 0;
+      COUNTRIES.forEach(function (c) {
+        if (q && c.name.toLowerCase().indexOf(q) === -1 &&
+            c.dial.replace('+', '').indexOf(q) === -1 &&
+            c.iso.toLowerCase().indexOf(q) === -1) return;
+        var row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'phone-opt' + (c.iso === current.iso ? ' is-active' : '');
+        row.setAttribute('role', 'option');
+        row.innerHTML = '<span class="opt-flag"></span><span class="opt-name"></span>' +
+                        '<span class="opt-dial"></span>';
+        row.querySelector('.opt-flag').textContent = c.flag;
+        row.querySelector('.opt-name').textContent = c.name;
+        row.querySelector('.opt-dial').textContent = c.dial;
+        row.addEventListener('click', function () { applyCountry(c, true); closeMenu(); });
+        list.appendChild(row);
+        shown++;
+      });
+      empty.classList.toggle('d-none', shown > 0);
+    }
+
+    // Anchor the menu to the field. It lives in <body> while open, so the
+    // accordion's overflow:hidden cannot crop it; that means positioning it by
+    // hand against the field's viewport rectangle.
+    var GAP = 4;
+    function place() {
+      var r = wrap.getBoundingClientRect();
+      var h = menu.offsetHeight;
+      var below = window.innerHeight - r.bottom - GAP;
+      var above = r.top - GAP;
+      // Prefer below; flip above only when there is genuinely more room there.
+      var top = (below >= h || below >= above) ? r.bottom + GAP : r.top - h - GAP;
+      top = Math.max(GAP, Math.min(top, window.innerHeight - h - GAP));
+      var left = Math.min(r.left, window.innerWidth - menu.offsetWidth - GAP);
+      menu.style.top = top + 'px';
+      menu.style.left = Math.max(GAP, left) + 'px';
+    }
+
+    function openMenu() {
+      document.body.appendChild(menu);        // escape the section's overflow
+      menu.classList.remove('d-none');
+      toggle.setAttribute('aria-expanded', 'true');
+      search.value = '';
+      renderList('');
+      place();
+      search.focus();
+      // Keep it stuck to the field while the page (or a scrollable parent) moves.
+      window.addEventListener('scroll', place, true);
+      window.addEventListener('resize', place);
+    }
+    function closeMenu() {
+      if (menu.classList.contains('d-none')) return;
+      menu.classList.add('d-none');
+      toggle.setAttribute('aria-expanded', 'false');
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+      wrap.appendChild(menu);                 // put it back where it belongs
+    }
+
+    toggle.addEventListener('click', function () {
+      menu.classList.contains('d-none') ? openMenu() : closeMenu();
+    });
+    search.addEventListener('input', function () { renderList(search.value); });
+    search.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { closeMenu(); toggle.focus(); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var first = list.querySelector('.phone-opt');
+        if (first) first.click();
+      }
+    });
+    // While open the menu is a child of <body>, not of wrap — so a click inside
+    // it is outside `wrap`. Test both, or the list would shut the moment you
+    // reached for the search box.
+    document.addEventListener('click', function (e) {
+      if (!wrap.contains(e.target) && !menu.contains(e.target)) closeMenu();
+    });
+
+    // Keep the dialling code pinned to the front of the input: typing a bare
+    // local number still submits a complete international one.
+    number.addEventListener('focus', function () {
+      if (!(number.value || '').trim()) number.value = current.dial + ' ';
+    });
+    number.addEventListener('blur', function () {
+      if ((number.value || '').trim() === current.dial) number.value = '';
+    });
+
+    paint();
+  });
+})();
+</script>

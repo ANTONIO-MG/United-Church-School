@@ -1,0 +1,48 @@
+{% comment %}
+The focus guard's report for one attempt — shown to educators on the marking
+screen and on a student's result. Context: ``integrity`` (see
+apps.assessments.proctoring.summary) and ``attempt``.
+{% endcomment %}
+{% if integrity.enabled %}
+<div class="guard-report {% if not integrity.flagged and not integrity.warnings %}guard-report--clean{% endif %} mb-3">
+  <div class="guard-report__head">
+    {% if integrity.flagged %}<i class="bi bi-shield-exclamation"></i>
+    {% elif integrity.warnings %}<i class="bi bi-shield"></i>
+    {% else %}<i class="bi bi-shield-check"></i>{% endif %}
+    <div>
+      <strong>
+        {% if integrity.terminated %}Attempt ended by the focus guard
+        {% elif integrity.flagged %}Flagged for review
+        {% elif integrity.warnings %}Left the window during the attempt
+        {% else %}No integrity events{% endif %}
+      </strong>
+      <div class="small text-muted">
+        {% if integrity.note %}{{ integrity.note }}
+        {% elif integrity.warnings %}{{ integrity.warnings }} warning{{ integrity.warnings|pluralize }} recorded.
+        {% else %}The student stayed on the assessment page throughout.{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if integrity.warnings or integrity.events %}
+  <div class="guard-report__stats">
+    <span class="guard-stat"><i class="bi bi-exclamation-triangle"></i>
+      {{ integrity.warnings }}{% if integrity.limit %}/{{ integrity.limit }}{% endif %} warnings</span>
+    <span class="guard-stat"><i class="bi bi-hourglass-split"></i>{{ integrity.away_label }} away</span>
+    {% for row in integrity.by_kind %}
+    <span class="guard-stat"><i class="bi {{ row.icon }}"></i>{{ row.label }} × {{ row.n }}</span>
+    {% endfor %}
+  </div>
+
+  <ul class="guard-log">
+    {% for e in integrity.events %}
+    <li class="{% if not e.counted %}muted{% endif %}">
+      <i class="bi {{ e.icon }}"></i>
+      <span>{{ e.get_kind_display }}{% if e.seconds_away %} · away {{ e.seconds_away }}s{% endif %}{% if not e.counted %} (not counted — duplicate){% endif %}</span>
+      <span class="t">{{ e.created_at|date:"H:i:s" }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endif %}

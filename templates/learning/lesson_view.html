@@ -1,0 +1,441 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static %}
+{% comment %}
+The lesson player. The lesson is a stack of collapsible "tear-drops" — one per
+LessonSection — styled like the registration wizard's accordion: a chevron, the
+section's kind (Reading / Video / Quiz / Assessment / Live / Interactive), its
+duration, a padlock when it is gated, and a completion tick.
+
+Beside it sits the learner's own rail: progress, private notes for the open
+section, bookmarks, score cards for the quizzes they have sat, and the messages
+running in this module.
+
+Blocks render through learning/_lesson_blocks.html; behaviour lives in
+static/js/lesson-player.js.
+{% endcomment %}
+
+{% block additional_css %}
+<link rel="stylesheet" href="{% static 'css/lesson.css' %}">
+<link rel="stylesheet" href="{% static 'css/lesson-player.css' %}">
+<link rel="stylesheet" href="{% static 'vendor/plyr/plyr.css' %}">
+<style>
+  /* Live "who's here" presence in the lesson rail. */
+  .lp-presence{ margin:.4rem 0 .9rem; }
+  .lp-presence__avatars{ display:flex; flex-wrap:wrap; align-items:center; gap:.25rem; margin-top:.35rem; }
+  .lp-ava{ width:30px; height:30px; border-radius:50%; overflow:hidden; display:inline-flex;
+    align-items:center; justify-content:center; background:#2152ff; color:#fff; font-size:.72rem;
+    font-weight:700; border:2px solid var(--bs-body-bg, #fff); box-shadow:0 0 0 1px rgba(0,0,0,.06); }
+  .lp-ava img{ width:100%; height:100%; object-fit:cover; }
+  .lp-ava--more{ background:#8392ab; }
+  /* Hand-raising */
+  .lp-ava{ position:relative; }
+  .lp-ava.is-raised{ box-shadow:0 0 0 2px #f7c32e; }
+  .lp-ava__hand{ position:absolute; bottom:-3px; right:-3px; width:15px; height:15px; border-radius:50%;
+    background:#f7c32e; color:#3a2f00; display:flex; align-items:center; justify-content:center; font-size:.55rem; }
+  .lp-handbtn{ width:30px; height:30px; border-radius:50%; border:1px solid #e1e4e6; background:#fff;
+    color:#67748e; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; padding:0; }
+  .lp-handbtn:hover{ color:#2152ff; border-color:#2152ff; }
+  .lp-handbtn.is-active{ background:#f7c32e; border-color:#f7c32e; color:#3a2f00; }
+  .lp-hands{ margin-top:.45rem; color:#8392ab; line-height:1.4; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  {% csrf_token %}
+
+  <div class="lp-shell">
+    <div class="lp-main">
+
+      {% if is_author %}
+      <div class="alert alert-warning py-2 small d-flex align-items-center mb-3">
+        <i class="bi bi-eye me-2"></i>Preview — this is how learners see the lesson. Locks are open for you.
+        <a href="{% url 'learning:lesson-editor' lesson.id %}" class="ms-auto">Back to editor</a>
+      </div>
+      {% endif %}
+
+      <div class="lp-head">
+        {% if lesson.cover_image %}<img src="{{ lesson.cover_image.url }}" class="lp-cover" alt="">{% endif %}
+        <div class="lp-crumb">
+          {% if lesson.module_id %}<a href="{% url 'learning:module-profile' lesson.module_id 'lessons' %}">{{ lesson.module.name }}</a>{% else %}<span class="text-muted">No subject</span>{% endif %}
+          {% if lesson.unit %}<i class="bi bi-chevron-right"></i><span>{{ lesson.unit.title }}</span>{% endif %}
+        </div>
+        <h1 class="lp-title">{{ lesson.title }}</h1>
+        {% if lesson.subtitle %}<p class="lp-sub">{{ lesson.subtitle }}</p>{% endif %}
+
+        <div class="lp-facts">
+          <span><i class="bi bi-collection"></i>{{ section_count }} section{{ section_count|pluralize }}</span>
+          <span><i class="bi bi-clock"></i>{{ total_minutes }} min total</span>
+          {% if attachments %}<span><i class="bi bi-paperclip"></i>{{ attachments|length }} attachment{{ attachments|length|pluralize }}</span>{% endif %}
+          {% if lesson.author_display %}<span><i class="bi bi-person-badge"></i>{{ lesson.author_display }}</span>{% endif %}
+        </div>
+
+        <div class="lp-progress" title="{{ completion }}% complete">
+          <i id="lpBar" style="width: {{ completion }}%"></i>
+        </div>
+        <div class="lp-progress-note">
+          <span id="lpDone">{{ completed_count }}</span> of {{ section_count }} sections complete
+          · <strong id="lpPct">{{ completion }}%</strong>
+        </div>
+      </div>
+
+      {% comment %}
+      The lesson body, in the order the author laid it out: ordinary elements
+      render inline like a blog post, and a "dropdown section" renders as a
+      collapsible panel wherever it was placed. One loop, one reading order.
+      {% endcomment %}
+      <div class="accordion lp-acc lp-body" id="lpAcc">
+        {% for row in rows %}
+        {% if row.kind == 'block' %}
+        <div class="lp-flowblock">{% include 'learning/_lesson_blocks.html' with blocks=row.blocks %}</div>
+        {% else %}
+        <div class="accordion-item lp-sec{% if row.completed %} sec-done{% endif %}{% if row.locked %} sec-locked{% endif %}"
+             id="sec-{{ row.section.id }}"
+             data-section="{{ row.section.id }}"
+             data-locked="{{ row.locked|yesno:'1,0' }}"
+             data-graded="{% if row.section.assessments %}1{% else %}0{% endif %}">
+          <h2 class="accordion-header">
+            <button class="accordion-button {% if not row.section.open_by_default or row.locked %}collapsed{% endif %}"
+                    type="button" data-bs-toggle="collapse" data-bs-target="#secbody-{{ row.section.id }}"
+                    aria-expanded="{% if row.section.open_by_default and not row.locked %}true{% else %}false{% endif %}"
+                    {% if row.locked %}disabled aria-disabled="true"{% endif %}>
+              <span class="sec-chev" aria-hidden="true"></span>
+
+              <span class="sec-badge sec-badge--{{ row.section.type_tone }}">
+                <i class="bi {{ row.section.type_icon }}"></i>{{ row.section.type_label }}
+              </span>
+
+              <span class="sec-title">
+                {{ row.section.title }}
+                {% if row.section.summary %}<span class="sec-summary">{{ row.section.summary }}</span>{% endif %}
+              </span>
+
+              {% if row.locked %}
+                <span class="sec-lock" title="Complete the earlier sections to unlock this">
+                  <i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+
+              <span class="sec-dur"><i class="bi bi-clock"></i>{{ row.section.duration_label }}</span>
+              <span class="sec-check" title="{% if row.completed %}Completed{% else %}Not completed yet{% endif %}"></span>
+            </button>
+          </h2>
+
+          <div id="secbody-{{ row.section.id }}"
+               class="accordion-collapse collapse {% if row.section.open_by_default and not row.locked %}show{% endif %}">
+            <div class="accordion-body lp-secbody">
+              {% if row.locked %}
+                <div class="lp-locked">
+                  <i class="bi bi-lock-fill"></i>
+                  <p class="mb-0">This section unlocks once you have completed every required section above it.</p>
+                </div>
+              {% else %}
+                {% include 'learning/_lesson_blocks.html' with blocks=row.blocks %}
+
+                {% if row.score %}
+                <div class="lp-scorecard">
+                  <div class="sc-num">
+                    <strong>{{ row.score.pct }}%</strong>
+                    <span>{{ row.score.score }} / {{ row.score.total }}</span>
+                  </div>
+                  <div class="sc-body">
+                    <div class="sc-stars">
+                      {% for i in row.score.star_range %}
+                        <i class="bi {% if forloop.counter <= row.score.stars %}bi-star-fill{% else %}bi-star{% endif %}"></i>
+                      {% endfor %}
+                      <span class="badge {% if row.score.passed %}bg-success{% else %}bg-danger{% endif %}-soft ms-2">
+                        {% if row.score.passed %}Passed{% else %}Not passed{% endif %}</span>
+                    </div>
+                    <p class="mb-0 small">{{ row.score.message }}</p>
+                  </div>
+                </div>
+                {% endif %}
+
+                {% if not is_author %}
+                <div class="lp-secfoot">
+                  <button type="button" class="lv-mark" data-bookmark-section="{{ row.section.id }}"
+                          data-label="{{ row.section.title }}">
+                    <i class="bi bi-bookmark-plus"></i>Bookmark section</button>
+                  {% if row.section.assessments %}
+                    <span class="small text-muted ms-auto">
+                      <i class="bi bi-info-circle me-1"></i>This section completes when you submit the {{ row.section.type_label|lower }}.</span>
+                  {% else %}
+                    <button type="button" class="btn btn-sm btn-success ms-auto lp-done"
+                            data-complete-section="{{ row.section.id }}" {% if row.completed %}disabled{% endif %}>
+                      <i class="bi bi-check2-circle me-1"></i>{% if row.completed %}Completed{% else %}Mark complete{% endif %}</button>
+                  {% endif %}
+                </div>
+                {% endif %}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% empty %}
+          <div class="lp-empty"><i class="bi bi-journal-richtext"></i>This lesson has no content yet.</div>
+        {% endfor %}
+      </div>
+
+      {% if lesson.references %}
+      <div class="lp-refs">
+        <h3>References</h3>
+        <ol>
+          {% for r in lesson.references %}
+          <li>{{ r.authors }}{% if r.year %} ({{ r.year }}){% endif %} {{ r.text }}
+            {% if r.url %}<a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.url }}</a>{% endif %}</li>
+          {% endfor %}
+        </ol>
+      </div>
+      {% endif %}
+
+      {# YouTube session recordings a staff member attached to this lesson. #}
+      {% if lesson_videos %}
+      <div class="lp-videos mt-4">
+        <h3><i class="bi bi-youtube text-danger me-1"></i>Session recordings</h3>
+        {% include 'livesessions/_yt_videos.html' with videos=lesson_videos %}
+      </div>
+      {% endif %}
+
+      {% if not is_author %}
+      <div class="d-flex justify-content-center my-4">
+        <button id="lvComplete" class="btn btn-lg btn-success" {% if already_completed %}disabled{% endif %} data-loading>
+          <i class="bi bi-check2-circle me-1"></i>{% if already_completed %}Lesson completed{% else %}Finish lesson{% endif %}</button>
+      </div>
+      {% endif %}
+    </div>
+
+    <aside class="lp-rail">
+      <div class="lp-railcard">
+        <div class="lp-tabs" role="tablist">
+          <button class="active" data-rail="info" title="About this lesson"><i class="bi bi-info-circle"></i></button>
+          <button data-rail="notes" title="My notes"><i class="bi bi-pencil-square"></i></button>
+          <button data-rail="marks" title="Bookmarks"><i class="bi bi-bookmarks"></i>
+            <span class="lp-count" id="lpBmCount">{{ rail_bookmarks|length }}</span></button>
+          <button data-rail="scores" title="My results"><i class="bi bi-award"></i></button>
+          <button data-rail="msgs" title="Messages"><i class="bi bi-chat-left-text"></i></button>
+        </div>
+
+        {# ---------------- INFO ---------------- #}
+        <div class="lp-pane show" data-pane="info">
+          <div class="lp-ring" style="--pct: {{ completion }}">
+            <span>{{ completion }}<small>%</small></span>
+          </div>
+
+          {# Live presence — who else is in this lesson right now + hand-raising (WebSocket). #}
+          <div class="lp-presence" id="lpPresence" hidden>
+            <div class="lp-subhead d-flex align-items-center justify-content-between">
+              <span><i class="bi bi-broadcast me-1"></i><span id="lpPresenceCount">0</span> here now</span>
+              <button type="button" id="lpHandBtn" class="lp-handbtn" title="Raise your hand">
+                <i class="bi bi-hand-index-thumb"></i></button>
+            </div>
+            <div class="lp-presence__avatars" id="lpPresenceAvatars"></div>
+            <div class="lp-hands small" id="lpHands" hidden></div>
+          </div>
+
+          {% if lesson.author_display %}
+          <div class="lp-author">
+            {% if lesson.author_avatar %}<img src="{{ lesson.author_avatar.url }}" alt="">
+            {% else %}<span class="ava">{{ lesson.author_display|slice:":1"|upper }}</span>{% endif %}
+            <div>
+              <div class="fw-semibold">{{ lesson.author_display }}</div>
+              {% if lesson.author_role %}<div class="small text-muted">{{ lesson.author_role }}</div>{% endif %}
+            </div>
+          </div>
+          {% if lesson.author_bio %}<p class="small text-muted">{{ lesson.author_bio }}</p>{% endif %}
+          {% endif %}
+
+          <dl class="lp-meta">
+            <dt>Subject</dt><dd>{{ lesson.module.name }}</dd>
+            {% if lesson.unit %}<dt>Unit</dt><dd>{{ lesson.unit.title }}</dd>{% endif %}
+            <dt>Study time</dt><dd>{{ total_minutes }} min</dd>
+            <dt>Sections</dt><dd>{{ completed_count }} / {{ section_count }} done</dd>
+            <dt>Updated</dt><dd>{{ lesson.updated_at|date:"j M Y" }}</dd>
+          </dl>
+
+          {% if attachments %}
+          <div class="lp-subhead">Attachments</div>
+          <ul class="lp-files">
+            {% for a in attachments %}
+            <li><a href="{% if a.file %}{{ a.file.url }}{% else %}{{ a.url }}{% endif %}" target="_blank" rel="noopener">
+              <i class="bi bi-file-earmark"></i><span>{{ a.title|default:a.get_kind_display }}</span>
+              <em>{{ a.get_kind_display }}</em></a></li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+
+        {# ---------------- NOTES ---------------- #}
+        <div class="lp-pane" data-pane="notes">
+          <div class="lp-subhead">
+            My notes · <span id="lpNoteFor" class="text-primary">whole lesson</span>
+          </div>
+          <p class="lp-hint">Private to you. Open a section and this switches to that section's note.</p>
+          <textarea id="lpNote" class="form-control" rows="12"
+                    placeholder="Write what you want to remember from this section…"></textarea>
+          <div class="lp-savenote" id="lpNoteChip"><i class="bi bi-check-circle"></i>Saved</div>
+        </div>
+
+        {# ---------------- BOOKMARKS ---------------- #}
+        <div class="lp-pane" data-pane="marks">
+          <div class="lp-subhead">Bookmarks</div>
+          <p class="lp-hint">Select any text to save a passage, or bookmark a moment in a video.</p>
+          <ul class="lp-bms" id="lpBookmarks">
+            {% for b in rail_bookmarks %}
+            <li data-id="{{ b.id }}" data-section="{{ b.section_id|default:'' }}" data-block="{{ b.block_id|default:'' }}"
+                data-seconds="{{ b.anchor.seconds|default:'' }}" data-text="{{ b.anchor.text|default:'' }}">
+              <button type="button" class="bm-go">
+                <i class="bi {{ b.icon }}"></i>
+                <span class="bm-main">
+                  <span class="bm-label">{{ b.label|default:"Saved spot" }}</span>
+                  <span class="bm-meta">{% if b.section %}{{ b.section.title }}{% else %}Lesson{% endif %}{% if b.timestamp_label %} · {{ b.timestamp_label }}{% endif %}</span>
+                </span>
+              </button>
+              <button type="button" class="bm-del" title="Remove"><i class="bi bi-x-lg"></i></button>
+            </li>
+            {% empty %}
+            <li class="lp-none" data-empty><i class="bi bi-bookmarks"></i>Nothing saved yet.</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        {# ---------------- SCORES ---------------- #}
+        <div class="lp-pane" data-pane="scores">
+          <div class="lp-subhead">My results</div>
+          {% for row in rail_scores %}
+          <div class="lp-scorerow">
+            <div class="d-flex align-items-center gap-2">
+              <strong class="flex-grow-1">{{ row.section.title }}</strong>
+              <span class="badge {% if row.score.passed %}bg-success{% else %}bg-danger{% endif %}-soft">{{ row.score.pct }}%</span>
+            </div>
+            <div class="sc-stars small">
+              {% for i in row.score.star_range %}
+                <i class="bi {% if forloop.counter <= row.score.stars %}bi-star-fill{% else %}bi-star{% endif %}"></i>
+              {% endfor %}
+            </div>
+            <div class="small text-muted">{{ row.score.score }} / {{ row.score.total }} marks · {{ row.score.message }}</div>
+          </div>
+          {% empty %}
+          <div class="lp-none"><i class="bi bi-award"></i>No quiz or assessment results in this lesson yet.</div>
+          {% endfor %}
+        </div>
+
+        {# ---------------- MESSAGES ---------------- #}
+        <div class="lp-pane" data-pane="msgs">
+          <div class="lp-subhead">{{ lesson.module.name }} messages</div>
+          {% for d in rail_messages %}
+          <a class="lp-msg" href="{{ d.get_absolute_url }}">
+            <span class="msg-ava">{{ d.author|person_name|slice:":1"|upper }}</span>
+            <span class="msg-main">
+              <span class="msg-title">{% if d.is_pinned %}<i class="bi bi-pin-angle-fill"></i>{% endif %}{{ d.title }}</span>
+              <span class="msg-meta">{{ d.author|person_name }} · {{ d.created_at|timesince }} ago · {{ d.reply_count }} repl{{ d.reply_count|pluralize:"y,ies" }}</span>
+            </span>
+          </a>
+          {% empty %}
+          <div class="lp-none"><i class="bi bi-chat-left-text"></i>No messages in this subject yet.</div>
+          {% endfor %}
+          <a class="btn btn-sm btn-outline-primary w-100 mt-2"
+             href="{% if lesson.module_id %}{% url 'learning:module-profile' lesson.module_id 'feed' %}{% else %}{% url 'learning:lessons' %}{% endif %}">
+            <i class="bi bi-chat-dots me-1"></i>Open subject feed</a>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div></div>
+
+<button type="button" id="lpSelBtn" class="lp-selbtn" hidden>
+  <i class="bi bi-bookmark-plus"></i>Bookmark passage</button>
+{% endblock %}
+
+{% block additional_js %}
+<script src="{% static 'vendor/plyr/plyr.min.js' %}"></script>
+<script>
+window.LESSON_PLAYER = {
+  lessonId: {{ lesson.id }},
+  csrf: '{{ csrf_token }}',
+  isAuthor: {{ is_author|yesno:"true,false" }},
+  urls: {
+    sectionProgress: "{% url 'learning:section-progress' 0 %}",
+    noteSave:        "{% url 'learning:lesson-note-save' lesson.id %}",
+    bookmarkAdd:     "{% url 'learning:lesson-bookmark-add' lesson.id %}",
+    bookmarkDelete:  "{% url 'learning:lesson-bookmark-delete' 0 %}",
+    blockTrack:      "{% url 'learning:lesson-block-track' 0 %}",
+    lessonComplete:  "{% url 'learning:lesson-complete' lesson.id %}"
+  },
+  // { "<section id>": "<the learner's note>" }, plus "" for the whole-lesson note.
+  notes: {{ notes_json|safe }}
+};
+</script>
+<script src="{% static 'js/lesson-player.js' %}?v=2"></script>
+
+<script>
+// Live lesson presence + hand-raising — a peer-announced roster of who is viewing
+// this lesson right now over ws/lesson/<id>/, plus a raise/lower-hand toggle every
+// viewer sees. Silent no-op if WebSockets are unavailable.
+(function () {
+  var LESSON_ID = {{ lesson.id }};
+  if (!window.WebSocket) return;
+  var box = document.getElementById('lpPresence'),
+      avatars = document.getElementById('lpPresenceAvatars'),
+      countEl = document.getElementById('lpPresenceCount'),
+      handsEl = document.getElementById('lpHands'),
+      handBtn = document.getElementById('lpHandBtn');
+  if (!box) return;
+  var roster = {};   // id -> {id, name, avatar, hand}
+  var socket = null, myId = null;
+
+  function esc(s){ return (s || '').replace(/[&<>"]/g, function (c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  function render(){
+    var ids = Object.keys(roster);
+    countEl.textContent = ids.length;
+    box.hidden = ids.length === 0;
+    avatars.innerHTML = ids.slice(0, 12).map(function (id) {
+      var p = roster[id];
+      var inner = p.avatar
+        ? '<img src="' + esc(p.avatar) + '" alt="">'
+        : '<span>' + esc((p.name || '?').slice(0, 1).toUpperCase()) + '</span>';
+      var hand = p.hand ? '<span class="lp-ava__hand"><i class="bi bi-hand-index-thumb-fill"></i></span>' : '';
+      return '<span class="lp-ava' + (p.hand ? ' is-raised' : '') + '" title="' + esc(p.name || '') + '">' + inner + hand + '</span>';
+    }).join('') + (ids.length > 12 ? '<span class="lp-ava lp-ava--more">+' + (ids.length - 12) + '</span>' : '');
+
+    var raised = ids.filter(function (id) { return roster[id].hand; });
+    if (raised.length) {
+      handsEl.hidden = false;
+      handsEl.innerHTML = '<i class="bi bi-hand-index-thumb-fill text-warning me-1"></i>' +
+        raised.length + ' hand' + (raised.length > 1 ? 's' : '') + ' up: ' +
+        raised.map(function (id) { return esc(roster[id].name || ''); }).join(', ');
+    } else { handsEl.hidden = true; }
+
+    if (handBtn && myId && roster[myId]) handBtn.classList.toggle('is-active', !!roster[myId].hand);
+  }
+
+  if (handBtn) handBtn.addEventListener('click', function () {
+    if (!socket || socket.readyState !== 1 || !myId || !roster[myId]) return;
+    var up = !roster[myId].hand;
+    roster[myId].hand = up; render();                              // optimistic
+    try { socket.send(JSON.stringify({ action: 'hand', up: up })); } catch (e) {}
+  });
+
+  function connect(){
+    var proto = location.protocol === 'https:' ? 'wss' : 'ws', ws;
+    try { ws = new WebSocket(proto + '://' + location.host + '/ws/lesson/' + LESSON_ID + '/'); }
+    catch (e) { return; }
+    socket = ws;
+    ws.onmessage = function (ev) {
+      var d = {}; try { d = JSON.parse(ev.data); } catch (e) {}
+      if (d.action === 'self' && d.user) { myId = d.user.id; return; }
+      if (d.action === 'join' || d.action === 'sync') {
+        if (d.user) { roster[d.user.id] = d.user; render(); }
+      } else if (d.action === 'leave') {
+        if (d.user) { delete roster[d.user.id]; render(); }
+      } else if (d.action === 'hand') {
+        if (roster[d.user_id]) { roster[d.user_id].hand = d.up; render(); }
+      }
+    };
+    ws.onclose = function () { socket = null; roster = {}; myId = null; render(); setTimeout(connect, 5000); };
+    ws.onerror = function () { try { ws.close(); } catch (e) {} };
+  }
+  connect();
+})();
+</script>
+{% endblock %}

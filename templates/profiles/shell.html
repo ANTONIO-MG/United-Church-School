@@ -1,0 +1,184 @@
+{% extends "myhub/elements/layouts/admin.html" %}
+{% load static %}
+{% comment %}
+============================================================================
+REUSABLE PROFILE SHELL — one layout for every "profile" in the hub:
+a person, a course, or a module. Cover → avatar → title → meta → tab strip →
+content, with a right-hand rail.
+
+Layout is a CSS grid (css/profile.css): 74% main / 24% rail / 2% gap, with the
+remaining screen width spent as page padding. It replaces the old Bootstrap
+`.container` + col-lg-8/col-lg-4, which capped the page at ~1140px and left wide
+empty gutters. The tab strip is forced onto a single line — labels and padding
+scale with the viewport, and the strip scrolls horizontally rather than wrapping.
+
+Context contract (all optional unless noted):
+  profile.cover      cover image URL          profile.avatar   avatar/logo URL
+  profile.title      *required*               profile.subtitle one-liner
+  profile.verified   bool → check badge       profile.kind     'person'|'course'|'module'
+  profile.meta       [{icon,text}]            profile.actions  [{label,url,icon,style}]
+  tabs               [{key,label,url,badge,icon}]   active_tab  key of the current tab
+  activity_items     [{icon,text,when,url}]   → rail "Activity" (collapsible)
+  files              [{name,url,meta,icon}]   → rail "Files"    (collapsible)
+
+Pages fill {% block profile_content %} with the active tab's content, and may
+add rail cards via {% block profile_rail %}.
+============================================================================
+{% endcomment %}
+
+{% block additional_css %}
+<link href="{% static 'css/profile.css' %}" rel="stylesheet">
+{% endblock additional_css %}
+
+{% comment %}Rendered inside the shared app chrome (navbar + collapsible sidebar +
+footer), like every other page. It used to extend base.html and include its own
+navbar, which is why a profile was the one screen in the hub with no sidebar —
+and why the navbar's collapse button had nothing to collapse there.{% endcomment %}
+{% block content %}
+  <div class="prof">
+    <div class="prof-grid">
+
+      <div class="prof-main">
+
+        <div class="card">
+          <div class="prof-cover"
+               style="background-image:url({% if profile.cover %}{{ profile.cover }}{% else %}{% static 'images/bg/05.jpg' %}{% endif %});"></div>
+
+          <div class="card-body py-0">
+            <div class="d-sm-flex align-items-start text-center text-sm-start">
+              <div>
+                <div class="avatar avatar-xxl mt-n5 mb-3">
+                  {% if profile.avatar %}
+                    <img class="avatar-img rounded-circle border border-white border-3" src="{{ profile.avatar }}" alt="{{ profile.title }}">
+                  {% else %}
+                    <div class="avatar-img rounded-circle border border-white border-3 bg-primary d-flex align-items-center justify-content-center">
+                      <span class="text-white fw-bold fs-4">{{ profile.title|slice:":2"|upper }}</span>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="ms-sm-4 mt-sm-3 min-w-0">
+                <h1 class="prof-title">{{ profile.title }}
+                  {% if profile.verified %}<i class="bi bi-patch-check-fill text-success small"></i>{% endif %}
+                </h1>
+                {% if profile.subtitle %}<p class="prof-subtitle">{{ profile.subtitle }}</p>{% endif %}
+              </div>
+
+              <div class="d-flex mt-3 justify-content-center ms-sm-auto">
+                {% for a in profile.actions %}
+                <a class="btn btn-{{ a.style|default:'primary-soft' }} btn-sm me-2" href="{{ a.url }}">
+                  {% if a.icon %}<i class="bi {{ a.icon }} pe-1"></i>{% endif %}{{ a.label }}</a>
+                {% endfor %}
+              </div>
+            </div>
+
+            {% if profile.meta %}
+            <ul class="prof-meta">
+              {% for m in profile.meta %}
+              <li><i class="bi {{ m.icon }}"></i>{{ m.text }}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </div>
+
+          <div class="card-footer mt-3 pt-2 pb-0">
+            <ul class="prof-tabs">
+              {% for t in tabs %}
+              <li>
+                {% comment %}HTMX (Phase 3): a tab swaps only #profContent instead of
+                reloading the whole page. hx-push-url keeps deep links + the back
+                button; a full page load of the same URL still works.{% endcomment %}
+                <a class="nav-link js-prof-tab {% if t.key == active_tab %}active{% endif %}" href="{{ t.url }}"
+                   hx-get="{{ t.url }}" hx-target="#profContent" hx-select="#profContent"
+                   hx-swap="outerHTML show:window:top" hx-push-url="true">
+                  {% if t.icon %}<i class="bi {{ t.icon }}"></i>{% endif %}<span class="tab-label">{{ t.label }}</span>
+                  {% if t.badge %}<span class="tab-badge">{{ t.badge }}</span>{% endif %}
+                </a>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+
+        <div id="profContent">
+        {% block profile_content %}{% endblock %}
+        </div>
+
+      </div>
+
+      <div class="prof-rail">
+
+        {% block profile_rail %}{% endblock %}
+
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center border-0 pb-0">
+            <h5 class="card-title mb-0"><i class="bi bi-activity me-2"></i>Activity</h5>
+            <button class="btn btn-sm btn-light border-0" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#profActivity" aria-expanded="true" aria-controls="profActivity">
+              <i class="bi bi-chevron-up"></i>
+            </button>
+          </div>
+          <div class="collapse show" id="profActivity">
+            <div class="card-body position-relative pt-2">
+              {% for a in activity_items %}
+              <div class="d-flex mb-3">
+                <div class="prof-row__ico me-2"><i class="bi {{ a.icon|default:'bi-dot' }}"></i></div>
+                <div class="min-w-0">
+                  <p class="small mb-0">{% if a.url %}<a class="text-reset" href="{{ a.url }}">{{ a.text }}</a>{% else %}{{ a.text }}{% endif %}</p>
+                  <small class="text-muted">{{ a.when }}</small>
+                  {% if a.media %}
+                  <div class="prof-media prof-media--{{ a.media|length }}">
+                    {% for m in a.media %}
+                      {% if m.kind == 'image' %}
+                        <a href="{{ m.url }}" data-glightbox><img src="{{ m.url }}" alt="{{ m.name|default:'Shared image' }}" loading="lazy"></a>
+                      {% elif m.kind == 'video' %}
+                        <video src="{{ m.url }}" controls preload="metadata"></video>
+                      {% else %}
+                        <a class="prof-chip prof-chip--muted" href="{{ m.url }}"><i class="bi bi-paperclip"></i>{{ m.name|default:"Attachment"|truncatechars:18 }}</a>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+              {% empty %}
+              <p class="small text-muted mb-0">No recent activity.</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center border-0 pb-0">
+            <h5 class="card-title mb-0"><i class="bi bi-folder2-open me-2"></i>Files
+              {% if files %}<span class="tab-badge ms-1">{{ files|length }}</span>{% endif %}
+            </h5>
+            <button class="btn btn-sm btn-light border-0" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#profFiles" aria-expanded="true" aria-controls="profFiles">
+              <i class="bi bi-chevron-up"></i>
+            </button>
+          </div>
+          <div class="collapse show" id="profFiles">
+            <div class="card-body position-relative pt-2">
+              {% for f in files %}
+              <a class="prof-row" href="{{ f.url }}" target="_blank">
+                <i class="bi {{ f.icon|default:'bi-file-earmark' }} fs-5" style="color:var(--prof-blue)"></i>
+                <span class="prof-row__main">
+                  <span class="prof-row__title">{{ f.name }}</span>
+                  {% if f.meta %}<span class="prof-row__meta">{{ f.meta }}</span>{% endif %}
+                </span>
+                <i class="bi bi-download small text-muted"></i>
+              </a>
+              {% empty %}
+              <p class="small text-muted mb-0">No files yet.</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+{% endblock content %}

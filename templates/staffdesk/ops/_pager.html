@@ -1,0 +1,7 @@
+{% if page.paginator.num_pages > 1 %}
+<nav class="d-flex justify-content-between align-items-center mt-3 small" aria-label="Pages">
+  <span class="text-muted">{{ page.paginator.count }} row{{ page.paginator.count|pluralize }} · page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+  <span>{% if page.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?{{ querystring }}&page={{ page.previous_page_number }}">Previous</a>{% endif %}
+    {% if page.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?{{ querystring }}&page={{ page.next_page_number }}">Next</a>{% endif %}</span>
+</nav>
+{% endif %}

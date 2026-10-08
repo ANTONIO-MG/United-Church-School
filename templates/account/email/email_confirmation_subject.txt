@@ -1,0 +1,1 @@
+{% load org_branding %}{% org_brand as brand %}Confirm your e-mail address — {{ brand.name|default:"United Church School" }}

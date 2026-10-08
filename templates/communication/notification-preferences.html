@@ -1,0 +1,38 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Customizable notification & reminder preferences.{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <h3 class="mb-3">{{ page_title }}</h3>
+  <form method="post" class="row g-4" style="max-width:760px">
+    {% csrf_token %}
+    <div class="col-md-6">
+      <div class="card h-100"><div class="card-body">
+        <h6 class="mb-1">Channels</h6>
+        <p class="text-muted small mb-3">Every notification always appears in the bell.
+          Tick where else you want a copy — both, one, or neither.</p>
+        {% for f in form %}{% if f.name == 'email_enabled' or f.name == 'whatsapp_enabled' or f.name == 'browser_enabled' %}
+          <div class="form-check mb-2">{{ f }}
+            <label class="form-check-label" for="{{ f.id_for_label }}">{{ f.label }}</label>
+            {% if f.help_text %}<div class="form-text small">{{ f.help_text }}</div>{% endif %}</div>
+        {% endif %}{% endfor %}
+        <hr>
+        <h6 class="mb-3">Delivery</h6>
+        {% for f in form %}{% if f.name == 'digest' or f.name == 'reminder_lead_minutes' or f.name == 'quiet_hours_start' or f.name == 'quiet_hours_end' %}
+          <div class="mb-3"><label class="form-label small">{{ f.label }}</label>{{ f }}
+            {% if f.help_text %}<div class="form-text">{{ f.help_text }}</div>{% endif %}</div>
+        {% endif %}{% endfor %}
+      </div></div>
+    </div>
+    <div class="col-md-6">
+      <div class="card h-100"><div class="card-body">
+        <h6 class="mb-3">What to notify me about</h6>
+        {% for f in form %}{% if f.name == 'notify_mentions' or f.name == 'notify_messages' or f.name == 'notify_announcements' or f.name == 'notify_deadlines' or f.name == 'notify_meetings' or f.name == 'notify_grades' or f.name == 'notify_content' or f.name == 'notify_assessments' or f.name == 'notify_tasks' or f.name == 'notify_weekly' %}
+          <div class="form-check mb-2">{{ f }} <label class="form-check-label" for="{{ f.id_for_label }}">{{ f.label }}{% if f.help_text %} <span class="text-muted small">— {{ f.help_text }}</span>{% endif %}</label></div>
+        {% endif %}{% endfor %}
+      </div></div>
+    </div>
+    <div class="col-12"><button class="btn btn-primary">Save preferences</button></div>
+  </form>
+</div></div>
+{% endblock %}

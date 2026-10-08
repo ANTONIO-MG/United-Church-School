@@ -1,0 +1,14 @@
+{% extends 'communication/email/base_email.html' %}{% load org_branding %}
+{% comment %}Payment made / receipt (invoice paid). Context: invoice.{% endcomment %}
+{% block heading %}Payment received &check;{% endblock %}
+{% block content %}
+  <p style="margin:0 0 14px">Hi {{ invoice.customer|greeting_name }},</p>
+  <p style="margin:0 0 14px">Thank you — your payment for invoice <strong>{{ invoice.number }}</strong> has been received in full. This e-mail is your receipt.</p>
+  <table style="width:100%;border-collapse:collapse;margin:4px 0 14px">
+    <thead><tr><th align="left" style="border-bottom:1px solid #cfd6f4;padding:6px 0">Item</th><th align="right" style="border-bottom:1px solid #cfd6f4;padding:6px 0">Amount</th></tr></thead>
+    <tbody>
+      {% for item in invoice.items.all %}<tr><td style="padding:6px 0">{{ item.description }} &times; {{ item.quantity }}</td><td align="right">R{{ item.amount }}</td></tr>{% endfor %}
+    </tbody>
+    <tfoot><tr><td style="padding-top:10px"><strong>Total paid</strong></td><td align="right" style="padding-top:10px"><strong style="color:#20a86b">R{{ invoice.total }}</strong></td></tr></tfoot>
+  </table>
+{% endblock %}

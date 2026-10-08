@@ -1,0 +1,53 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Audit log: every ActivityLog row, filterable and exportable.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/ops/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk</span><h3>Audit log</h3>
+      <p>Sign-ins, sign-outs and every recorded change, newest first.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'staffdesk:ops-audit-export' %}?{{ querystring }}"><i class="bi bi-filetype-csv me-1"></i>Export CSV</a>
+    </div>
+  </div>
+
+  <form method="get" class="tc-toolbar sd-filters">
+    <label class="visually-hidden" for="{{ form.user.id_for_label }}">User</label>
+    <input id="{{ form.user.id_for_label }}" class="form-control form-control-sm" type="search" name="user" value="{{ form.user.value|default:'' }}" placeholder="User name or e-mail">
+    <label class="visually-hidden" for="{{ form.action.id_for_label }}">Action</label>
+    <select id="{{ form.action.id_for_label }}" class="form-select form-select-sm" name="action">
+      {% for value, label in form.fields.action.choices %}<option value="{{ value }}" {% if form.action.value == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <label class="small text-muted" for="{{ form.date_from.id_for_label }}">From</label>
+    <input id="{{ form.date_from.id_for_label }}" class="form-control form-control-sm" type="date" name="date_from" value="{{ form.date_from.value|default:'' }}">
+    <label class="small text-muted" for="{{ form.date_to.id_for_label }}">To</label>
+    <input id="{{ form.date_to.id_for_label }}" class="form-control form-control-sm" type="date" name="date_to" value="{{ form.date_to.value|default:'' }}">
+    <label class="visually-hidden" for="{{ form.q.id_for_label }}">Text</label>
+    <input id="{{ form.q.id_for_label }}" class="form-control form-control-sm tc-search" type="search" name="q" value="{{ form.q.value|default:'' }}" placeholder="Description, path or IP">
+    <button class="btn btn-sm btn-primary"><i class="bi bi-funnel me-1"></i>Filter</button>
+    {% if querystring %}<a class="btn btn-sm btn-link" href="{% url 'staffdesk:ops-audit' %}">Clear</a>{% endif %}
+  </form>
+  {% if form.errors %}<div class="tc-alert tc-alert--danger mb-3"><i class="bi bi-exclamation-circle"></i><div>Some filters were not understood and were ignored: {% for f in form.errors %}{{ f }}{% if not forloop.last %}, {% endif %}{% endfor %}.</div></div>{% endif %}
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>When</th><th>Action</th><th>Who</th><th>About</th><th>Description</th><th>Where</th></tr></thead>
+      <tbody>
+      {% for log in page %}
+        <tr>
+          <td class="small text-nowrap">{{ log.timestamp|date:"j M Y" }}<div class="text-muted">{{ log.timestamp|date:"H:i:s" }}</div></td>
+          <td><span class="tc-chip {% if log.action == 'delete' %}tc-chip--danger{% elif log.action == 'create' %}tc-chip--success{% elif log.action == 'update' %}tc-chip--primary{% else %}tc-chip--cyan{% endif %}">{{ log.get_action_display }}</span></td>
+          <td class="small">{% if log.actor %}{{ log.actor.first_name }} {{ log.actor.last_name }}{% if log.actor.user %}<div class="text-muted">{{ log.actor.user.email }}</div>{% endif %}{% else %}<span class="text-muted">system</span>{% endif %}</td>
+          <td class="small">{% if log.target_user %}{{ log.target_user.first_name }} {{ log.target_user.last_name }}{% if log.target_user.user %}<div class="text-muted">{{ log.target_user.user.email }}</div>{% endif %}{% else %}—{% endif %}</td>
+          <td class="small sd-desc">{{ log.description|default:"—"|truncatechars:240 }}</td>
+          <td class="small text-muted">{{ log.ip_address|default:"" }}{% if log.request_path %}<div class="font-monospace sd-path">{{ log.request_path }}</div>{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6"><div class="tc-empty"><i class="bi bi-journal-x"></i><h5>No matching entries</h5></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% include 'staffdesk/ops/_pager.html' %}
+</div></div>
+{% endblock %}

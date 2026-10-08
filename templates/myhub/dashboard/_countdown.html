@@ -1,0 +1,76 @@
+{% comment %}The run to the exam.
+
+A straight line, not a ring. A ring implies a whole that you are some fraction
+of; the thing a candidate actually wants to know is *when the paper is* and
+*how many days are left*, and that is a line with a marker travelling along it.
+The fill grows by one day's worth every day, measured from the last exam/test
+that passed (or their registration date) to this one — so the rate is real
+rather than assumed.
+
+Reads `countdown` from apps.myhub.dashboard.exam_countdown.{% endcomment %}
+
+<section class="dash-card dash-countdown{% if countdown.is_imminent %} is-imminent{% endif %}">
+  {% if countdown %}
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--{% if countdown.is_imminent %}danger{% else %}primary{% endif %}">
+      <i class="bi bi-calendar2-check"></i>
+    </span>
+    <h6>Next {{ countdown.kind|lower }}</h6>
+    <a class="dash-link" href="{% url 'myhub:events' %}">Full calendar</a>
+  </div>
+
+  <div class="dash-card__body">
+    <div class="dash-countdown__top">
+      <div class="min-w-0">
+        <p class="dash-countdown__title">{{ countdown.title }}</p>
+        <p class="dash-countdown__meta">
+          {{ countdown.institution.code }} · {{ countdown.programme.code }} ·
+          <strong>{{ countdown.date|date:"l, j F Y" }}</strong>
+          {% if countdown.is_provisional %}
+            <span class="dash-chip dash-chip--secondary">Provisional date</span>
+          {% endif %}
+        </p>
+      </div>
+      <div class="dash-countdown__days">
+        <b>{{ countdown.days_left }}</b>
+        <span>day{{ countdown.days_left|pluralize }} to go</span>
+      </div>
+    </div>
+
+    {# The line. Fill = elapsed share of the run-up; the dot rides its end. #}
+    <div class="dash-line" role="progressbar"
+         aria-valuenow="{{ countdown.elapsed_pct }}" aria-valuemin="0" aria-valuemax="100"
+         aria-label="{{ countdown.elapsed_days }} of {{ countdown.total_days }} days elapsed">
+      <span class="dash-line__fill" style="width: {{ countdown.elapsed_pct }}%"></span>
+      <span class="dash-line__dot" style="left: {{ countdown.elapsed_pct }}%"></span>
+    </div>
+
+    <div class="dash-line__ends">
+      <span>{{ countdown.elapsed_days }} day{{ countdown.elapsed_days|pluralize }} in</span>
+      <span>{{ countdown.date|date:"j M" }}</span>
+    </div>
+
+    {% if countdown.later %}
+    <div class="dash-countdown__later">
+      <span class="dash-countdown__later-label">Then</span>
+      {% for e in countdown.later %}
+        <span class="dash-chip dash-chip--secondary">{{ e.title|truncatechars:28 }} · {{ e.start|date:"j M" }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% else %}
+  <div class="dash-card__head">
+    <span class="dash-glyph dash-glyph--secondary"><i class="bi bi-calendar2"></i></span>
+    <h6>Next exam</h6>
+  </div>
+  <div class="dash-card__body">
+    <div class="dash-empty">
+      <i class="bi bi-calendar2-x"></i>
+      No exam or test dated on your school's calendar yet. It appears here the
+      moment one is published.
+    </div>
+  </div>
+  {% endif %}
+</section>

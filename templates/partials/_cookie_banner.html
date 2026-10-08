@@ -1,0 +1,49 @@
+{% comment %}Site-wide POPIA cookie-consent banner. Shows until the visitor makes a
+choice (tracked by the `cookie_consent` cookie). Posts to accounts:cookie-consent,
+which stores the choice on the profile too for signed-in users.{% endcomment %}
+{% if not request.COOKIES.cookie_consent %}
+<div id="cookieBanner" class="cookie-banner">
+  <div class="cookie-inner">
+    <div class="cookie-text">
+      <i class="bi bi-shield-check text-info me-2"></i>
+      We use essential cookies to run {{ brand.short_name|default:brand.name|default:"the platform" }} and,
+      with your consent, analytics to improve it. See our
+      <a href="{% url 'pages:privacy-and-terms' %}">Privacy Policy</a>.
+    </div>
+    <form method="post" action="{% url 'accounts:cookie-consent' %}" class="cookie-actions" id="cookieForm">
+      {% csrf_token %}
+      <button type="submit" name="choice" value="decline" class="btn btn-sm btn-outline-secondary mb-0">Decline</button>
+      <button type="submit" name="choice" value="accept" class="btn btn-sm bg-gradient-info text-white mb-0">Accept</button>
+    </form>
+  </div>
+</div>
+<style>
+  .cookie-banner{ position:fixed; left:1rem; right:1rem; bottom:1rem; z-index:1080; }
+  .cookie-banner .cookie-inner{ max-width:52rem; margin:0 auto; background:#fff; border:1px solid #e3e6ee;
+    border-radius:.9rem; box-shadow:0 1rem 2.5rem rgba(0,0,0,.18); padding:1rem 1.25rem;
+    display:flex; gap:1rem; align-items:center; flex-wrap:wrap; }
+  .cookie-banner .cookie-text{ flex:1; min-width:15rem; font-size:.85rem; color:#344767; }
+  .cookie-banner .cookie-actions{ display:flex; gap:.5rem; margin:0; }
+  @media (prefers-color-scheme: dark){
+    .cookie-banner .cookie-inner{ background:#1f2937; border-color:#374151; }
+    .cookie-banner .cookie-text{ color:#e5e7eb; }
+  }
+</style>
+<script>
+  (function () {
+    var f = document.getElementById('cookieForm'), b = document.getElementById('cookieBanner');
+    if (!f) return;
+    f.addEventListener('submit', function (e) {
+      var choice = (e.submitter && e.submitter.value) || 'accept';
+      e.preventDefault();
+      var fd = new FormData(f); fd.set('choice', choice);
+      fetch(f.action, {method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'}, credentials: 'same-origin'})
+        .then(function () {
+          document.cookie = 'cookie_consent=' + (choice === 'accept' ? 'accepted' : 'declined') + ';path=/;max-age=31536000;samesite=Lax';
+          if (b) b.remove();
+        })
+        .catch(function () { f.submit(); });   // no-JS / error fallback: full POST
+    });
+  })();
+</script>
+{% endif %}

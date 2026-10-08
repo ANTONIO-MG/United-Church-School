@@ -1,0 +1,72 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}Parent links: which parent accounts can see which student, with add and remove.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/ops/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk</span><h3>Parent links</h3>
+      <p>Parents, guardians and sponsors linked to a student see that student's work and invoices. Up to {{ max_parents }} per student.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'staffdesk:ops-invitations' %}"><i class="bi bi-envelope me-1"></i>Invitations</a>
+    </div>
+  </div>
+
+  <div class="tc-card mb-3"><div class="tc-card__body">
+    <h6 class="mb-2"><i class="bi bi-link-45deg me-1"></i>Link a parent to a student</h6>
+    {% if form.non_field_errors %}<div class="tc-alert tc-alert--danger mb-2"><i class="bi bi-exclamation-circle"></i><div>{{ form.non_field_errors|join:" " }}</div></div>{% endif %}
+    <form method="post" class="row g-2 align-items-start">{% csrf_token %}
+      <div class="col-12 col-md-4">
+        <label class="form-label small" for="id_parent_email">Parent e-mail</label>
+        <input id="id_parent_email" class="form-control form-control-sm {% if form.parent_email.errors %}is-invalid{% endif %}" type="email" name="parent_email" value="{{ form.parent_email.value|default:'' }}" list="parentEmails" required autocomplete="off">
+        {% for e in form.parent_email.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+      </div>
+      <div class="col-12 col-md-4">
+        <label class="form-label small" for="id_student_email">Student e-mail</label>
+        <input id="id_student_email" class="form-control form-control-sm {% if form.student_email.errors %}is-invalid{% endif %}" type="email" name="student_email" value="{{ form.student_email.value|default:'' }}" list="studentEmails" required autocomplete="off">
+        {% for e in form.student_email.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+      </div>
+      <div class="col-8 col-md-2">
+        <label class="form-label small" for="id_relationship">Relationship</label>
+        <input id="id_relationship" class="form-control form-control-sm" name="relationship" maxlength="60" value="{{ form.relationship.value|default:'' }}" placeholder="e.g. Mother">
+      </div>
+      <div class="col-4 col-md-2 d-flex align-items-end sd-form-submit">
+        <button class="btn btn-sm btn-primary w-100"><i class="bi bi-plus-lg me-1"></i>Link</button>
+      </div>
+      <datalist id="parentEmails">{% for e in parent_emails %}<option value="{{ e }}">{% endfor %}</datalist>
+      <datalist id="studentEmails">{% for e in student_emails %}<option value="{{ e }}">{% endfor %}</datalist>
+    </form>
+  </div></div>
+
+  <form method="get" class="tc-toolbar">
+    <label class="visually-hidden" for="plSearch">Search</label>
+    <input id="plSearch" class="form-control form-control-sm tc-search" type="search" name="q" value="{{ search }}" placeholder="Parent or student name or e-mail">
+    <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i><span class="visually-hidden">Search</span></button>
+    <span class="small text-muted ms-auto">{{ total }} link{{ total|pluralize }}</span>
+  </form>
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>Parent</th><th>Student</th><th>Relationship</th><th>Linked</th><th class="r"></th></tr></thead>
+      <tbody>
+      {% for link in page %}
+        <tr>
+          <td><span class="fw-semibold">{{ link.parent|person_name }}</span><div class="small text-muted">{{ link.parent.email }}</div></td>
+          <td><span class="fw-semibold">{{ link.student|person_name }}</span><div class="small text-muted">{{ link.student.email }} · {{ link.siblings }} of {{ max_parents }} parents</div></td>
+          <td class="small">{{ link.relationship|default:"—" }}</td>
+          <td class="small text-nowrap">{{ link.created_at|date:"j M Y" }}</td>
+          <td class="r">
+            <form method="post" action="{% url 'staffdesk:ops-parent-link-remove' link.pk %}">{% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button class="btn btn-sm btn-outline-danger text-nowrap" onclick="return confirm('Remove this link? The parent will no longer see this student.');"><i class="bi bi-x-lg me-1"></i>Remove</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5"><div class="tc-empty"><i class="bi bi-people"></i><h5>No parent links{% if search %} match{% endif %}</h5></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% include 'staffdesk/ops/_pager.html' %}
+</div></div>
+{% endblock %}

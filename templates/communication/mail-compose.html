@@ -1,0 +1,38 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Compose an in-system e-mail (delivered as a real e-mail too).{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <h3 class="mb-3">Email</h3>
+  <div class="row g-3">
+    <div class="col-lg-3">{% include 'communication/_mail-rail.html' %}</div>
+
+    <div class="col-lg-9">
+      <div class="card"><div class="card-body">
+        <h5 class="mb-3">New message</h5>
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">To (platform members)</label>
+            <select name="recipients" class="form-select" multiple size="6">
+              {% for u in users %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.get_username }} — {{ u.email }}</option>{% endfor %}
+            </select>
+            <div class="form-text">Hold Ctrl/Cmd to select several.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">…or external e-mail addresses</label>
+            <input class="form-control" name="external_to" placeholder="name@example.com, other@example.com">
+          </div>
+          <div class="mb-3"><label class="form-label">Subject</label><input class="form-control" name="module" required></div>
+          <div class="mb-3"><label class="form-label">Message</label><textarea class="form-control" name="body" rows="9" placeholder="Write your message…"></textarea></div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary"><i class="bi bi-send me-1"></i>Send</button>
+            <a href="{% url 'communication:mail-inbox' %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+          <p class="small text-muted mt-2">Sent from your registered address ({{ request.user.email }}) — replies come back to you.</p>
+        </form>
+      </div></div>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

@@ -1,0 +1,231 @@
+{% load people %}{% load static %}
+{% comment %}Unified activity feed — one loop over feed_items (dicts from
+apps.communication.feed.build_feed).
+
+Each item carries its own presentation: `icon`/`color` for the type badge,
+`open_label` for the top-right button ("Open in chats", "Open quiz", …) and
+`can_react`, which is only true for social posts. A task, reminder, assessment
+or quiz is something you open, not something you like — so those cards have no
+Like / Comment row at all. Liking is done over XHR so the counter ticks up in
+place instead of navigating away; Comment reveals this card's own thread.
+{% endcomment %}
+<div class="vstack gap-4" id="activityFeed">
+  {% for item in feed_items %}
+  <div class="card app-fade-in feed-item feed-{{ item.type }}" data-type="{{ item.type }}"
+       style="border-left:3px solid {{ item.color }}">
+    <div class="card-header border-0 pb-0">
+      <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center min-w-0">
+          <div class="avatar me-2">
+            {% if item.actor_url %}<a href="{{ item.actor_url }}" title="{{ item.actor_name }}">{% endif %}
+            {% if item.avatar %}
+              <img class="avatar-img rounded-circle" src="{{ item.avatar }}" alt="{{ item.actor_name }}" style="object-fit:cover">
+            {% elif item.actor %}
+              <span class="avatar-img rounded-circle d-flex align-items-center justify-content-center fw-bold text-white" style="background:{{ item.color }}">{{ item.initials }}</span>
+            {% else %}
+              <span class="avatar-img rounded-circle d-flex align-items-center justify-content-center text-white" style="background:{{ item.color }}"><i class="bi bi-{{ item.icon }}"></i></span>
+            {% endif %}
+            {% if item.actor_url %}</a>{% endif %}
+          </div>
+          <div class="min-w-0">
+            <div class="nav nav-divider">
+              <h6 class="nav-item card-title mb-0 text-truncate">{% if item.actor %}{% if item.actor_url %}<a href="{{ item.actor_url }}" class="text-reset text-decoration-none">{{ item.actor_name }}</a>{% else %}{{ item.actor_name }}{% endif %}{% else %}{{ item.title|default:"System" }}{% endif %}</h6>
+              <span class="nav-item small">{{ item.when|timesince }} ago</span>
+            </div>
+            <p class="mb-0 small">
+              <span class="badge rounded-pill" style="background:{{ item.color }}1a;color:{{ item.color }}">
+                <i class="bi bi-{{ item.icon }} me-1"></i>{{ item.label|default:item.type }}</span>
+              {% if item.module_name %}<span class="text-muted ms-1"><i class="bi bi-bookmark me-1"></i>{{ item.module_name }}</span>{% endif %}
+              {% if item.extra.visibility %}<span class="text-muted ms-1">· {{ item.extra.visibility }}</span>{% endif %}
+            </p>
+          </div>
+        </div>
+        {% if item.url %}
+        <a class="btn btn-sm btn-secondary-soft-hover text-secondary py-1 px-2 text-nowrap" href="{{ item.url }}">
+          <i class="bi bi-box-arrow-up-right me-1"></i><span class="d-none d-sm-inline">{{ item.open_label }}</span></a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+      {% if item.title and item.type != "post" and item.type != "message-direct" %}<h6 class="mb-2">{{ item.title }}</h6>{% endif %}
+      {% if item.body %}<p class="mb-0">{{ item.body|truncatewords:60|linebreaksbr }}</p>{% endif %}
+      {% if item.location %}<p class="small text-muted mb-0 mt-1"><i class="bi bi-geo-alt me-1"></i>{{ item.location }}</p>{% endif %}
+      {% if item.extra.status %}<span class="badge text-bg-light mt-2">{{ item.extra.status }}</span>{% endif %}
+      {% comment %}Attachments. One → full-width card. Two+ → a tiled gallery
+      (2 side-by-side, 3–4 in a 2×2, and 5+ shows four with a "+N" overlay on the
+      last). Images/videos open full-screen in a per-post lightbox gallery
+      (extras beyond four are added as hidden gallery slides so paging reaches
+      them); documents open in a new tab.{% endcomment %}
+      {% if item.media_list %}
+        {% if item.media_list|length == 1 %}
+          {% include 'partials/_feed_media_full.html' with m=item.media_list.0 group=forloop.counter %}
+        {% else %}
+          {% with total=item.media_list|length %}
+          <div class="feed-gallery feed-gallery--{% if total == 2 %}2{% elif total == 3 %}3{% elif total == 4 %}4{% else %}more{% endif %} mt-2">
+            {% for m in item.media_list|slice:":4" %}
+              {% if m.kind == "image" %}
+                <a class="feed-tile flb-item" href="{{ m.url }}"
+                   data-flb-group="flb-card-{{ forloop.parentloop.counter }}" data-flb-type="image"
+                   data-flb-src="{{ m.url }}" data-flb-name="{{ m.name|default:'image' }}">
+                  <img src="{{ m.url }}" alt="{{ m.name|default:'Shared image' }}">
+                  {% if forloop.last and total > 4 %}<span class="feed-more">+{{ total|add:"-4" }}</span>{% endif %}
+                </a>
+              {% elif m.kind == "video" %}
+                <a class="feed-tile feed-tile--video flb-item" href="{{ m.url }}"
+                   data-flb-group="flb-card-{{ forloop.parentloop.counter }}" data-flb-type="video"
+                   data-flb-src="{{ m.url }}" data-flb-name="{{ m.name|default:'video' }}">
+                  <video src="{{ m.url }}" preload="metadata" muted></video>
+                  <span class="feed-play"><i class="bi bi-play-circle-fill"></i></span>
+                  {% if forloop.last and total > 4 %}<span class="feed-more">+{{ total|add:"-4" }}</span>{% endif %}
+                </a>
+              {% else %}
+                <a class="feed-tile feed-tile--doc flb-item" href="{{ m.url }}" title="{{ m.name }}"
+                   data-flb-group="flb-card-{{ forloop.parentloop.counter }}" data-flb-type="doc"
+                   data-flb-src="{{ m.url }}" data-flb-name="{{ m.name|default:'Document' }}">
+                  <i class="bi bi-file-earmark-text-fill"></i>
+                  <span class="fname text-truncate">{{ m.name|default:"Document" }}</span>
+                  {% if forloop.last and total > 4 %}<span class="feed-more">+{{ total|add:"-4" }}</span>{% endif %}
+                </a>
+              {% endif %}
+            {% endfor %}
+            {% comment %}Extras beyond the first four: hidden lightbox items so the
+            close/prev/next viewer can page through every attachment after "+N".{% endcomment %}
+            {% for m in item.media_list|slice:"4:" %}
+              <a class="d-none flb-item" href="{{ m.url }}"
+                 data-flb-group="flb-card-{{ forloop.parentloop.counter }}"
+                 data-flb-type="{{ m.kind }}" data-flb-src="{{ m.url }}" data-flb-name="{{ m.name|default:'file' }}"></a>
+            {% endfor %}
+          </div>
+          {% endwith %}
+        {% endif %}
+      {% elif item.media %}
+        {% include 'partials/_feed_media_full.html' with m=item.media group=forloop.counter %}
+      {% endif %}
+    </div>
+
+    {# Like / Comment only for the things you can actually react to. #}
+    {% if item.can_react and item.extra.pk %}
+    <div class="card-footer border-0 pt-0">
+      <ul class="nav nav-stack small">
+        <li class="nav-item">
+          <button type="button" class="nav-link border-0 bg-transparent p-0 feed-like {% if item.extra.liked %}text-primary fw-semibold{% endif %}"
+                  data-like-url="{% url 'communication:feed-like' item.extra.pk %}" data-liked="{{ item.extra.liked|yesno:'1,0' }}">
+            <i class="bi bi-hand-thumbs-up{% if item.extra.liked %}-fill{% endif %} pe-1"></i>Like
+            <span class="like-count">{% if item.extra.likes %}({{ item.extra.likes }}){% endif %}</span>
+          </button>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-bs-toggle="collapse" href="#feedComments{{ item.extra.pk }}" role="button">
+            <i class="bi bi-chat-fill pe-1"></i>Comment
+            <span class="comment-count">{% if item.extra.comments %}({{ item.extra.comments|length }}){% endif %}</span></a>
+        </li>
+      </ul>
+
+      <div class="collapse" id="feedComments{{ item.extra.pk }}">
+        <ul class="list-unstyled comment-list mb-2 mt-2" data-comment-list>
+          {% for c in item.extra.comments %}
+          <li class="d-flex mb-2">
+            <div class="avatar avatar-xs me-2">
+              {% if c.author.profile %}
+                <img class="avatar-img rounded-circle" src="{{ c.author.profile.avatar_url }}" alt="" style="object-fit:cover">
+              {% else %}
+                <span class="avatar-img rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white small">{{ c.author|person_name|slice:":1"|upper }}</span>
+              {% endif %}
+            </div>
+            <div class="bg-light rounded p-2 flex-grow-1">
+              <div class="d-flex justify-content-between">
+                <h6 class="mb-0 small">{% person_link c.author %}</h6>
+                <small class="text-muted ms-2">{{ c.created_at|timesince }} ago</small>
+              </div>
+              <p class="small mb-0">{{ c.body|linebreaksbr }}</p>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        <form class="d-flex gap-2 feed-comment-form" method="post" action="{% url 'communication:feed-comment' item.extra.pk %}">
+          {% csrf_token %}
+          <input type="text" name="body" class="form-control form-control-sm bg-light" placeholder="Write a comment…" required>
+          <button class="btn btn-sm btn-primary" type="submit"><i class="bi bi-send"></i></button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% empty %}
+  <div class="card">
+    <div class="card-body text-center py-5">
+      <i class="bi bi-rss display-6 text-primary"></i>
+      <h6 class="mt-3">Your feed is quiet</h6>
+      <p class="text-muted mb-0">Posts, announcements, events, messages and reminders will show up here as they happen.</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+(function(){
+  var feed = document.getElementById('activityFeed');
+  if(!feed) return;
+  function csrf(){
+    var el = document.querySelector('[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+
+  // Like: update the count in place — never leave the feed.
+  feed.addEventListener('click', function(e){
+    var btn = e.target.closest('.feed-like');
+    if(!btn) return;
+    e.preventDefault();
+    btn.disabled = true;
+    fetch(btn.dataset.likeUrl, {
+      method: 'POST', credentials: 'same-origin',
+      headers: {'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest'}
+    }).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+      if(!d || !d.ok) return;
+      btn.dataset.liked = d.liked ? '1' : '0';
+      btn.classList.toggle('text-primary', d.liked);
+      btn.classList.toggle('fw-semibold', d.liked);
+      var icon = btn.querySelector('i');
+      if(icon) icon.className = 'bi bi-hand-thumbs-up' + (d.liked ? '-fill' : '') + ' pe-1';
+      var count = btn.querySelector('.like-count');
+      if(count) count.textContent = d.likes ? '(' + d.likes + ')' : '';
+    }).finally(function(){ btn.disabled = false; });
+  });
+
+  // Comment: post inline and append to this card's thread.
+  feed.addEventListener('submit', function(e){
+    var form = e.target.closest('.feed-comment-form');
+    if(!form) return;
+    e.preventDefault();
+    var input = form.querySelector('input[name=body]');
+    var body = (input.value || '').trim();
+    if(!body) return;
+    fetch(form.action, {
+      method: 'POST', credentials: 'same-origin',
+      headers: {'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest'},
+      body: new FormData(form)
+    }).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+      if(!d || !d.ok) return;
+      input.value = '';
+      var list = form.parentElement.querySelector('[data-comment-list]');
+      var li = document.createElement('li');
+      li.className = 'd-flex mb-2';
+      var avatar = d.comment.avatar
+        ? '<img class="avatar-img rounded-circle" src="' + d.comment.avatar + '" alt="" style="object-fit:cover">'
+        : '<span class="avatar-img rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white small">'
+          + d.comment.author.slice(0,1).toUpperCase() + '</span>';
+      li.innerHTML = '<div class="avatar avatar-xs me-2">' + avatar + '</div>'
+        + '<div class="bg-light rounded p-2 flex-grow-1">'
+        + '<div class="d-flex justify-content-between"><h6 class="mb-0 small"></h6>'
+        + '<small class="text-muted ms-2">just now</small></div>'
+        + '<p class="small mb-0"></p></div>';
+      li.querySelector('h6').textContent = d.comment.author;
+      li.querySelector('p').textContent = d.comment.body;
+      list.appendChild(li);
+      var card = form.closest('.feed-item');
+      var counter = card && card.querySelector('.comment-count');
+      if(counter) counter.textContent = d.count ? '(' + d.count + ')' : '';
+    });
+  });
+})();
+</script>

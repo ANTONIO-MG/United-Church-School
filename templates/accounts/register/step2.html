@@ -1,0 +1,181 @@
+{% extends 'soft_ui/auth_base.html' %}
+{% load static humanize %}
+{% comment %}Step 2 of the UCS application — the grade applied for and, for Grade
+10 – 12, the subject choices (one First Additional Language, Mathematics or
+Mathematical Literacy, three electives). Compulsory subjects come with the
+grade. Each grade card shows its 2026 fee band. Rendered server-side; the
+script only shows the chosen grade's subjects and counts the electives — the
+rules are enforced again in accounts.views.register_course.{% endcomment %}
+{% block title %}Grade &amp; subjects · {{ brand.name|default:"United Church School" }}{% endblock %}
+{% block card_col %}col-xl-9 col-lg-11{% endblock %}
+{% block oblique %}{% endblock %}
+
+{% block auth_card %}
+<div class="card mt-7 mb-4 shadow-lg">
+  <div class="card-body p-4">
+    {% include 'accounts/register/_steps.html' with step=2 %}
+
+    <div class="text-center mb-4">
+      <h4 class="font-weight-bolder text-info text-gradient mb-1">Grade &amp; subjects</h4>
+      <p class="text-sm text-muted mb-0">Choose the grade the learner is applying for. Each grade's
+        subjects follow the CAPS curriculum; in Grade 10 – 12 the learner chooses their subjects and
+        continues with them until matric.</p>
+    </div>
+
+    {% if not grades %}
+      <div class="alert alert-warning text-sm">No grades are set up yet. An administrator can run
+        <code>python manage.py seed_school_structure</code> or add them in the admin.</div>
+    {% endif %}
+
+    <form method="post" id="chooseForm">
+      {% csrf_token %}
+
+      <div class="rf-subhead mt-0">Is the learner new to United Church School?</div>
+      <div class="pill-radios mb-3">
+        <label class="pill" for="newYes"><input type="radio" id="newYes" name="is_new_learner" value="yes" {% if reg.is_new_learner is not False %}checked{% endif %}><span>Yes — new applicant</span></label>
+        <label class="pill" for="newNo"><input type="radio" id="newNo" name="is_new_learner" value="no" {% if reg.is_new_learner is False %}checked{% endif %}><span>No — already a UCS learner</span></label>
+      </div>
+      <p class="text-xs text-muted mb-4" id="newNote"><i class="bi bi-info-circle me-1"></i>New learners pay a once-off,
+        non-refundable registration fee. Current UCS learners do not.</p>
+
+      {% regroup grades by phase as phases %}
+      {% for phase in phases %}
+      <div class="mb-3">
+        <div class="text-xs text-uppercase fw-bold text-muted mb-2">{{ phase.grouper }}</div>
+        <div class="row g-2">
+          {% for g in phase.list %}
+          <div class="col-6 col-md-4">
+            <label class="grade-opt h-100 {% if reg.programme_id == g.id %}is-selected{% endif %}" for="grade{{ g.id }}">
+              <input type="radio" class="visually-hidden" name="programme_id" id="grade{{ g.id }}" value="{{ g.id }}"
+                     data-cohort="{{ g.cohort_id }}" {% if reg.programme_id == g.id %}checked{% endif %}>
+              <span class="grade-name">{{ g.name }}</span>
+              <span class="grade-fee">R {{ g.fees.monthly|floatformat:0|intcomma }} <small>/ month</small></span>
+              <span class="grade-meta">Levy R {{ g.fees.levy|floatformat:0|intcomma }}{% if g.fees.registration %} · Registration R {{ g.fees.registration|floatformat:0|intcomma }}{% endif %}</span>
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      <input type="hidden" name="cohort_id" id="cohortId" value="{{ reg.cohort_id|default:'' }}">
+
+      {% for g in grades %}
+      <div class="subject-panel border rounded-3 p-3 mt-3 {% if reg.programme_id != g.id %}d-none{% endif %}" data-grade="{{ g.id }}">
+        <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-2">
+          <h6 class="mb-0">{{ g.name }} subjects</h6>
+          <span class="text-xs text-muted">Total for the year (incl. levy): <strong>R {{ g.fees.annual|floatformat:0|intcomma }}</strong>{% if g.fees.registration %} + registration for new learners{% endif %}</span>
+        </div>
+        {% if g.compulsory %}
+        <div class="text-xs text-uppercase fw-bold text-muted mb-1">{% if g.choice_groups %}Taken by every learner{% else %}Subjects{% endif %}</div>
+        <ul class="subject-list mb-2">
+          {% for s in g.compulsory %}<li><i class="bi bi-check-circle-fill text-success me-1"></i>{{ s.name }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        {% for group in g.choice_groups %}
+        <div class="choice-group mt-3" data-pick="{{ group.pick }}">
+          <div class="text-xs text-uppercase fw-bold text-muted mb-1">{{ group.label }}</div>
+          <div class="row g-2">
+            {% for s in group.subjects %}
+            <div class="col-md-6">
+              {% if group.pick == 1 %}
+              <label class="mod-opt d-flex align-items-center gap-2 rounded-3 p-2 mb-0" for="opt{{ g.id }}-{{ s.id }}">
+                <input class="form-check-input tick-green tick-round m-0" type="radio" id="opt{{ g.id }}-{{ s.id }}"
+                       name="choice_{{ g.id }}_{{ group.key }}" value="{{ s.id }}" {% if s.id in reg.module_ids %}checked{% endif %}>
+                <span class="mod-name text-sm">{{ s.name }}</span>
+              </label>
+              {% else %}
+              <label class="mod-opt d-flex align-items-center gap-2 rounded-3 p-2 mb-0" for="opt{{ g.id }}-{{ s.id }}">
+                <input class="form-check-input tick-green m-0 elective" type="checkbox" id="opt{{ g.id }}-{{ s.id }}"
+                       name="module_ids" value="{{ s.id }}" {% if s.id in reg.module_ids %}checked{% endif %}>
+                <span class="mod-name text-sm">{{ s.name }}</span>
+              </label>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% if group.pick > 1 %}<div class="text-xs text-muted mt-1"><span class="pick-count">0</span> of {{ group.pick }} chosen</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+
+      <div class="d-flex justify-content-between align-items-center mt-4">
+        <button type="submit" name="nav" value="back" class="btn btn-light mb-0" formnovalidate>
+          <i class="bi bi-arrow-left-circle me-2"></i>Back
+        </button>
+        <button type="submit" class="btn bg-gradient-info mb-0">Continue to family details<i class="bi bi-arrow-right-circle ms-2"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+{% include 'accounts/register/_reg_styles.html' %}
+<style>
+  .grade-opt{ display:flex; flex-direction:column; gap:.15rem; padding:.75rem .9rem; border:1px solid #e3e6ee;
+    border-radius:.75rem; background:#fff; color:#344767; cursor:pointer; transition:border-color .15s, background-color .15s, box-shadow .15s; }
+  .grade-opt:hover{ border-color:#9fb6d6; }
+  .grade-opt.is-selected{ border-color:#00498b; background:#f1f6fc; box-shadow:0 0 0 2px rgba(0,73,139,.18); }
+  .grade-opt .grade-name{ font-weight:700; }
+  .grade-opt.is-selected .grade-name{ color:#00498b; }
+  .grade-opt .grade-fee{ font-size:.9rem; font-weight:600; }
+  .grade-opt .grade-fee small, .grade-opt .grade-meta{ font-size:.72rem; color:#8392ab; font-weight:500; }
+  .subject-list{ list-style:none; padding:0; display:grid; grid-template-columns:repeat(auto-fill, minmax(14rem, 1fr)); gap:.25rem .75rem; font-size:.875rem; }
+  .mod-opt{ border:1px solid #e3e6ee !important; cursor:pointer; transition:border-color .15s, background-color .15s; }
+  .mod-opt:hover{ border-color:#a8e6cf !important; }
+  .mod-opt.is-selected{ border-color:#2dce89 !important; background:#f2fbf7; }
+  .tick-green.tick-round{ border-radius:50% !important; }
+  .tick-green.tick-round:checked{ background-image:none !important; background-color:#fff !important;
+    border-color:#2dce89 !important; box-shadow:inset 0 0 0 4px #2dce89; }
+  [data-bs-theme="dark"] .grade-opt{ background:transparent; color:inherit; border-color:rgba(255,255,255,.15); }
+  [data-bs-theme="dark"] .grade-opt.is-selected{ background:rgba(0,73,139,.25); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var form = document.getElementById('chooseForm');
+  if (!form) return;
+  var cohort = document.getElementById('cohortId');
+
+  function refresh() {
+    var picked = form.querySelector('input[name="programme_id"]:checked');
+    form.querySelectorAll('.grade-opt').forEach(function (el) {
+      el.classList.toggle('is-selected', !!picked && el.getAttribute('for') === picked.id);
+    });
+    form.querySelectorAll('.subject-panel').forEach(function (panel) {
+      var on = !!picked && panel.dataset.grade === picked.value;
+      panel.classList.toggle('d-none', !on);
+      // Only the chosen grade's choices are posted.
+      panel.querySelectorAll('input').forEach(function (i) { i.disabled = !on; });
+    });
+    if (picked && cohort) cohort.value = picked.dataset.cohort || 'year';
+    form.querySelectorAll('.mod-opt').forEach(function (el) {
+      var input = el.querySelector('input');
+      el.classList.toggle('is-selected', !!input && input.checked);
+    });
+    form.querySelectorAll('.choice-group').forEach(function (group) {
+      var counter = group.querySelector('.pick-count');
+      if (!counter) return;
+      var pick = parseInt(group.dataset.pick, 10);
+      var ticked = group.querySelectorAll('input.elective:checked').length;
+      counter.textContent = ticked;
+      group.querySelectorAll('input.elective').forEach(function (i) {
+        if (!i.checked) i.disabled = i.disabled || ticked >= pick;
+      });
+    });
+  }
+  form.addEventListener('change', function (e) {
+    if (e.target.classList.contains('elective')) {
+      // Re-enable everything in the panel before re-applying the limit.
+      var panel = e.target.closest('.subject-panel');
+      panel.querySelectorAll('input.elective').forEach(function (i) { i.disabled = false; });
+    }
+    refresh();
+  });
+  refresh();
+})();
+</script>
+{% endblock %}

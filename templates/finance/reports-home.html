@@ -1,0 +1,98 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static commerce %}
+{% comment %}Institution finance dashboard (admin/staff). Figures from finance.reports;
+"paid" is cash basis, "invoiced" accrual — both are always shown.{% endcomment %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Finance · {{ period.label }}</span><h3>Financial overview</h3>
+      <p>{{ period.start|date:"j M Y" }} – {{ period.end|date:"j M Y" }}, compared with the {{ period.days }} days before.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:invoices' %}"><i class="bi bi-receipt me-1"></i>Invoices</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:expenses' %}"><i class="bi bi-wallet2 me-1"></i>Expenses</a>
+      <a class="btn btn-sm btn-primary" href="{% url 'finance:report' 'profit-and-loss' %}?period={{ period.key }}&from={{ period.start|date:'Y-m-d' }}&to={{ period.end|date:'Y-m-d' }}"><i class="bi bi-bar-chart-line me-1"></i>Profit &amp; loss</a>
+    </div>
+  </div>
+  {% include 'finance/_period.html' %}
+
+  {% with p=d.pnl %}
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Income collected</span><b>{{ p.total_paid|rand }}</b><em>{% include 'finance/_delta.html' with n=d.change.paid %} paid in</em></div>
+    <div class="tc-kpi"><span>Invoiced</span><b>{{ p.total_invoiced|rand }}</b><em>{% include 'finance/_delta.html' with n=d.change.invoiced %} billed</em></div>
+    <div class="tc-kpi"><span>Outstanding now</span><b class="{% if d.aging.total %}text-danger{% endif %}">{{ d.aging.total|rand }}</b><em>all unpaid invoices</em></div>
+    <div class="tc-kpi"><span>Expenses</span><b>{{ p.expenses_total|rand }}</b><em>{% include 'finance/_delta.html' with n=d.change.expenses invert=True %}{% if p.vat_registered %} ex VAT{% endif %}</em></div>
+    <div class="tc-kpi"><span>Net profit (paid)</span><b class="{% if p.net_paid < 0 %}text-danger{% else %}text-success{% endif %}">{{ p.net_paid|rand }}</b><em>invoiced basis {{ p.net_invoiced|rand }}</em></div>
+  </div>
+  {% endwith %}
+
+  <div class="row g-4">
+    <div class="col-xl-8">
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Money in and money out, last 12 months</h5></div>
+        <div class="tc-card__body">
+          <div class="tc-chart"><canvas id="overviewChart" role="img" aria-label="Monthly income collected and expenses over the last 12 months"></canvas></div>
+          <details class="mt-2 small"><summary class="text-muted">Show as a table</summary>
+            <div class="tc-table-wrap mt-2"><table class="tc-table"><thead><tr><th>Month</th><th class="r">Paid in</th><th class="r">Invoiced</th><th class="r">Money out</th><th class="r">Net</th></tr></thead><tbody>
+              {% for r in d.series %}<tr><td>{{ r.month|date:"M Y" }}</td><td class="r">{{ r.paid|rand }}</td><td class="r">{{ r.invoiced|rand }}</td><td class="r">{{ r.expenses|rand }}</td><td class="r fw-semibold">{{ r.net|rand }}</td></tr>{% endfor %}
+            </tbody></table></div></details>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-md-6"><div class="tc-card h-100">
+          <div class="tc-card__head"><h5>Earning the most</h5><a class="tc-link" href="{% url 'finance:report' 'sales-by-item' %}?period={{ period.key }}&from={{ period.start|date:'Y-m-d' }}&to={{ period.end|date:'Y-m-d' }}">All items</a></div>
+          <div class="tc-card__body"><div class="tc-bars">
+            {% for r in d.top_items %}<div class="tc-bar"><span class="text-truncate" title="{{ r.label }}">{{ r.label }}</span><span class="tc-bar__track"><span class="tc-bar__fill" style="width:{% widthratio r.paid d.top_items.0.paid 100 %}%"></span></span><span class="tc-bar__v">{{ r.paid|rand }}</span></div>
+            {% empty %}<p class="small text-muted mb-0">No sales in this period.</p>{% endfor %}
+          </div>
+          {% if d.bottom_items %}<div class="small text-muted mt-3 mb-1">Earning the least (collected)</div>
+            {% for r in d.bottom_items %}<div class="d-flex justify-content-between small py-1 border-bottom"><span class="text-truncate me-2">{{ r.label }}</span><span class="num">{{ r.paid|rand }}</span></div>{% endfor %}{% endif %}
+          </div></div></div>
+        <div class="col-md-6"><div class="tc-card h-100">
+          <div class="tc-card__head"><h5>Top-paying students</h5><a class="tc-link" href="{% url 'finance:report' 'sales-by-customer' %}?period={{ period.key }}&from={{ period.start|date:'Y-m-d' }}&to={{ period.end|date:'Y-m-d' }}">All</a></div>
+          <div class="tc-table-wrap"><table class="tc-table"><tbody>
+            {% for r in d.top_customers %}<tr><td><a href="{% url 'finance:statement-for' r.user.pk %}">{{ r.name }}</a>{% if r.outstanding %}<div class="small text-danger">owes {{ r.outstanding|rand }}</div>{% endif %}</td><td class="r fw-semibold">{{ r.paid|rand }}</td></tr>
+            {% empty %}<tr><td class="text-muted">No payments in this period.</td></tr>{% endfor %}
+          </tbody></table></div></div></div>
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Income by stream</h5></div>
+        <div class="tc-card__body"><div class="tc-bars">
+          {% for r in d.streams %}<div class="tc-bar"><span>{{ r.label }}</span><span class="tc-bar__track"><span class="tc-bar__fill" style="width:{% widthratio r.paid stream_max 100 %}%"></span></span><span class="tc-bar__v">{{ r.paid|rand }}</span></div>
+          {% empty %}<p class="small text-muted mb-0">No income in this period.</p>{% endfor %}
+        </div><p class="small text-muted mt-2 mb-0">Collected (paid basis).</p></div>
+      </div>
+
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Who owes, and for how long</h5><a class="tc-link" href="{% url 'finance:report' 'receivables' %}">Details</a></div>
+        <div class="tc-card__body"><div class="tc-aging">
+          {% for b in d.aging.buckets %}<div class="{% if b.key == '31_60' or b.key == '1_30' %}is-late{% elif b.key == '61_90' or b.key == '90_plus' %}is-bad{% endif %}"><b>{{ b.amount|rand }}</b>{{ b.label }}</div>{% endfor %}
+        </div></div>
+      </div>
+
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Income by grade</h5><a class="tc-link" href="{% url 'finance:report' 'income-by-programme' %}?period={{ period.key }}&from={{ period.start|date:'Y-m-d' }}&to={{ period.end|date:'Y-m-d' }}">All</a></div>
+        <div class="tc-card__body">{% for r in d.programmes %}<div class="d-flex justify-content-between small py-1 border-bottom"><span class="text-truncate me-2">{{ r.programme }}</span><b class="num">{{ r.paid|rand }}</b></div>{% empty %}<p class="small text-muted mb-0">Nothing yet.</p>{% endfor %}</div>
+      </div>
+
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Where the money went</h5><a class="tc-link" href="{% url 'finance:report' 'expenses' %}?period={{ period.key }}&from={{ period.start|date:'Y-m-d' }}&to={{ period.end|date:'Y-m-d' }}">All</a></div>
+        <div class="tc-card__body"><div class="tc-bars">
+          {% for r in d.expense_categories %}<div class="tc-bar"><span class="text-truncate">{{ r.category__name }}</span><span class="tc-bar__track"><span class="tc-bar__fill is-out" style="width:{% widthratio r.total d.expense_categories.0.total 100 %}%"></span></span><span class="tc-bar__v">{{ r.total|rand }}</span></div>
+          {% empty %}<p class="small text-muted mb-0">No expenses recorded.</p>{% endfor %}
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <h5 class="mt-4 mb-3">All reports</h5>
+  <div class="tc-reportnav">
+    {% for slug, title, blurb, icon in reports %}<a href="{% url 'finance:report' slug %}?period={{ period.key }}&from={{ period.start|date:'Y-m-d' }}&to={{ period.end|date:'Y-m-d' }}"><i class="bi {{ icon }}"></i><b>{{ title }}</b><small>{{ blurb }}</small></a>{% endfor %}
+  </div>
+</div></div>
+{% include 'finance/_chart_js.html' with canvas_id='overviewChart' in_label='Money in' %}
+{% endblock %}

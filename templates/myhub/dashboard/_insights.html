@@ -1,0 +1,14 @@
+{% comment %}Study insights — the plain-English read-out of the analytics
+(momentum trend, weakest readiness, exam pace, completion forecast). Capped at
+four cards so the strip never pushes the real work below the fold.{% endcomment %}
+
+{% if insights %}
+<div class="dash-insights">
+  {% for card in insights %}
+  <div class="dash-insight dash-insight--{{ card.tone }}">
+    <h6><i class="bi {{ card.icon }}"></i>{{ card.title }}</h6>
+    <p>{{ card.body }}</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

@@ -1,0 +1,87 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static commerce %}
+{% comment %}Checkout — review, then place the order. Placing it freezes the cart's
+quote onto the order and invoice (shop.checkout.place_order) and hands over to
+the PayFast pay page; an order that costs nothing is settled on the spot.{% endcomment %}
+
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+
+  <div class="tc-steps" aria-label="Checkout progress">
+    <span class="is-done"><b><i class="bi bi-check"></i></b>Cart</span><i class="bi bi-chevron-right"></i>
+    <span class="is-now"><b>2</b>Checkout</span><i class="bi bi-chevron-right"></i>
+    <span><b>3</b>Pay</span>
+  </div>
+  <div class="tc-head">
+    <div><h3>Checkout</h3><p>Check your order, then pay securely with PayFast.</p></div>
+    <div class="tc-head__actions"><a href="{% url 'shop:cart' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to cart</a></div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      {% for problem in problems %}<div class="tc-alert tc-alert--danger mb-2"><i class="bi bi-exclamation-triangle"></i><span>{{ problem }}</span></div>{% endfor %}
+
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Billed to</h5></div>
+        <div class="tc-card__body d-flex flex-wrap gap-4">
+          <div><div class="small text-muted">Name</div><b>{{ request.user|person_name }}</b></div>
+          <div><div class="small text-muted">E-mail</div><b>{{ request.user.email|default:"—" }}</b></div>
+          <div class="small text-muted align-self-end">Your invoice and receipt are sent here.</div>
+        </div>
+      </div>
+
+      {% if needs_delivery %}{% include 'shop/_delivery.html' %}{% endif %}
+
+      <div class="tc-card">
+        <div class="tc-card__head"><h5>Your order</h5><span class="tc-link">{{ cart.item_count }} item{{ cart.item_count|pluralize }}</span></div>
+        <div class="tc-card__body">
+          <div class="tc-lines">
+            {% for line in lines %}{% with item=line.item %}
+            <div class="tc-line">
+              <span class="tc-line__thumb">{% if item.product.image %}<img src="{{ item.product.image.url }}" alt="">{% else %}<i class="bi {{ item.product.fulfilment|fulfilment_icon }}"></i>{% endif %}</span>
+              <div>
+                <div class="tc-line__name">{{ item.description }}</div>
+                <div class="tc-line__sub">
+                  <span>Qty {{ item.quantity }} × {{ item.unit_price|rand }}</span>
+                  {% if line.label %}<span class="tc-chip tc-chip--success">{{ line.label }}</span>{% endif %}
+                  {% if item.product.is_digital %}<span><i class="bi bi-lightning-charge me-1"></i>Download once paid</span>{% endif %}
+                  {% if item.booking %}<span class="tc-chip tc-chip--primary"><i class="bi bi-calendar2-check"></i>{{ item.booking.label }} · {{ item.booking.educator }}</span>{% endif %}
+                  {% if item.product.is_shipped %}<span><i class="bi bi-truck me-1"></i>Delivered by courier</span>{% endif %}
+                </div>
+              </div>
+              <div class="tc-line__amt"><b>{{ line.payable|rand }}</b>{% if line.discount %}<s>{{ line.gross|rand }}</s>{% endif %}</div>
+            </div>
+            {% endwith %}{% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      {% include 'shop/_summary.html' with show_coupon=True %}
+      <form method="post" class="mt-3">
+        {% csrf_token %}
+        {% if credit and quote.total > 0 %}
+          <div class="tc-card mb-2"><div class="tc-card__body pt-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="use_credit" value="1" id="useCredit" checked>
+              <label class="form-check-label" for="useCredit"><b>Use my account credit</b> — {{ credit|rand }} available</label>
+            </div>
+            <div class="small text-muted mt-1">Credit is used first; anything left is paid with PayFast.</div>
+          </div></div>
+        {% endif %}
+        {% if not payments_enabled and quote.total > 0 %}
+          <div class="tc-alert tc-alert--info mb-2"><i class="bi bi-bank"></i><span>Online payment is switched off here. Placing the order raises your invoice with our bank details for an EFT.</span></div>
+        {% endif %}
+        <button class="btn btn-primary btn-lg w-100" {% if problems or needs_delivery and not choice %}disabled{% endif %}>
+          {% if needs_delivery and not choice %}<i class="bi bi-truck me-1"></i>Choose delivery to continue
+          {% elif quote.total > 0 %}<i class="bi bi-lock-fill me-1"></i>{% if payments_enabled %}Pay {{ quote.total|rand }} with PayFast{% else %}Place order{% endif %}{% else %}<i class="bi bi-check2-circle me-1"></i>Place free order{% endif %}
+        </button>
+      </form>
+      <div class="tc-trust"><i class="bi bi-shield-lock"></i>You'll be taken to PayFast to pay by card, Instant EFT, SnapScan and more. You can also pay by EFT from your invoice.</div>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

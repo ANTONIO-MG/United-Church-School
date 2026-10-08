@@ -1,0 +1,68 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static commerce %}
+{% comment %}Invoices — Wave's list: money owed up top, then Unpaid / Draft / All.{% endcomment %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Finance</span><h3>Invoices</h3>
+      <p>{% if is_staff %}Everything billed, and what is still owed.{% else %}Your invoices and what is still to pay.{% endif %}</p></div>
+    <div class="tc-head__actions">
+      {% if is_staff %}
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:estimates' %}"><i class="bi bi-file-earmark-text me-1"></i>Estimates</a>
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:create-invoice' %}"><i class="bi bi-people me-1"></i>Bulk invoice</a>
+        <a class="btn btn-sm btn-primary" href="{% url 'finance:invoice-new' %}"><i class="bi bi-plus-lg me-1"></i>New invoice</a>
+      {% else %}
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:statement' %}"><i class="bi bi-journal-text me-1"></i>Statement</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tc-kpis">
+    <div class="tc-kpi"><span>Overdue</span><b class="{% if kpis.overdue %}text-danger{% endif %}">{{ kpis.overdue|rand }}</b><em>{{ kpis.overdue_count }} invoice{{ kpis.overdue_count|pluralize }}</em></div>
+    <div class="tc-kpi"><span>Due within 30 days</span><b>{{ kpis.due_soon|rand }}</b><em>not yet overdue</em></div>
+    <div class="tc-kpi"><span>Collected this month</span><b class="text-success">{{ kpis.collected_month|rand }}</b><em>payments received</em></div>
+    {% if is_staff %}<div class="tc-kpi"><span>Average time to get paid</span><b>{% if kpis.avg_days is not None %}{{ kpis.avg_days }} day{{ kpis.avg_days|pluralize }}{% else %}—{% endif %}</b><em>last 90 days</em></div>{% endif %}
+  </div>
+
+  <nav class="tc-aisles" aria-label="Invoice filter">
+    <a class="tc-aisle {% if tab == 'unpaid' %}is-active{% endif %}" href="?tab=unpaid">Unpaid<span class="tc-count">{{ counts.unpaid }}</span></a>
+    {% if is_staff %}<a class="tc-aisle {% if tab == 'draft' %}is-active{% endif %}" href="?tab=draft">Draft<span class="tc-count">{{ counts.draft }}</span></a>{% endif %}
+    <a class="tc-aisle {% if tab == 'paid' %}is-active{% endif %}" href="?tab=paid">Paid<span class="tc-count">{{ counts.paid }}</span></a>
+    <a class="tc-aisle {% if tab == 'all' %}is-active{% endif %}" href="?tab=all">All<span class="tc-count">{{ counts.all }}</span></a>
+  </nav>
+
+  {% if is_staff %}
+  <form method="get" class="tc-toolbar"><input type="hidden" name="tab" value="{{ tab }}">
+    <label class="visually-hidden" for="invSearch">Search</label>
+    <input id="invSearch" class="form-control form-control-sm tc-search" type="search" name="q" value="{{ search }}" placeholder="Search by number, customer or e-mail">
+    <button class="btn btn-sm btn-primary"><i class="bi bi-search"></i><span class="visually-hidden">Search</span></button>
+  </form>
+  {% endif %}
+
+  <div class="tc-card"><div class="tc-table-wrap">
+    <table class="tc-table">
+      <thead><tr><th>Status</th><th>Due</th><th>Date</th><th>Number</th>{% if is_staff %}<th>Customer</th>{% endif %}<th class="r">Total</th><th class="r">Amount due</th><th></th></tr></thead>
+      <tbody>
+      {% for inv in invoices %}
+        <tr>
+          <td>{% include 'finance/_status.html' with doc=inv %}</td>
+          <td class="small {% if inv.is_overdue %}text-danger fw-semibold{% endif %}">{% if inv.status == 'paid' %}—{% elif inv.is_overdue %}{{ inv.days_overdue }} day{{ inv.days_overdue|pluralize }} ago{% elif inv.due_date %}{{ inv.due_date|date:"j M" }}{% endif %}</td>
+          <td class="small text-muted">{{ inv.issue_date|date:"j M Y" }}</td>
+          <td><a class="fw-semibold" href="{% url 'finance:invoice-detail' inv.pk %}">{{ inv.number }}</a>{% if inv.summary %}<div class="small text-muted">{{ inv.summary|truncatechars:40 }}</div>{% endif %}</td>
+          {% if is_staff %}<td>{{ inv.customer|person_name }}</td>{% endif %}
+          <td class="r">{{ inv.total|rand }}</td>
+          <td class="r fw-semibold">{{ inv.balance|rand }}</td>
+          <td class="r text-nowrap">
+            {% if inv.balance > 0 and inv.status != 'draft' and inv.status != 'cancelled' and not is_staff %}<a class="btn btn-sm btn-primary" href="{% url 'finance:pay' inv.public_id %}">Pay</a>{% endif %}
+            <a class="btn btn-sm tc-btn-soft" href="{% url 'finance:invoice-detail' inv.pk %}">View</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8"><div class="tc-empty"><i class="bi bi-receipt"></i><h5>{% if tab == 'unpaid' %}Nothing outstanding{% else %}No invoices here{% endif %}</h5>{% if tab == 'unpaid' %}<p class="mb-0">Every invoice is settled.</p>{% endif %}</div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div></div>
+{% endblock %}

@@ -1,0 +1,197 @@
+{% load static %}
+{% comment %}
+The composer modals from the Social theme's my-profile.html — Create post /
+Add photo / Add video / Create event — turned into real forms.
+
+All three post modals submit to communication:wall-post (body + optional
+attachments + the wall's scope). The event modal submits to the class-session
+creator when the wall belongs to a module; on a personal wall it points at the
+meeting creator instead, since an event needs somewhere to live.
+{% endcomment %}
+
+{# ---------------- Create post ---------------- #}
+<div class="modal fade" id="modalCreateFeed" tabindex="-1" aria-labelledby="modalLabelCreateFeed" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <form method="post" action="{% url 'communication:wall-post' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% if wall_scope.course %}<input type="hidden" name="course" value="{{ wall_scope.course }}">{% endif %}
+        {% if wall_scope.module %}<input type="hidden" name="module" value="{{ wall_scope.module }}">{% endif %}
+
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalLabelCreateFeed">Create post</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="d-flex mb-3">
+            <div class="avatar avatar-xs me-2">
+              {% if user.profile %}
+                <img class="avatar-img rounded-circle" src="{{ user.profile.avatar_url }}" alt="">
+              {% else %}
+                <div class="avatar-img rounded-circle bg-primary d-flex align-items-center justify-content-center">
+                  <span class="text-white small fw-bold">{{ user.profile.first_name|default:user.username|slice:":1"|upper }}</span>
+                </div>
+              {% endif %}
+            </div>
+            <textarea class="form-control pe-4 fs-3 lh-1 border-0" name="body" rows="4"
+                      placeholder="Share your thoughts..." autofocus></textarea>
+          </div>
+
+          <label class="form-label small text-muted">Attach photos, videos or files</label>
+          <div class="mediazone">
+            <div class="mediazone-prompt">
+              <i class="bi bi-images"></i>
+              <p>Drag here or click to upload.</p>
+            </div>
+            <input type="file" name="attachments" multiple hidden>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger-soft me-2" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success-soft">Post</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ---------------- Add photo ---------------- #}
+<div class="modal fade" id="feedActionPhoto" tabindex="-1" aria-labelledby="feedActionPhotoLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="{% url 'communication:wall-post' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% if wall_scope.course %}<input type="hidden" name="course" value="{{ wall_scope.course }}">{% endif %}
+        {% if wall_scope.module %}<input type="hidden" name="module" value="{{ wall_scope.module }}">{% endif %}
+
+        <div class="modal-header">
+          <h5 class="modal-title" id="feedActionPhotoLabel">Add post photo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          <textarea class="form-control pe-4 mb-3 border-0" name="body" rows="2" placeholder="Share your thoughts..."></textarea>
+          <label class="form-label">Upload photo</label>
+          <div class="mediazone" data-accept="^image/">
+            <div class="mediazone-prompt">
+              <i class="bi bi-images"></i>
+              <p>Drag here or click to upload photo.</p>
+            </div>
+            <input type="file" name="attachments" accept="image/*" multiple hidden>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger-soft me-2" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success-soft">Post</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ---------------- Add document ---------------- #}
+{% comment %}Same shape as the photo modal so the toolbar behaves consistently;
+the accept list is the document types, and .mediazone gives it the same
+drag-and-drop preview the photo and video pickers use.{% endcomment %}
+<div class="modal fade" id="feedActionDocument" tabindex="-1" aria-labelledby="feedActionDocumentLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="{% url 'communication:wall-post' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% if wall_scope.course %}<input type="hidden" name="course" value="{{ wall_scope.course }}">{% endif %}
+        {% if wall_scope.module %}<input type="hidden" name="module" value="{{ wall_scope.module }}">{% endif %}
+
+        <div class="modal-header">
+          <h5 class="modal-title" id="feedActionDocumentLabel">Share a document</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          <textarea class="form-control pe-4 mb-3 border-0" name="body" rows="3"
+                    placeholder="What is this document?" style="font-size:.875rem"></textarea>
+          <label class="form-label">Upload document</label>
+          <div class="mediazone" data-accept="(pdf|word|excel|powerpoint|text|officedocument|zip|csv)">
+            <div class="mediazone-prompt">
+              <i class="bi bi-file-earmark-text"></i>
+              <p>Drag here or click to upload a PDF, Word, Excel, PowerPoint or text file.</p>
+            </div>
+            <input type="file" name="attachments" multiple hidden
+                   accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.zip,application/pdf">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger-soft me-2" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success-soft">Post</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ---------------- Add video ---------------- #}
+<div class="modal fade" id="feedActionVideo" tabindex="-1" aria-labelledby="feedActionVideoLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="{% url 'communication:wall-post' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        {% if wall_scope.course %}<input type="hidden" name="course" value="{{ wall_scope.course }}">{% endif %}
+        {% if wall_scope.module %}<input type="hidden" name="module" value="{{ wall_scope.module }}">{% endif %}
+
+        <div class="modal-header">
+          <h5 class="modal-title" id="feedActionVideoLabel">Add post video</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          <textarea class="form-control pe-4 mb-3 border-0" name="body" rows="2" placeholder="Share your thoughts..."></textarea>
+          <label class="form-label">Upload video</label>
+          <div class="mediazone" data-accept="^video/">
+            <div class="mediazone-prompt">
+              <i class="bi bi-camera-reels"></i>
+              <p>Drag here or click to upload video.</p>
+            </div>
+            <input type="file" name="attachments" accept="video/*" hidden>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger-soft me-2" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success-soft">Post</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ---------------- Create event ---------------- #}
+<div class="modal fade" id="modalCreateEvents" tabindex="-1" aria-labelledby="modalLabelCreateEvents" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalLabelCreateEvents">Create event</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted">
+          Events on the hub are <strong>class sessions</strong> (they carry attendance) or
+          <strong>meetings</strong>. Pick where this one belongs:
+        </p>
+        <div class="d-grid gap-2">
+          {% if wall_scope.module %}
+          <a href="{% url 'communication:attendance' %}" class="btn btn-primary-soft">
+            <i class="bi bi-calendar2-event-fill me-2"></i>Schedule a class session</a>
+          {% endif %}
+          <a href="{% url 'communication:meeting-create' %}" class="btn btn-secondary-soft">
+            <i class="bi bi-camera-video-fill me-2"></i>Create a meeting</a>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger-soft" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>

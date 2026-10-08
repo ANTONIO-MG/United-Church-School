@@ -1,0 +1,92 @@
+{% comment %}Presence heartbeat — drives automatic, time-based attendance.
+
+Include on any page that represents *being in* a class session, passing the
+session:  {% include 'partials/_presence.html' with presence_session=session %}
+
+While the tab is visible it POSTs to communication:attendance-ping every
+PING_SECONDS. The server credits the elapsed time (capped server-side) and
+returns the running total, so the badge below shows the student exactly how much
+of the session they have attended and how much is still needed.
+
+Nothing is credited while the tab is hidden — pings stop, and the server's gap
+cap means the paused stretch is not back-filled when they return.
+{% endcomment %}
+
+{% if presence_session and user.is_authenticated %}
+<div id="presenceBadge" class="presence-badge" hidden>
+  <span class="presence-dot"></span>
+  <span class="presence-text">Tracking attendance…</span>
+</div>
+
+<style>
+  .presence-badge{
+    position: fixed; right: 1rem; bottom: 1rem; z-index: 1050;
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .5rem .8rem; border-radius: .8rem;
+    background: rgba(23,25,39,.88); color: #fff;
+    font-size: .78rem; font-weight: 600;
+    box-shadow: 0 8px 26px rgba(20,20,43,.28);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  }
+  .presence-badge .presence-dot{
+    width: .5rem; height: .5rem; border-radius: 50%; background: #82d616;
+    animation: presencePulse 1.8s ease-in-out infinite;
+  }
+  .presence-badge.is-paused .presence-dot{ background: #8392ab; animation: none; }
+  .presence-badge.is-met .presence-dot{ background: #82d616; }
+  @keyframes presencePulse{ 0%,100%{opacity:1} 50%{opacity:.3} }
+  @media (prefers-reduced-motion: reduce){ .presence-badge .presence-dot{ animation: none; } }
+</style>
+
+<script>
+(function(){
+  var URL_PING = "{% url 'communication:attendance-ping' presence_session.pk %}";
+  var PING_SECONDS = 60;              // server caps a single credit at 150s
+  var badge = document.getElementById('presenceBadge');
+  var text  = badge.querySelector('.presence-text');
+  var timer = null;
+
+  function csrf(){
+    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  function show(msg, cls){
+    text.textContent = msg;
+    badge.hidden = false;
+    badge.classList.toggle('is-met', cls === 'met');
+    badge.classList.toggle('is-paused', cls === 'paused');
+  }
+
+  function ping(){
+    if(document.visibilityState !== 'visible') return;   // away → credit nothing
+    fetch(URL_PING, {
+      method: 'POST',
+      headers: {'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest'},
+      credentials: 'same-origin'
+    }).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+      if(!d || !d.ok) return;
+      if(d.manual){
+        show('Marked ' + d.status_display + ' by your educator', 'met');
+        return;
+      }
+      if(d.pct >= d.required_pct){
+        show(d.minutes + ' min attended · ' + d.pct + '% — marked ' + d.status_display, 'met');
+      }else{
+        show(d.minutes + ' min attended · ' + d.pct + '% of ' + d.required_pct + '% needed', '');
+      }
+    }).catch(function(){ /* offline → try again next tick */ });
+  }
+
+  function start(){ if(!timer){ ping(); timer = setInterval(ping, PING_SECONDS * 1000); } }
+  function stop(){ if(timer){ clearInterval(timer); timer = null; } }
+
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible'){ start(); }
+    else { stop(); badge.classList.add('is-paused'); }
+  });
+
+  start();
+})();
+</script>
+{% endif %}

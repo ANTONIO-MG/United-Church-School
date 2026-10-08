@@ -1,0 +1,40 @@
+{% comment %}
+A broadcast's video, pictures and documents — shown on each recipient's
+notification page and on the sender's view. Context: a (Announcement).
+{% endcomment %}
+{% with atts=a.attachments.all %}
+{% if a.media_url or atts or a.url %}
+<div class="nr-media">
+  {% if a.embed_url %}
+    <div class="nr-media__video"><iframe src="{{ a.embed_url }}" title="{{ a.title }}" loading="lazy"
+         allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+  {% elif a.media_url %}
+    <p><a href="{{ a.media_url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary"><i class="bi bi-play-circle me-1"></i>Watch the video</a></p>
+  {% endif %}
+
+  {% for f in atts %}{% if f.kind == 'video' %}
+    <div class="nr-media__video"><video src="{{ f.file.url }}" controls preload="metadata" playsinline></video></div>
+  {% endif %}{% endfor %}
+
+  <div class="nr-gallery">
+    {% for f in atts %}{% if f.kind == 'image' %}
+      <a href="{{ f.file.url }}" target="_blank" rel="noopener" title="{{ f.original_name }}"><img src="{{ f.file.url }}" alt="{{ f.original_name }}" loading="lazy"></a>
+    {% endif %}{% endfor %}
+  </div>
+
+  <div class="nr-docs">
+    {% for f in atts %}{% if f.kind == 'file' %}
+      <a class="nr-doc" href="{{ f.file.url }}" target="_blank" rel="noopener" download>
+        <i class="bi bi-file-earmark-{% if '.pdf' in f.original_name|lower %}pdf{% elif '.xls' in f.original_name|lower or '.csv' in f.original_name|lower %}spreadsheet{% elif '.ppt' in f.original_name|lower %}slides{% elif '.doc' in f.original_name|lower %}word{% else %}text{% endif %}"></i>
+        <span><b>{{ f.original_name }}</b><small>{{ f.size|filesizeformat }}</small></span>
+        <i class="bi bi-download"></i>
+      </a>
+    {% endif %}{% endfor %}
+  </div>
+
+  {% if a.url %}
+    <p class="mt-3 mb-0"><a href="{{ a.url }}" class="btn btn-primary"{% if a.url|slice:":4" == "http" %} target="_blank" rel="noopener"{% endif %}><i class="bi bi-box-arrow-up-right me-1"></i>{{ a.url_label|default:"Open" }}</a></p>
+  {% endif %}
+</div>
+{% endif %}
+{% endwith %}

@@ -1,0 +1,155 @@
+{% extends 'diagnostics/_shell.html' %}{% load people %}
+{% comment %}One error in full: what the dictionary says to do about it, then the
+evidence (traceback, context, request) needed to actually do it.{% endcomment %}
+{% block nav_log %}btn-primary{% endblock %}
+
+{% block diagnostics %}
+
+<div class="mb-3">
+  <a class="btn btn-sm btn-light" href="{% url 'diagnostics:log' %}">
+    <i class="bi bi-arrow-left me-1"></i>Back to the log</a>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+          <span class="diag-code fs-5">{{ event.code }}</span>
+          <span class="diag-chip sev-{{ event.severity }}">{{ event.severity }}</span>
+          <span class="badge bg-light text-dark">{{ cause }}</span>
+          <span class="badge bg-secondary">seen {{ event.count }}×</span>
+          {% if not event.is_documented %}
+          <span class="diag-chip sev-warning">not in the dictionary</span>
+          {% endif %}
+        </div>
+        <h5 class="mb-3">{{ spec.title }}</h5>
+
+        <div class="diag-remedy">
+          <h6>Why it happens</h6><p>{{ spec.why }}</p>
+        </div>
+        <div class="diag-remedy diag-remedy--fix">
+          <h6>Developer — what to check or change</h6><p>{{ spec.fix }}</p>
+        </div>
+        <div class="diag-remedy diag-remedy--user">
+          <h6>User — what to tell them to do</h6><p>{{ spec.action }}</p>
+        </div>
+
+        <a class="btn btn-sm btn-outline-primary"
+           href="{% url 'diagnostics:dictionary' %}?q={{ event.code }}">
+          <i class="bi bi-journal-code me-1"></i>Open in the dictionary</a>
+      </div>
+    </div>
+
+    {% if event.message %}
+    <div class="card mb-3">
+      <div class="card-header border-0 pb-0"><h6 class="card-title mb-0">Message</h6></div>
+      <div class="card-body pt-2"><p class="diag-mono mb-0">{{ event.message }}</p></div>
+    </div>
+    {% endif %}
+
+    {% if event.traceback %}
+    <div class="card mb-3">
+      <div class="card-header border-0 pb-0 d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0">Traceback <span class="text-muted fw-normal small">(most recent occurrence)</span></h6>
+        <button class="btn btn-sm btn-light" id="copyTrace"><i class="bi bi-clipboard me-1"></i>Copy</button>
+      </div>
+      <div class="card-body pt-2"><pre class="diag-pre" id="traceText">{{ event.traceback }}</pre></div>
+    </div>
+    {% endif %}
+
+    {% if event.context %}
+    <div class="card mb-3">
+      <div class="card-header border-0 pb-0"><h6 class="card-title mb-0">Context</h6></div>
+      <div class="card-body pt-2">
+        <table class="table table-sm mb-0 diag-mono">
+          {% for key, value in event.context.items %}
+          <tr><th class="text-muted" style="width:30%">{{ key }}</th><td>{{ value }}</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header border-0 pb-0"><h6 class="card-title mb-0">Where and when</h6></div>
+      <div class="card-body pt-2">
+        <dl class="diag-kv mb-0">
+          <dt>Reference</dt><dd class="diag-mono">{{ event.reference|default:"—" }}</dd>
+          <dt>Module</dt><dd class="diag-mono">{{ event.module|default:"—" }}</dd>
+          <dt>Function</dt>
+          <dd class="diag-mono">{{ event.function|default:"—" }}{% if event.line %} · line {{ event.line }}{% endif %}</dd>
+          <dt>Exception</dt><dd class="diag-mono">{{ event.exception_type|default:"—" }}</dd>
+          <dt>Request</dt>
+          <dd class="diag-mono">{% if event.path %}{{ event.method }} {{ event.path }}{% else %}—{% endif %}</dd>
+          <dt>View</dt><dd class="diag-mono">{{ event.view_name|default:"—" }}</dd>
+          <dt>User</dt><dd>{{ event.user_label|default:"—" }}</dd>
+          <dt>First seen</dt><dd>{{ event.first_seen|date:"j M Y, H:i" }}</dd>
+          <dt>Last seen</dt><dd>{{ event.last_seen|date:"j M Y, H:i" }} ({{ event.last_seen|timesince }} ago)</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header border-0 pb-0"><h6 class="card-title mb-0">Triage</h6></div>
+      <div class="card-body pt-2">
+        <form method="post">
+          {% csrf_token %}
+          <label class="form-label small">Developer note</label>
+          <textarea name="note" class="form-control form-control-sm mb-2" rows="3"
+                    placeholder="What you found, or why this is expected…">{{ event.note }}</textarea>
+          <div class="d-flex flex-wrap gap-2">
+            <button name="action" value="resolve" class="btn btn-sm btn-success">
+              <i class="bi bi-check2 me-1"></i>Resolved</button>
+            <button name="action" value="ack" class="btn btn-sm btn-primary-soft">Acknowledge</button>
+            <button name="action" value="ignored" class="btn btn-sm btn-light">Ignore</button>
+            <button name="action" value="open" class="btn btn-sm btn-light">Reopen</button>
+            <button name="action" value="note" class="btn btn-sm btn-outline-secondary">Save note only</button>
+          </div>
+        </form>
+        {% if event.resolved_at %}
+        <p class="small text-muted mt-2 mb-0">
+          Resolved {{ event.resolved_at|date:"j M Y, H:i" }}{% if event.resolved_by %} by {{ event.resolved_by|person_name }}{% endif %}.
+          A recurrence reopens it automatically.
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if related %}
+    <div class="card">
+      <div class="card-header border-0 pb-0">
+        <h6 class="card-title mb-0">Also from this module</h6>
+      </div>
+      <div class="card-body pt-2">
+        <ul class="list-unstyled mb-0 small">
+          {% for other in related %}
+          <li class="py-1 border-bottom d-flex justify-content-between align-items-center gap-2">
+            <a class="diag-code" href="{% url 'diagnostics:event' other.pk %}">{{ other.code }}</a>
+            <span class="text-truncate text-muted flex-grow-1">{{ other.title }}</span>
+            <span class="badge bg-light text-dark">{{ other.count }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+(function(){
+  var btn = document.getElementById('copyTrace');
+  var pre = document.getElementById('traceText');
+  if(!btn || !pre) return;
+  btn.addEventListener('click', function(){
+    navigator.clipboard.writeText(pre.textContent).then(function(){
+      btn.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied';
+      setTimeout(function(){ btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy'; }, 1800);
+    });
+  });
+})();
+</script>
+{% endblock %}

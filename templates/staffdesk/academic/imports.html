@@ -1,0 +1,61 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}Content imports: the learning management commands, runnable from the browser, with a run history.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk · Academic</span><h3>Content imports</h3>
+      <p>The content commands that used to need a shell. Each runs in the background; output is kept below.</p></div>
+    <div class="tc-head__actions">
+      <a class="btn btn-sm btn-primary" href="{% url 'learning:content-import' %}"><i class="bi bi-upload me-1"></i>Import a pack or documents</a>
+    </div>
+  </div>
+
+  <div class="tc-alert tc-alert--info mb-3"><i class="bi bi-info-circle"></i>
+    <div>To paste or upload a single pack, or draft one from documents with review, use <a href="{% url 'learning:content-import' %}">Import content</a>. Everything imported here lands as a draft — publishing stays a separate step on the subject schedule.</div></div>
+
+  <div class="sda-cards">
+    {% for c in cards %}
+    <form method="post" action="{% url 'staffdesk:import-run' c.name %}" class="tc-card sda-cmd">{% csrf_token %}
+      <div class="tc-card__head"><i class="bi {{ c.icon }} text-primary"></i><h6>{{ c.title }}</h6></div>
+      <div class="tc-card__body">
+        <p class="small text-muted">{{ c.blurb }}</p>
+        {% if c.name == 'import_seed_packs' %}
+          <p class="small mb-2">{% for p in seed_packs %}<span class="tc-chip me-1">{{ p }}</span>{% empty %}<span class="text-muted">No packs in core/seed_packs/.</span>{% endfor %}</p>
+        {% endif %}
+        {% if c.name == 'import_content_folder' %}
+          <p class="small text-muted mb-2">Folders are read from {% for r in source_roots %}<code>{{ r }}</code>{% if not forloop.last %}, {% endif %}{% empty %}<code>content_sources/</code> (not present on this server){% endfor %}.</p>
+        {% endif %}
+        {% for field in c.form %}{% include 'staffdesk/academic/_field.html' %}{% endfor %}
+        <code class="sda-cmdline">manage.py {{ c.name }}</code>
+      </div>
+      <div class="tc-savebar">
+        {% if c.active %}<a class="me-auto small" href="{% url 'staffdesk:import-run-detail' c.active.pk %}"><span class="spinner-border spinner-border-sm me-1"></span>Running…</a>{% endif %}
+        <button class="btn btn-sm btn-primary" {% if c.active %}disabled{% endif %}><i class="bi bi-play-fill me-1"></i>Run</button>
+      </div>
+    </form>
+    {% endfor %}
+  </div>
+
+  <div class="tc-card mt-3">
+    <div class="tc-card__head"><h6>Recent runs</h6></div>
+    <div class="tc-table-wrap"><table class="tc-table">
+      <thead><tr><th>Command</th><th>Status</th><th class="d-none d-md-table-cell">Arguments</th><th>Started</th><th class="d-none d-md-table-cell">By</th><th></th></tr></thead>
+      <tbody>
+      {% for r in runs %}
+        <tr>
+          <td class="fw-semibold">{{ r.command }}</td>
+          <td>{% include 'staffdesk/academic/_run_status.html' with run=r %}</td>
+          <td class="d-none d-md-table-cell small text-muted sda-args">{{ r.args|join:" " }}</td>
+          <td class="small text-nowrap">{{ r.started_at|timesince }} ago</td>
+          <td class="d-none d-md-table-cell small">{{ r.started_by|person_name|default:"—" }}</td>
+          <td class="r"><a class="btn btn-sm tc-btn-soft" href="{% url 'staffdesk:import-run-detail' r.pk %}">Output</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6"><div class="tc-empty"><i class="bi bi-terminal"></i><h5>No runs yet</h5></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+</div></div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% comment %}Public post-payment page (return from PayFast).{% endcomment %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height:100vh;background:#f5f4ee">
+  <div class="card shadow-sm text-center" style="max-width:460px;width:100%">
+    <div class="card-body p-4">
+      <div class="display-4 text-success mb-2"><i class="bi bi-check-circle-fill"></i></div>
+      {% if invoice %}
+        <h4>{% if already %}This invoice is already paid{% else %}Payment complete{% endif %}</h4>
+        <p class="text-muted">Invoice <strong>{{ invoice.number }}</strong> — total R{{ invoice.total }}.</p>
+        <p class="small">A receipt has been e-mailed to {{ invoice.customer.email }}.</p>
+        {% if request.user.is_authenticated %}
+          <a href="{% url 'finance:receipt' invoice.pk %}" class="btn btn-outline-primary">View receipt</a>
+          <a href="{% url 'finance:invoices' %}" class="btn btn-primary">My invoices</a>
+        {% else %}
+          <a href="{% url 'myhub:page-login' %}" class="btn btn-primary">Sign in</a>
+        {% endif %}
+      {% else %}
+        <h4>Payment complete</h4>
+        <a href="/" class="btn btn-primary mt-2">Home</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

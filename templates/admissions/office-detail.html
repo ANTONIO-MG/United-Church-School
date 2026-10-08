@@ -1,0 +1,162 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load humanize %}
+{% comment %}One application in full for the school office: everything the family
+entered (application form pages 2 – 5), the document checklist with
+verification, the page-1 "office use only" checklist, the enrolment invoice and
+the admission decision.{% endcomment %}
+
+{% block content %}
+{% with app=application %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <a class="text-sm" href="{% url 'admissions:office-list' %}"><i class="bi bi-arrow-left me-1"></i>All applications</a>
+    <h1 class="h4 mb-0 mt-1">{{ app.learner_name }}</h1>
+    <p class="text-sm text-muted mb-0">{{ app.programme.display_name|default:"Grade not chosen" }} · {{ app.year }} ·
+      {{ app.is_new_learner|yesno:"new applicant,current UCS learner" }}{% if app.submitted_at %} · submitted {{ app.submitted_at|date:"j F Y, H:i" }}{% endif %}</p>
+  </div>
+  <span class="badge {% if app.status == 'admitted' %}bg-gradient-success{% elif app.status == 'documents' %}bg-gradient-warning{% elif app.status == 'declined' or app.status == 'withdrawn' %}bg-gradient-secondary{% else %}bg-gradient-info{% endif %} fs-6">{{ app.get_status_display }}</span>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    <div class="card mb-4"><div class="card-body">
+      <h6>Learner</h6>
+      <dl class="row text-sm mb-0">
+        <dt class="col-sm-4">Name</dt><dd class="col-sm-8">{{ app.person.title }} {{ app.person.first_name }} {{ app.person.last_name }}</dd>
+        <dt class="col-sm-4">Date of birth · gender</dt><dd class="col-sm-8">{{ app.person.date_of_birth|date:"j F Y"|default:"—" }} · {{ app.person.get_gender_display|default:app.get_gender_display|default:"—" }}</dd>
+        <dt class="col-sm-4">Document</dt><dd class="col-sm-8">{{ app.get_id_document_type_display|default:"—" }}
+          {% if app.id_number %}· {{ app.id_number }}{% endif %}{% if app.passport_number %}· passport {{ app.passport_number }}{% endif %}{% if app.permit_number %}· permit {{ app.permit_number }}{% endif %}
+          {% if app.document_country %}· {{ app.document_country }}{% endif %}{% if app.document_expiry %}· expires {{ app.document_expiry|date:"j M Y" }}{% endif %}</dd>
+        <dt class="col-sm-4">South African</dt><dd class="col-sm-8">{{ app.is_south_african|yesno:"Yes,No" }}{% if app.study_permit_number %} · study permit {{ app.study_permit_number }}{% if app.study_permit_expiry %} (expires {{ app.study_permit_expiry|date:"j M Y" }}){% endif %}{% endif %}{% if app.permanent_residency %} · permanent residency / refugee status{% endif %}</dd>
+        <dt class="col-sm-4">Highest grade passed</dt><dd class="col-sm-8">{{ app.highest_grade_passed|default:"—" }}{% if app.year_grade_passed %} ({{ app.year_grade_passed }}){% endif %}</dd>
+        <dt class="col-sm-4">Address</dt><dd class="col-sm-8">{{ app.physical_address|linebreaksbr|default:"—" }}</dd>
+        <dt class="col-sm-4">Home language · religion</dt><dd class="col-sm-8">{{ app.home_language|default:"—" }} · {{ app.religion|default:"—" }}</dd>
+        <dt class="col-sm-4">Race · writes with</dt><dd class="col-sm-8">{{ app.get_race_display|default:"—" }} · {{ app.get_writing_hand_display|default:"—" }}</dd>
+        <dt class="col-sm-4">Previous school</dt><dd class="col-sm-8">{{ app.previous_school|default:"—" }}{% if app.previous_school_address %}, {{ app.previous_school_address }}{% endif %}{% if app.previous_school_phone %} · {{ app.previous_school_phone }}{% endif %}</dd>
+      </dl>
+    </div></div>
+
+    <div class="card mb-4"><div class="card-body">
+      <h6>General</h6>
+      <dl class="row text-sm mb-0">
+        <dt class="col-sm-4">Has father · mother</dt><dd class="col-sm-8">{{ app.has_father|yesno:"Yes,No,—" }} · {{ app.has_mother|yesno:"Yes,No,—" }}</dd>
+        <dt class="col-sm-4">Lives with</dt><dd class="col-sm-8">{{ app.lives_with|default:"—" }}</dd>
+        <dt class="col-sm-4">Fees paid by</dt><dd class="col-sm-8">{{ app.get_fee_payer_display|default:"—" }}{% if app.fee_payer_name %} ({{ app.fee_payer_name }}){% endif %} · can afford: {{ app.fee_payer_can_afford|yesno:"Yes,No,—" }}</dd>
+        <dt class="col-sm-4">Siblings at UCS</dt><dd class="col-sm-8">{{ app.siblings_at_ucs }}{% if app.sibling_names %} — {{ app.sibling_names }}{% endif %}</dd>
+        <dt class="col-sm-4">SMSWEB number</dt><dd class="col-sm-8">{{ app.smsweb_number|default:"—" }}</dd>
+        <dt class="col-sm-4">Emergency contact</dt><dd class="col-sm-8">{{ app.emergency_name|default:"—" }}{% if app.emergency_relationship %} ({{ app.emergency_relationship }}){% endif %} · {{ app.emergency_cell_phone }} {{ app.emergency_home_phone }} {{ app.emergency_email }}</dd>
+      </dl>
+    </div></div>
+
+    <div class="card mb-4"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">Parents / guardians</h6>
+        <form method="post">{% csrf_token %}<button class="btn btn-sm btn-outline-info mb-0" name="action" value="invite">Invite to parent accounts</button></form>
+      </div>
+      <div class="row g-3">
+        {% for g in guardians %}
+        <div class="col-md-6"><div class="border rounded-3 p-3 h-100 text-sm">
+          <div class="text-xs text-uppercase text-muted fw-bold">{{ g.get_role_display }}</div>
+          <strong>{{ g.title }} {{ g.full_name }}</strong>{% if g.id_number %}<div class="text-xs">ID / passport {{ g.id_number }}</div>{% endif %}
+          <div>{% if g.cell_phone %}<i class="bi bi-phone me-1"></i>{{ g.cell_phone }} {% endif %}{% if g.home_phone %}<i class="bi bi-telephone ms-2 me-1"></i>{{ g.home_phone }}{% endif %}{% if g.work_phone %}<i class="bi bi-briefcase ms-2 me-1"></i>{{ g.work_phone }}{% endif %}</div>
+          {% if g.email %}<div><i class="bi bi-envelope me-1"></i>{{ g.email }}{% if g.invite_sent_at %} <span class="text-xs text-muted">(invited {{ g.invite_sent_at|date:"j M" }})</span>{% endif %}</div>{% endif %}
+          {% if g.residential_address %}<div class="text-xs mt-1">{{ g.residential_address|linebreaksbr }}</div>{% endif %}
+          {% if g.occupation or g.employer %}<div class="text-xs mt-1">{{ g.occupation }}{% if g.employer %} · {{ g.employer }}{% endif %}{% if g.employer_phone %} · {{ g.employer_phone }}{% endif %}</div>{% endif %}
+        </div></div>
+        {% empty %}<p class="text-sm text-muted">No parents captured.</p>{% endfor %}
+      </div>
+    </div></div>
+
+    <div class="card mb-4"><div class="card-body">
+      <h6>Medical</h6>
+      <dl class="row text-sm mb-0">
+        <dt class="col-sm-4">Conditions / allergies</dt><dd class="col-sm-8">{% if app.has_medical_condition %}<span class="text-danger fw-bold">Yes</span> — {% endif %}{{ app.medical_conditions|default:"None declared" }}</dd>
+        <dt class="col-sm-4">Medication</dt><dd class="col-sm-8">{{ app.medication|default:"—" }}</dd>
+        <dt class="col-sm-4">Medical aid</dt><dd class="col-sm-8">{{ app.medical_aid_name|default:"—" }} {{ app.medical_aid_number }} {{ app.medical_aid_plan }}{% if app.medical_aid_main_member %} · main member {{ app.medical_aid_main_member }} {{ app.medical_aid_main_member_phone }} {{ app.medical_aid_main_member_id }}{% endif %}</dd>
+        <dt class="col-sm-4">Doctor</dt><dd class="col-sm-8">{{ app.doctor_contact|default:"—" }}</dd>
+        <dt class="col-sm-4">Responsible for medical fees</dt><dd class="col-sm-8">{{ app.medical_expenses_name|default:"—" }} {{ app.medical_expenses_phone }}{% if app.medical_expenses_relationship %} ({{ app.medical_expenses_relationship }}){% endif %}</dd>
+      </dl>
+    </div></div>
+
+    <div class="card mb-4"><div class="card-body">
+      <h6>Declarations</h6>
+      <ul class="list-unstyled text-sm mb-2">
+        <li>{{ app.accept_terms|yesno:"✔,✘" }} Terms &amp; conditions</li>
+        <li>{{ app.accept_indemnity|yesno:"✔,✘" }} Indemnity and consent · extra-murals: {{ app.extramural_participation|yesno:"taking part,not taking part (dismissed 13h30 Thursdays)" }}</li>
+        <li>{{ app.accept_learner_code|yesno:"✔,✘" }} Learner's code of conduct · {{ app.accept_parent_code|yesno:"✔,✘" }} Parent's code of conduct</li>
+        <li>{{ app.accept_prospectus|yesno:"✔,✘" }} Prospectus · {{ app.accept_fees|yesno:"✔,✘" }} Fees &amp; affordability · {{ app.accept_popia|yesno:"✔,✘" }} POPIA</li>
+        <li>{{ app.media_consent|yesno:"✔ Consents,✘ Does NOT consent" }} to learner images and media · {{ app.acknowledge_documents|yesno:"✔,✘" }} Receipt of documents</li>
+      </ul>
+      <p class="text-xs text-muted mb-0">Signed by <strong>{{ app.signed_by|default:"—" }}</strong>{% if app.signed_relationship %} ({{ app.signed_relationship }}){% endif %}{% if app.signed_at %} on {{ app.signed_at|date:"j F Y, H:i" }} from {{ app.signed_ip }}{% endif %}</p>
+    </div></div>
+  </div>
+
+  <div class="col-xl-4">
+    <div class="card mb-4"><div class="card-body">
+      <h6>Documents</h6>
+      <ul class="list-group list-group-flush mb-0">
+        {% for row in checklist %}
+        <li class="list-group-item px-0">
+          <div class="d-flex justify-content-between"><span class="text-sm">{{ row.label }}</span>{% if not row.held %}<span class="badge bg-gradient-warning">Missing</span>{% endif %}</div>
+          {% for doc in row.held %}
+          <form method="post" class="d-flex justify-content-between align-items-center text-xs">{% csrf_token %}
+            <input type="hidden" name="document" value="{{ doc.pk }}">
+            <a href="{% url 'admissions:document-file' pk=doc.pk %}" target="_blank" rel="noopener">{{ doc.original_name|default:"View" }}</a>
+            <button class="btn btn-link btn-sm p-0 mb-0 {% if doc.verified %}text-success{% endif %}" name="action" value="verify">{% if doc.verified %}✔ verified{% else %}mark verified{% endif %}</button>
+          </form>
+          {% endfor %}
+        </li>
+        {% endfor %}
+        {% for doc in extra %}
+        <li class="list-group-item px-0 text-xs">{{ doc.get_kind_display }} — <a href="{% url 'admissions:document-file' pk=doc.pk %}" target="_blank" rel="noopener">{{ doc.original_name|default:"View" }}</a></li>
+        {% endfor %}
+      </ul>
+    </div></div>
+
+    <div class="card mb-4"><div class="card-body">
+      <h6>Fees</h6>
+      {% if invoice %}
+        <div class="d-flex justify-content-between text-sm"><span>Invoice {{ invoice.number }}</span><span class="badge {% if invoice.status == 'paid' %}bg-gradient-success{% else %}bg-gradient-warning{% endif %}">{{ invoice.get_status_display }}</span></div>
+        <div class="h5 mt-1">R {{ invoice.total|floatformat:2|intcomma }}</div>
+      {% else %}<p class="text-sm text-muted mb-0">No enrolment invoice.</p>{% endif %}
+      {% if enrolled_subjects %}
+        <div class="text-xs text-muted mt-2">Subjects: {% for e in enrolled_subjects %}{{ e.programme_module.display_name }} ({{ e.get_status_display|cut:" — awaiting payment"|cut:" — paid" }}){% if not forloop.last %}, {% endif %}{% endfor %}</div>
+      {% endif %}
+    </div></div>
+
+    <div class="card mb-4"><div class="card-body">
+      <h6>Office use only</h6>
+      <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+          {% if field.widget_type == 'checkbox' %}
+            <div class="form-check mb-1">{{ field }} <label class="form-check-label text-sm" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+          {% else %}
+            <label class="form-label text-sm mt-2 mb-1" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+            {% if field.errors %}<div class="text-danger text-xs">{{ field.errors|striptags }}</div>{% endif %}
+          {% endif %}
+        {% endfor %}
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" name="sign_registrar" id="signRegistrar" {% if app.registrar_id %}checked disabled{% endif %}>
+          <label class="form-check-label text-sm" for="signRegistrar">{% if app.registrar_id %}Signed by registrar {{ app.registrar.get_full_name|default:app.registrar.email }} on {{ app.registrar_signed_at|date:"j M Y" }}{% else %}Sign as registrar{% endif %}</label>
+        </div>
+        <button class="btn bg-gradient-info w-100 mt-3 mb-0" name="action" value="save">Save checklist</button>
+      </form>
+    </div></div>
+
+    <div class="card mb-4"><div class="card-body">
+      <h6>Deputy approval of admission</h6>
+      {% if app.decided_by %}<p class="text-xs text-muted">{{ app.get_status_display }} by {{ app.decided_by.get_full_name|default:app.decided_by.email }} on {{ app.decided_at|date:"j M Y" }}{% if app.decision_note %} — {{ app.decision_note }}{% endif %}</p>{% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <textarea class="form-control mb-2" name="decision_note" rows="2" placeholder="Note (optional)"></textarea>
+        <div class="d-flex gap-2">
+          <button class="btn bg-gradient-success flex-fill mb-0" name="action" value="admit">Admit</button>
+          <button class="btn btn-outline-danger flex-fill mb-0" name="action" value="decline" onclick="return confirm('Decline this application?')">Decline</button>
+        </div>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endwith %}
+{% endblock %}

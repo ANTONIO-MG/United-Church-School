@@ -1,0 +1,321 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% comment %}
+MODULE SCHEDULE BUILDER — the educator's view of the same tree students see.
+
+Blocks → weeks → material, each editable in place. There is no separate draft
+copy: the `is_published` tick on a row is what hides it from students, so an
+educator is always looking at the real schedule.
+
+Context from apps.learning.module_build.module_build.
+{% endcomment %}
+
+{% block additional_css %}
+<link href="{% static 'css/module-feed.css' %}" rel="stylesheet">
+<style>
+  .bld-row{ display:flex; align-items:center; gap:.6rem; padding:.45rem .6rem;
+    border:1px solid #eef0f6; border-radius:.5rem; margin-bottom:.3rem; background:#fff; }
+  .bld-row__ico{ flex:0 0 28px; width:28px; height:28px; border-radius:.45rem; display:flex;
+    align-items:center; justify-content:center; background:rgba(33,82,255,.09); color:#2152ff; font-size:.8rem; }
+  .bld-week{ border-left:2px solid #eef0f6; padding-left:.9rem; margin:.5rem 0 .5rem .5rem; }
+  .bld-muted{ font-size:.72rem; color:#8392ab; }
+</style>
+{% endblock additional_css %}
+
+{% block content %}
+<div class="container-fluid py-4 mf">
+
+  <a href="{% url 'learning:module-feed' offering.pk %}" class="btn btn-link text-secondary p-0 mb-2">
+    <i class="bi bi-arrow-left me-1"></i>Back to the subject feed</a>
+
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+    <div>
+      <h4 class="mb-0">{{ offering.display_name }}</h4>
+      <p class="text-sm text-muted mb-0">
+        {{ offering.programme.institution.display_name }} · {{ offering.programme.display_name }} · {{ offering.code }}
+      </p>
+      {# Per-cohort content (Option B): which intake is being built. #}
+      <div class="mt-2">
+        {% if build_cohort %}
+          <span class="badge bg-gradient-info"><i class="bi bi-people me-1"></i>Building for class: {{ build_cohort.code }}{% if build_cohort.name %} — {{ build_cohort.name }}{% endif %}</span>
+        {% else %}
+          <span class="badge bg-gradient-secondary"><i class="bi bi-people me-1"></i>Shared template — every class</span>
+        {% endif %}
+        {% if cohorts %}
+        <div class="dropdown d-inline-block ms-1">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle mb-0 py-0" type="button" data-bs-toggle="dropdown">Switch class</button>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item{% if not build_cohort %} active{% endif %}" href="?">Shared template — every class</a></li>
+            {% for c in cohorts %}<li><a class="dropdown-item{% if build_cohort.pk == c.pk %} active{% endif %}" href="?cohort={{ c.pk }}">{{ c.code }}{% if c.name %} — {{ c.name }}{% endif %}</a></li>{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <form method="post" action="{% url 'learning:module-scaffold' offering.pk %}">{% csrf_token %}<input type="hidden" name="cohort" value="{{ build_cohort.pk|default:'' }}">
+        <button class="btn btn-sm btn-outline-info mb-0" type="submit"
+                title="Creates Test 1–4 and Exam 1–2 with empty weeks. Existing blocks are left alone.">
+          <i class="bi bi-magic me-1"></i>Scaffold the year</button>
+      </form>
+      <button class="btn btn-sm bg-gradient-info mb-0" data-bs-toggle="modal" data-bs-target="#phaseModal">
+        <i class="bi bi-plus-circle me-1"></i>Add block</button>
+    </div>
+  </div>
+
+  {# ---------------- The tree ---------------- #}
+  {% for block in schedule %}
+  <div class="card mb-3">
+    <div class="card-header pb-2 d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <h6 class="mb-0">
+          {{ block.phase.display_title }}
+          {% if not block.phase.is_published %}<span class="mf-tag mf-tag--warning ms-1">Draft</span>{% endif %}
+          {% if block.is_current %}<span class="mf-tag ms-1">In progress</span>{% endif %}
+        </h6>
+        <p class="bld-muted mb-0">
+          {{ block.weeks|length }} week{{ block.weeks|length|pluralize }} ·
+          {{ block.total }} item{{ block.total|pluralize }}
+          {% if block.phase.assessment_date %} · {{ block.phase.short_label }} on {{ block.phase.assessment_date|date:"j M Y" }}{% endif %}
+        </p>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary mb-0"
+                data-bs-toggle="modal" data-bs-target="#weekModal"
+                data-phase="{{ block.phase.pk }}">
+          <i class="bi bi-plus me-1"></i>Week</button>
+        <button class="btn btn-sm btn-outline-primary mb-0 js-add-material"
+                data-bs-toggle="modal" data-bs-target="#materialModal"
+                data-phase="{{ block.phase.pk }}" data-week="">
+          <i class="bi bi-plus me-1"></i>Block material</button>
+        <form method="post" action="{% url 'learning:module-phase-delete' offering.pk block.phase.pk %}"
+              onsubmit="return confirm('Delete {{ block.phase.display_title }} and everything in it?');">{% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger mb-0"><i class="bi bi-trash"></i></button></form>
+      </div>
+    </div>
+
+    <div class="card-body pt-2">
+      {# Block-level material (the study guide that spans the whole block) #}
+      {% for row in block.materials %}
+      <div class="bld-row">
+        <span class="bld-row__ico"><i class="bi {{ row.material.icon }}"></i></span>
+        <div class="flex-grow-1 min-w-0">
+          <div class="text-sm fw-bold">{{ row.material.title }}</div>
+          <div class="bld-muted">
+            {{ row.material.get_kind_display }}
+            {% if not row.material.is_published %} · draft{% endif %}
+            {% if row.material.is_preview %} · free preview{% endif %}
+            {% if row.material.is_purchasable %} · in shop at R{{ row.material.product.price|floatformat:2 }}{% endif %}
+          </div>
+        </div>
+        {% include 'learning/manage/_material_actions.html' with m=row.material %}
+      </div>
+      {% endfor %}
+
+      {# Weeks #}
+      {% for wk in block.weeks %}
+      <div class="bld-week">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+          <div>
+            <span class="text-sm fw-bold">{{ wk.week.display_title }}</span>
+            <span class="bld-muted">
+              — {{ wk.total }} item{{ wk.total|pluralize }}
+              {% if wk.week.reference %} · {{ wk.week.reference }}{% endif %}
+              {% if not wk.week.is_published %} · draft{% endif %}
+            </span>
+          </div>
+          <div class="d-flex gap-1">
+            <button class="btn btn-sm btn-outline-primary mb-0 py-0 px-2 js-add-material"
+                    data-bs-toggle="modal" data-bs-target="#materialModal"
+                    data-phase="{{ block.phase.pk }}" data-week="{{ wk.week.pk }}">
+              <i class="bi bi-plus"></i> Material</button>
+            <form method="post" action="{% url 'learning:module-week-delete' offering.pk wk.week.pk %}"
+                  onsubmit="return confirm('Delete {{ wk.week.display_title }}?');">{% csrf_token %}
+              <button class="btn btn-sm btn-outline-danger mb-0 py-0 px-2"><i class="bi bi-trash"></i></button></form>
+          </div>
+        </div>
+
+        {% for row in wk.materials %}
+        <div class="bld-row">
+          <span class="bld-row__ico"><i class="bi {{ row.material.icon }}"></i></span>
+          <div class="flex-grow-1 min-w-0">
+            <div class="text-sm fw-bold">{{ row.material.title }}</div>
+            <div class="bld-muted">
+              {{ row.material.get_kind_display }}
+              {% if not row.material.is_published %} · draft{% endif %}
+              {% if row.material.is_preview %} · free preview{% endif %}
+              {% if row.material.is_purchasable %} · in shop at R{{ row.material.product.price|floatformat:2 }}{% endif %}
+            </div>
+          </div>
+          {% include 'learning/manage/_material_actions.html' with m=row.material %}
+        </div>
+        {% empty %}
+        <p class="bld-muted mb-0">Nothing on this week yet.</p>
+        {% endfor %}
+      </div>
+      {% empty %}
+      <p class="bld-muted mb-0">No weeks in this block yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+  {% empty %}
+  <div class="card"><div class="card-body text-center py-6">
+    <i class="bi bi-calendar3-week text-info" style="font-size:2.5rem"></i>
+    <h6 class="mt-3 mb-1">No schedule yet</h6>
+    <p class="text-sm text-muted mb-3">Scaffold the standard year — four test blocks and two exam
+      blocks, each with empty weeks — then drop material onto the weeks.</p>
+    <form method="post" action="{% url 'learning:module-scaffold' offering.pk %}">{% csrf_token %}<input type="hidden" name="cohort" value="{{ build_cohort.pk|default:'' }}">
+      <button class="btn bg-gradient-info" type="submit"><i class="bi bi-magic me-1"></i>Scaffold the year</button>
+    </form>
+  </div></div>
+  {% endfor %}
+</div>
+
+{# ---------------- Add block ---------------- #}
+<div class="modal fade" id="phaseModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+  <form method="post" action="{% url 'learning:module-phase-add' offering.pk %}">{% csrf_token %}<input type="hidden" name="cohort" value="{{ build_cohort.pk|default:'' }}">
+    <div class="modal-header"><h6 class="modal-title">Add a preparation block</h6>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="row g-2">
+        <div class="col-7"><label class="form-label text-xs">Kind</label>
+          <select name="kind" class="form-control form-select">
+            {% for value, label in phase_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select></div>
+        <div class="col-5"><label class="form-label text-xs">Number</label>
+          <input type="number" name="sequence" class="form-control" value="1" min="1"></div>
+        <div class="col-12"><label class="form-label text-xs">Title <span class="bld-muted">(blank = "Test 2 preparation")</span></label>
+          <input type="text" name="title" class="form-control"></div>
+        <div class="col-12"><label class="form-label text-xs">Summary</label>
+          <input type="text" name="summary" class="form-control"></div>
+        <div class="col-6"><label class="form-label text-xs">Starts</label>
+          <input type="date" name="starts_on" class="form-control"></div>
+        <div class="col-6"><label class="form-label text-xs">Ends</label>
+          <input type="date" name="ends_on" class="form-control"></div>
+        <div class="col-6"><label class="form-label text-xs">Create weeks</label>
+          <input type="number" name="with_weeks" class="form-control" value="4" min="0" max="20"></div>
+        <div class="col-6 d-flex align-items-end">
+          <div class="form-check"><input class="form-check-input" type="checkbox" name="is_published" checked>
+            <label class="form-check-label text-xs">Visible to students</label></div></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn bg-gradient-info btn-sm mb-0">Add block</button></div>
+  </form>
+</div></div></div>
+
+{# ---------------- Add week ---------------- #}
+<div class="modal fade" id="weekModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+  <form method="post" action="{% url 'learning:module-week-add' offering.pk %}">{% csrf_token %}
+    <input type="hidden" name="phase" id="weekPhase">
+    <div class="modal-header"><h6 class="modal-title">Add a week</h6>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="row g-2">
+        <div class="col-12"><label class="form-label text-xs">Topics from the study guide
+            <span class="bld-muted">(the series this week works through)</span></label>
+          <select name="topics" class="form-control form-select" multiple size="6">
+            {% for t in topics %}<option value="{{ t.pk }}">{{ t.code }} — {{ t.title }}</option>{% endfor %}
+          </select>
+          <span class="bld-muted text-xs">Hold ⌘/Ctrl to pick several (leave empty for a revision / mock week).</span></div>
+        <div class="col-12"><label class="form-label text-xs">Title <span class="bld-muted">(blank = the topics' names)</span></label>
+          <input type="text" name="title" class="form-control"></div>
+        <div class="col-12"><label class="form-label text-xs">Summary</label>
+          <textarea name="summary" rows="2" class="form-control"></textarea></div>
+        <div class="col-6"><label class="form-label text-xs">Starts</label>
+          <input type="date" name="starts_on" class="form-control"></div>
+        <div class="col-6"><label class="form-label text-xs">Ends</label>
+          <input type="date" name="ends_on" class="form-control"></div>
+        <div class="col-12"><div class="form-check">
+          <input class="form-check-input" type="checkbox" name="is_published" checked>
+          <label class="form-check-label text-xs">Visible to students</label></div></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn bg-gradient-info btn-sm mb-0">Add week</button></div>
+  </form>
+</div></div></div>
+
+{# ---------------- Add material ---------------- #}
+<div class="modal fade" id="materialModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+  <form method="post" action="{% url 'learning:module-material-add' offering.pk %}" enctype="multipart/form-data">{% csrf_token %}
+    <input type="hidden" name="phase" id="matPhase">
+    <input type="hidden" name="week" id="matWeek">
+    <div class="modal-header"><h6 class="modal-title">Add material</h6>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="row g-2">
+        <div class="col-md-4"><label class="form-label text-xs">Kind</label>
+          <select name="kind" class="form-control form-select">
+            {% for value, label in material_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select></div>
+        <div class="col-md-8"><label class="form-label text-xs">Title</label>
+          <input type="text" name="title" class="form-control" required></div>
+        <div class="col-12"><label class="form-label text-xs">Description</label>
+          <textarea name="description" rows="2" class="form-control"></textarea></div>
+
+        <div class="col-12"><hr class="horizontal dark my-2">
+          <p class="bld-muted mb-1">Point it at one of these — an upload, something already in
+            the hub, or a link.</p></div>
+
+        <div class="col-md-6"><label class="form-label text-xs">Upload a file</label>
+          <input type="file" name="file" class="form-control"></div>
+        <div class="col-md-6"><label class="form-label text-xs">…or a link</label>
+          <input type="url" name="url" class="form-control" placeholder="https://"></div>
+        <div class="col-md-4"><label class="form-label text-xs">…or a lesson</label>
+          <select name="lesson" class="form-control form-select">
+            <option value="">—</option>
+            {% for l in lessons %}<option value="{{ l.pk }}">{{ l.title }}</option>{% endfor %}
+          </select></div>
+        <div class="col-md-4"><label class="form-label text-xs">…or an assessment</label>
+          <select name="assessment" class="form-control form-select">
+            <option value="">—</option>
+            {% for a in assessments %}<option value="{{ a.pk }}">{{ a.title }}</option>{% endfor %}
+          </select></div>
+        <div class="col-md-4"><label class="form-label text-xs">…or a live session</label>
+          <select name="meeting" class="form-control form-select">
+            <option value="">—</option>
+            {% for mt in meetings %}<option value="{{ mt.pk }}">{{ mt.title }}{% if mt.scheduled_start %} — {{ mt.scheduled_start|date:"j M H:i" }}{% endif %}</option>{% endfor %}
+          </select></div>
+
+        <div class="col-12"><hr class="horizontal dark my-2"></div>
+        <div class="col-md-4"><label class="form-label text-xs">Release at <span class="bld-muted">(optional)</span></label>
+          <input type="datetime-local" name="available_from" class="form-control"></div>
+        <div class="col-md-8 d-flex align-items-end gap-3 flex-wrap">
+          <div class="form-check"><input class="form-check-input" type="checkbox" name="is_published" checked>
+            <label class="form-check-label text-xs">Visible to students</label></div>
+          <div class="form-check"><input class="form-check-input" type="checkbox" name="is_preview">
+            <label class="form-check-label text-xs">Free preview (open even when locked)</label></div>
+        </div>
+
+        <div class="col-12"><hr class="horizontal dark my-2"></div>
+        <div class="col-md-5"><div class="form-check">
+          <input class="form-check-input" type="checkbox" name="sell" id="matSell">
+          <label class="form-check-label text-xs">Also sell this on its own in the shop</label></div></div>
+        <div class="col-md-3"><label class="form-label text-xs">Price (R)</label>
+          <input type="number" step="0.01" min="0" name="price" class="form-control" value="0"></div>
+        <div class="col-md-4 bld-muted d-flex align-items-end pb-2">
+          Students who pay for {{ offering.code }} always get it free.</div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn bg-gradient-info btn-sm mb-0">Add material</button></div>
+  </form>
+</div></div></div>
+{% endblock content %}
+
+{% block additional_js %}
+<script>
+  // The "Add …" buttons carry which block/week they belong to; copy it into the
+  // shared modal so one form serves every row on the page.
+  document.addEventListener('click', function (event) {
+    var trigger = event.target.closest('[data-phase]');
+    if (!trigger) return;
+    var phase = trigger.getAttribute('data-phase') || '';
+    var week  = trigger.getAttribute('data-week') || '';
+    var weekPhase = document.getElementById('weekPhase');
+    if (weekPhase) weekPhase.value = phase;
+    var matPhase = document.getElementById('matPhase');
+    var matWeek  = document.getElementById('matWeek');
+    if (matPhase) matPhase.value = phase;
+    if (matWeek)  matWeek.value  = week;
+  });
+</script>
+{% endblock additional_js %}

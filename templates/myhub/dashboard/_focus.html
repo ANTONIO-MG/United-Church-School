@@ -1,0 +1,17 @@
+{% comment %}"Right now" focus bar — the single highest-priority next action, picked
+across live sessions, closing assessments, overdue tasks, readiness, course
+progress and open questions (apps.myhub.dashboard.focus_now).{% endcomment %}
+
+{% if focus %}
+<a class="dash-focus dash-focus--{{ focus.tone }}" href="{{ focus.url|default:'#' }}">
+  <span class="dash-focus__ico"><i class="bi {{ focus.icon }}"></i></span>
+
+  <span class="dash-focus__main">
+    <span class="dash-focus__kicker">{{ focus.kicker }}</span>
+    <span class="dash-focus__title">{{ focus.title }}</span>
+    <span class="dash-focus__body">{{ focus.body }}</span>
+  </span>
+
+  <span class="dash-focus__cta">{{ focus.cta }} <i class="bi bi-arrow-right"></i></span>
+</a>
+{% endif %}

@@ -1,0 +1,75 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% load static commerce %}
+{% comment %}Staff fulfilment queue for shipped items: pack → book courier → track.
+With no courier API key, "Book courier" is replaced by entering the waybill
+number from the TCG portal (or another courier) by hand.{% endcomment %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Shop · staff</span><h3>Fulfilment</h3>
+      <p>Paid orders with items to post. {% if courier_live %}Courier Guy is connected — book and print waybills here.{% else %}No courier API key yet: book in the TCG portal, then enter the waybill number here.{% endif %}</p></div>
+  </div>
+  <nav class="tc-aisles" aria-label="Shipment status">
+    {% for value, label in STATUS_CHOICES %}
+      <a class="tc-aisle {% if status == value %}is-active{% endif %}" href="?status={{ value }}">{{ label }}<span class="tc-count">{% for k, n in counts.items %}{% if k == value %}{{ n }}{% endif %}{% endfor %}</span></a>
+    {% endfor %}
+  </nav>
+
+  {% for s in shipments %}{% with o=s.order %}
+  <div class="tc-card">
+    <div class="tc-card__head">
+      <h5><a href="{% url 'shop:order-detail' o.pk %}">{{ o.order_no }}</a></h5>
+      <span class="small text-muted">{{ o.buyer|person_name }} · paid {{ o.paid_processed_at|date:"j M, H:i"|default:"—" }}</span>
+      <span class="ms-auto tc-chip {% if s.status == 'delivered' %}tc-chip--success{% elif s.status == 'failed' %}tc-chip--danger{% elif s.status == 'ready' %}tc-chip--warning{% else %}tc-chip--primary{% endif %}">{{ s.get_status_display }}</span>
+    </div>
+    <div class="tc-card__body">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="small text-muted mb-1">Pack</div>
+          {% for item in o.items.all %}{% if item.product.is_shipped %}<div class="fw-semibold">{{ item.quantity }} × {{ item.description }}</div>{% endif %}{% endfor %}
+        </div>
+        <div class="col-md-4">
+          <div class="small text-muted mb-1">{% if s.method == 'locker' %}Pudo locker{% else %}Deliver to{% endif %}</div>
+          {% if s.method == 'locker' %}<div class="fw-semibold">{{ s.locker_name|default:s.locker_code }}</div><div class="small">{{ o.ship_to.recipient }} · {{ o.ship_to.phone }}</div>
+          {% else %}<div class="fw-semibold">{{ o.ship_to.recipient }} · {{ o.ship_to.phone }}</div>
+            <div class="small">{% if o.ship_to.complex %}{{ o.ship_to.complex }}, {% endif %}{{ o.ship_to.street_address }}, {{ o.ship_to.suburb }}, {{ o.ship_to.city }}, {{ o.ship_to.province }} {{ o.ship_to.postal_code }}</div>{% endif %}
+          <div class="small text-muted mt-1">{{ o.delivery_label }} · buyer paid {% if s.charged %}{{ s.charged|rand }}{% else %}nothing (free delivery){% endif %}</div>
+        </div>
+        <div class="col-md-4">
+          {% if s.tracking_reference %}<div class="small text-muted mb-1">Waybill</div><div class="fw-semibold">{{ s.tracking_reference }}{% if s.courier_name %} · {{ s.courier_name }}{% endif %}</div>{% endif %}
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            <a class="btn btn-sm btn-outline-secondary" href="{% url 'shop:packing-slip' s.pk %}" target="_blank" rel="noopener"><i class="bi bi-printer me-1"></i>Packing slip</a>
+            {% if s.status == 'ready' %}
+              {% if courier_live and s.service_level %}
+                <form method="post" action="{% url 'shop:fulfilment-action' s.pk %}">{% csrf_token %}<input type="hidden" name="action" value="book"><input type="hidden" name="back" value="ready">
+                  <button class="btn btn-sm btn-primary"><i class="bi bi-truck me-1"></i>Book courier</button></form>
+              {% endif %}
+            {% endif %}
+            {% if s.courier_shipment_id %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'shop:waybill' s.pk %}" target="_blank" rel="noopener"><i class="bi bi-upc-scan me-1"></i>Waybill</a>{% endif %}
+            {% if s.status == 'booked' or s.status == 'in_transit' or s.status == 'failed' %}
+              <form method="post" action="{% url 'shop:fulfilment-action' s.pk %}">{% csrf_token %}<input type="hidden" name="action" value="delivered"><input type="hidden" name="back" value="{{ s.status }}">
+                <button class="btn btn-sm btn-outline-success"><i class="bi bi-check2-circle me-1"></i>Mark delivered</button></form>
+            {% endif %}
+          </div>
+
+        </div>
+      </div>
+      {% if s.status == 'ready' %}
+        <form method="post" action="{% url 'shop:fulfilment-action' s.pk %}" class="tc-dispatch">{% csrf_token %}
+          <input type="hidden" name="action" value="manual"><input type="hidden" name="back" value="ready">
+          <span class="small text-muted">{% if courier_live %}Booked elsewhere?{% else %}Booked in the TCG portal?{% endif %}</span>
+          <label class="visually-hidden" for="ref{{ s.pk }}">Waybill number</label>
+          <input id="ref{{ s.pk }}" name="tracking_reference" class="form-control form-control-sm" placeholder="Waybill / tracking number" required>
+          <label class="visually-hidden" for="cn{{ s.pk }}">Courier</label>
+          <input id="cn{{ s.pk }}" name="courier_name" class="form-control form-control-sm" placeholder="Courier (blank = The Courier Guy)">
+          <button class="btn btn-sm btn-primary"><i class="bi bi-send me-1"></i>Mark shipped</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endwith %}{% empty %}
+    <div class="tc-card"><div class="tc-empty"><i class="bi bi-box-seam"></i><h5>Nothing here</h5><p class="mb-0">{% if status == 'ready' %}No paid orders are waiting to be packed.{% else %}No shipments with this status.{% endif %}</p></div></div>
+  {% endfor %}
+</div></div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Academic structure — institutions list (admin/staff). Each links to its
+detail, where its programmes (and their modules + cohorts) are managed.{% endcomment %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-0">Academic structure</h4>
+      <p class="text-sm text-muted mb-0">Schools, the grades they offer, their subjects and classes.</p>
+    </div>
+    <a href="{% url 'learning:manage-institution-add' %}" class="btn bg-gradient-info mb-0"><i class="bi bi-plus-circle me-1"></i>Add school</a>
+  </div>
+
+  <div class="row g-3">
+    {% for inst in institutions %}
+    <div class="col-md-6 col-xl-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="rounded-circle d-inline-block" style="width:14px;height:14px;background:{{ inst.accent_colour|default:'#1F3864' }}"></span>
+            <h6 class="mb-0">{{ inst.name }}</h6>
+            {% if not inst.is_active %}<span class="badge bg-secondary ms-auto">Inactive</span>{% endif %}
+          </div>
+          <p class="text-xs text-muted mb-3">{{ inst.code }} · {{ inst.programmes.count }} grade{{ inst.programmes.count|pluralize }}</p>
+          <a href="{% url 'learning:manage-institution' inst.pk %}" class="btn btn-sm btn-outline-info w-100 mb-0">Manage</a>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-12"><div class="card"><div class="card-body text-center py-6">
+      <i class="bi bi-building-add text-info" style="font-size:2.5rem"></i>
+      <h6 class="mt-3 mb-1">No schools yet</h6>
+      <p class="text-sm text-muted mb-3">Add your first school, or run <code>python manage.py seed_school_structure</code>.</p>
+      <a href="{% url 'learning:manage-institution-add' %}" class="btn bg-gradient-info">Add school</a>
+    </div></div></div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

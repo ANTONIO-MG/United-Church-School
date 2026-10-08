@@ -1,0 +1,43 @@
+{% comment %}
+The person card body: picture, name, role, where they study or teach, modules in
+common. Nothing private — see apps/accounts/person_card.py. Rendered alone as
+the pop-up (static/js/person-card.js) and inside person-card.html as a page.
+{% endcomment %}
+<div class="pc">
+  <div class="pc__head">
+    <img class="pc__avatar" src="{{ person.avatar_url }}" alt="">
+    <div class="pc__who">
+      <h5 class="pc__name">{{ person }}</h5>
+      <span class="pc__role pc__role--{{ person.user_type }}">{{ role_label }}</span>
+      {% if is_self %}<span class="pc__role">You</span>{% endif %}
+    </div>
+  </div>
+
+  {% if limited %}
+    <p class="pc__note"><i class="bi bi-lock me-1"></i>{{ person.first_name|default:"This member" }} keeps their profile private.</p>
+  {% else %}
+    <ul class="pc__facts">
+      {% for prog in programmes %}
+        <li><i class="bi bi-mortarboard"></i><span>{{ prog.name }}<small>{{ prog.institution.display_name|default:prog.institution }}</small></span></li>
+      {% endfor %}
+      {% if taught %}
+        <li><i class="bi bi-easel"></i><span>Teaches
+          <span class="pc__chips">{% for m in taught %}<span class="pc__chip" title="{{ m.name }}">{{ m.code }}</span>{% endfor %}</span></span></li>
+      {% endif %}
+      {% if shared %}
+        <li><i class="bi bi-people"></i><span>Subjects you share
+          <span class="pc__chips">{% for m in shared %}<span class="pc__chip" title="{{ m.name }}">{{ m.code }}</span>{% endfor %}</span></span></li>
+      {% elif enrolled_count and not is_self %}
+        <li><i class="bi bi-journal-bookmark"></i><span>Studying {{ enrolled_count }} subject{{ enrolled_count|pluralize }}</span></li>
+      {% endif %}
+      {% if joined %}<li><i class="bi bi-calendar3"></i><span>Member since {{ joined|date:"F Y" }}</span></li>{% endif %}
+    </ul>
+    {% if links %}
+    <div class="pc__actions">
+      {% if links.message %}<a class="btn btn-sm btn-primary mb-0" href="{{ links.message }}"><i class="bi bi-chat-dots me-1"></i>Message</a>{% endif %}
+      {% if links.profile %}<a class="btn btn-sm btn-light mb-0" href="{{ links.profile }}"><i class="bi bi-person me-1"></i>Full profile</a>{% endif %}
+      {% if links.student360 %}<a class="btn btn-sm btn-light mb-0" href="{{ links.student360 }}"><i class="bi bi-person-vcard me-1"></i>Student 360</a>{% endif %}
+    </div>
+    {% endif %}
+  {% endif %}
+</div>

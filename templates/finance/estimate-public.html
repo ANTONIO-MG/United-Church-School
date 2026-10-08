@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% load static commerce %}
+{% comment %}What the customer sees from the e-mailed link — no login. Accept or decline.{% endcomment %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/commerce.css' %}">
+<div class="tc" style="min-height:100vh;background:#eef2f7;padding:2rem 1rem">
+  <div style="max-width:880px;margin:0 auto">
+    {% if messages %}{% for m in messages %}<div class="tc-alert tc-alert--info mb-3"><i class="bi bi-info-circle"></i><span>{{ m }}</span></div>{% endfor %}{% endif %}
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <div><div class="small text-muted">Estimate from {{ brand.invoice_name|default:brand.name }}</div><h4 class="mb-0">{{ estimate.number }} · {{ estimate.total|rand }}</h4></div>
+      <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'finance:estimate-public-pdf' estimate.public_id %}"><i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</a>
+        {% if estimate.status == 'sent' or estimate.status == 'viewed' %}{% if not estimate.is_expired %}
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="decline"><button class="btn btn-sm btn-outline-danger">Decline</button></form>
+          <form method="post">{% csrf_token %}<input type="hidden" name="action" value="accept"><button class="btn btn-sm btn-success"><i class="bi bi-check2 me-1"></i>Accept estimate</button></form>
+        {% endif %}{% endif %}
+      </div>
+    </div>
+    {% if estimate.status == 'accepted' or estimate.status == 'converted' %}<div class="tc-applied mb-3"><span><i class="bi bi-check-circle me-1"></i>You accepted this estimate. We'll send the invoice shortly.</span></div>
+    {% elif estimate.status == 'declined' %}<div class="tc-alert tc-alert--danger mb-3"><i class="bi bi-x-circle"></i><span>You declined this estimate.</span></div>
+    {% elif estimate.is_expired %}<div class="tc-alert tc-alert--danger mb-3"><i class="bi bi-hourglass-bottom"></i><span>This estimate expired on {{ estimate.valid_until|date:"j F Y" }}. Please ask us for an updated one.</span></div>{% endif %}
+    {% include 'finance/_paper.html' with doc=estimate kind='estimate' %}
+  </div>
+</div>
+{% endblock %}

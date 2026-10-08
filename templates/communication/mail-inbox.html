@@ -1,0 +1,58 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}In-system mailbox (Edumin-style) — inbox / sent / starred / trash.{% endcomment %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <h3 class="mb-3">Email</h3>
+  <div class="row g-3">
+    <div class="col-lg-3">{% include 'communication/_mail-rail.html' %}</div>
+
+    <div class="col-lg-9">
+      <div class="card"><div class="card-body">
+        <form method="get" class="d-flex gap-2 mb-3">
+          <input type="hidden" name="folder" value="{{ folder }}">
+          <input class="form-control form-control-sm" type="search" name="q" value="{{ search }}" placeholder="Search mail…">
+          <button class="btn btn-sm btn-primary">Search</button>
+        </form>
+
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <tbody>
+            {% if folder == 'sent' %}
+              {% for mail in sent_items %}
+                <tr>
+                  <td style="width:30%"><i class="bi bi-send text-muted me-2"></i>To: {{ mail.recipient_names|truncatechars:40 }}</td>
+                  <td><a class="text-reset text-decoration-none" href="{% url 'communication:mail-read' mail.pk %}"><strong>{{ mail.subject }}</strong> <span class="text-muted">— {{ mail.body|striptags|truncatechars:60 }}</span></a></td>
+                  <td class="text-end text-muted small" style="width:120px">{{ mail.created_at|date:"M d, H:i" }}</td>
+                </tr>
+              {% empty %}<tr><td class="text-center text-muted py-4">No sent messages.</td></tr>{% endfor %}
+            {% else %}
+              {% for row in rows %}
+                <tr class="{% if not row.is_read %}fw-bold{% endif %}">
+                  <td style="width:30%">
+                    <form method="post" action="{% url 'communication:mail-action' row.message_id %}" class="d-inline">{% csrf_token %}
+                      <input type="hidden" name="action" value="star"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+                      <button class="btn btn-link p-0 me-2" title="Star"><i class="bi bi-star{% if row.starred %}-fill text-warning{% endif %}"></i></button>
+                    </form>
+                    {{ row.message.sender|person_name }}
+                  </td>
+                  <td><a class="text-reset text-decoration-none" href="{% url 'communication:mail-read' row.message_id %}">{{ row.message.module }} <span class="text-muted fw-normal">— {{ row.message.body|striptags|truncatechars:60 }}</span></a></td>
+                  <td class="text-end text-muted small" style="width:160px">
+                    {{ row.message.created_at|date:"M d, H:i" }}
+                    {% if folder == 'trash' %}
+                      <form method="post" action="{% url 'communication:mail-action' row.message_id %}" class="d-inline">{% csrf_token %}<input type="hidden" name="action" value="restore"><button class="btn btn-link btn-sm p-0 ms-2" title="Restore"><i class="bi bi-arrow-counterclockwise"></i></button></form>
+                    {% else %}
+                      <form method="post" action="{% url 'communication:mail-action' row.message_id %}" class="d-inline">{% csrf_token %}<input type="hidden" name="action" value="trash"><input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="btn btn-link btn-sm p-0 ms-2 text-danger" title="Trash"><i class="bi bi-trash"></i></button></form>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}<tr><td class="text-center text-muted py-4">No messages.</td></tr>{% endfor %}
+            {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

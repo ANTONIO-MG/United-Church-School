@@ -1,0 +1,145 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/exam-guard.css' %}">{% endblock %}
+{% block content %}
+<div class="card mb-3">
+  <div class="card-body text-center">
+    <h1 class="h5 mb-1">{{ attempt.assessment.title }}</h1>
+    <p class="small text-muted mb-3">{{ attempt.assessment.module }} · attempt #{{ attempt.attempt_no }}</p>
+    <div class="display-5 fw-bold text-{% if attempt.passed %}success{% else %}danger{% endif %}">{{ pct }}%</div>
+    <p class="mb-1">{{ attempt.score }} / {{ attempt.assessment.total_marks }} marks</p>
+    <span class="badge bg-{% if attempt.passed %}success{% else %}danger{% endif %}-soft">
+      {% if attempt.status == 'submitted' %}Submitted — awaiting manual marking{% elif attempt.passed %}Passed{% else %}Did not pass{% endif %}
+    </span>
+    {% if attempt.integrity_flagged and not integrity %}
+    {# The student's own view: tell them plainly, without the full event log. #}
+    <div class="alert alert-warning small mt-3 mb-0 text-start">
+      <i class="bi bi-shield-exclamation me-1"></i>
+      {% if attempt.terminated_at %}This attempt was ended early because you left the assessment
+        window {{ attempt.focus_warnings }} times.
+      {% else %}You left the assessment window {{ attempt.focus_warnings }} times during this
+        attempt, so it has been flagged for your educator to review.{% endif %}
+    </div>
+    {% endif %}
+    <div class="mt-3">
+      <a href="{% url 'assessments:index' %}" class="btn btn-outline-secondary btn-sm">Back to assessments</a>
+    </div>
+  </div>
+</div>
+
+{% include 'assessments/_integrity_report.html' %}
+
+<div class="card">
+  <div class="card-header"><h6 class="mb-0">Review</h6></div>
+  <div class="card-body">
+    {% for row in rows %}
+    <div class="mb-4 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+      <div class="d-flex justify-content-between">
+        <p class="fw-semibold mb-2">{{ forloop.counter }}. {{ row.question.text }}</p>
+        <span class="badge bg-{% if row.answer and row.answer.is_correct %}success{% elif row.question.is_objective %}danger{% else %}secondary{% endif %}-soft ms-2">
+          {% if row.answer %}{{ row.answer.awarded_marks }}{% else %}0{% endif %} / {{ row.question.marks }}
+        </span>
+      </div>
+
+      {% if row.choices %}
+        {% for c in row.choices %}
+        <div class="small {% if c.is_correct %}text-success fw-semibold{% elif c.id in row.selected %}text-danger{% endif %}">
+          {% if c.id in row.selected %}<i class="bi bi-record-circle me-1"></i>{% else %}<i class="bi bi-circle me-1"></i>{% endif %}
+          {{ c.text }}
+          {% if c.is_correct %}<i class="bi bi-check-lg text-success"></i>{% endif %}
+        </div>
+        {% endfor %}
+      {% elif row.answer.schedule_breakdown %}
+        {% comment %}The candidate's ladder, line by line, against the marks each
+        line carried. This is the teaching: not "12/18" but which three lines
+        went wrong and what each was worth. The expected figure is only shown
+        once the memo is released — see Assessment.solution_released_for.
+        {% endcomment %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle small mb-1">
+            <thead>
+              <tr>
+                <th>Line</th><th>Authority</th>
+                <th class="text-end">You</th>
+                {% if show_solution %}<th class="text-end">Expected</th>{% endif %}
+                <th class="text-end">Marks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for line in row.answer.schedule_breakdown %}
+              <tr class="{% if line.correct %}table-success{% elif line.answered %}table-danger{% endif %}">
+                <td>{{ line.label }}</td>
+                <td class="text-muted">{{ line.authority|default:'—' }}</td>
+                <td class="text-end font-monospace">{{ line.given|default:'—' }}</td>
+                {% if show_solution %}<td class="text-end font-monospace">{{ line.expected }}</td>{% endif %}
+                <td class="text-end">{{ line.awarded }} / {{ line.marks }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% elif row.answer %}
+        <div class="small text-muted">Your answer: {% if row.answer.file %}<a href="{{ row.answer.file.url }}">uploaded file</a>{% else %}{{ row.answer.display_response|default:'—' }}{% endif %}</div>
+      {% else %}
+        <div class="small text-muted">No answer given.</div>
+      {% endif %}
+
+      {% if row.answer.feedback %}
+        <div class="small mt-2 p-2 rounded bg-body-secondary"><i class="bi bi-chat-left-quote me-1"></i>{{ row.answer.feedback }}</div>
+      {% endif %}
+
+      {% comment %}The memo. Only ever present once Assessment.solution_released_for
+      says so — the view leaves row.solution as None otherwise, so there is nothing
+      here to reveal with dev tools.{% endcomment %}
+      {% if row.solution %}
+      <details class="mt-3 sol-block">
+        <summary class="small fw-semibold text-success"><i class="bi bi-key me-1"></i>Model answer &amp; marks</summary>
+        {% if row.solution.kind == 'schedule' and not row.answer.schedule_breakdown %}
+        <div class="table-responsive mt-2">
+          <table class="table table-sm align-middle mb-0 small">
+            <thead><tr><th>Line</th><th>Authority</th><th class="text-end">Amount</th><th class="text-end">Marks</th></tr></thead>
+            <tbody>
+              {% for line in row.solution.lines %}
+              <tr>
+                <td>{{ line.label }}</td>
+                <td class="text-muted">{{ line.authority|default:'—' }}</td>
+                <td class="text-end font-monospace">{{ line.amount }}</td>
+                <td class="text-end">{{ line.marks }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% elif row.solution.kind == 'rubric' %}
+        <ul class="list-unstyled small mt-2 mb-0">
+          {% for point in row.solution.rubric %}
+          <li class="d-flex gap-2 mb-1">
+            <span class="badge bg-success-soft text-success flex-shrink-0">{{ point.marks }}</span>
+            <span>{{ point.point }}{% if point.authority %} <span class="text-muted">— {{ point.authority }}</span>{% endif %}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <pre class="small mt-2 mb-0 text-body-secondary" style="white-space:pre-wrap">{{ row.solution.text }}</pre>
+        {% endif %}
+      </details>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if solution_notes %}
+<div class="card mt-3">
+  <div class="card-header"><h6 class="mb-0"><i class="bi bi-journal-check text-success me-2"></i>Solution notes</h6></div>
+  <div class="card-body">
+    {% for heading, body in solution_notes.items %}
+      {% if heading != 'released' and heading != 'week' and heading != 'scenario_key' %}
+      <h6 class="small text-uppercase text-muted mt-3">{{ heading }}</h6>
+      <div class="small">{{ body }}</div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

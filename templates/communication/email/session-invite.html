@@ -1,0 +1,25 @@
+{% extends 'communication/email/base_email.html' %}{% load org_branding %}
+{% comment %}A live session has been scheduled. Rendered once per recipient, because
+`when_local` is the start time in *their* time zone — the whole reason this is not
+one bulk e-mail. Context: recipient, meeting, when_local, timezone_label,
+session_url, join_url, audience_label, duration_minutes.{% endcomment %}
+{% block heading %}{{ meeting.title }}{% endblock %}
+{% block content %}
+  {% if recipient %}<p style="margin:0 0 14px">Hi {{ recipient|greeting_name }},</p>{% endif %}
+  <p style="margin:0 0 14px">A {{ meeting.get_session_kind_display|lower }} has been scheduled for
+     <strong>{{ when_local }}</strong>{% if duration_minutes %}, running about {{ duration_minutes }} minutes{% endif %}.</p>
+  <p style="margin:0 0 14px">That is the time in your own zone ({{ timezone_label }}). If it looks wrong,
+     update your time zone under Settings and every session time will follow it.</p>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px">
+    <tr><td style="padding:4px 0;color:#40507a"><strong>For</strong></td><td style="padding:4px 0">{{ audience_label }}</td></tr>
+    {% if meeting.module %}<tr><td style="padding:4px 0;color:#40507a"><strong>Subject</strong></td><td style="padding:4px 0">{{ meeting.module.display_name }}</td></tr>{% endif %}
+    {% if meeting.week %}<tr><td style="padding:4px 0;color:#40507a"><strong>Covers</strong></td><td style="padding:4px 0">{{ meeting.week.display_title }}</td></tr>{% endif %}
+    {% if meeting.calendar_event %}<tr><td style="padding:4px 0;color:#40507a"><strong>Prepares for</strong></td><td style="padding:4px 0">{{ meeting.calendar_event.title }}</td></tr>{% endif %}
+  </table>
+  {% if meeting.description %}<p style="margin:0 0 14px">{{ meeting.description }}</p>{% endif %}
+  {% if meeting.record_automatically %}
+  <p style="margin:0 0 14px;color:#40507a">This session is recorded automatically. If you cannot make it,
+     the recording, transcript and summary appear on the session page afterwards.</p>
+  {% endif %}
+{% endblock %}
+{% block cta %}{% include 'communication/email/_button.html' with url=session_url label="OPEN THE SESSION" %}{% endblock %}

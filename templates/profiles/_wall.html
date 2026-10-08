@@ -1,0 +1,56 @@
+{% comment %}
+The wall — composer + posts + modals. Dropped into the Feed tab of every profile
+(person, course and module), so all three look and behave identically.
+
+Context (from core.profiles):
+  can_post   — show the composer
+  posts      — Discussions for this wall (annotated with liker_ids + top_comments)
+  wall_scope — {'course': id} / {'module': id} / {} — where a new post lands
+{% endcomment %}
+
+{% if can_post %}{% include 'profiles/_wall_composer.html' %}{% endif %}
+
+{% for post in posts %}
+  {% include 'profiles/_wall_post.html' %}
+{% empty %}
+  <div class="card">
+    <div class="card-body text-center text-muted py-5">
+      <i class="bi bi-card-text fs-1 d-block mb-2 opacity-25"></i>
+      <p class="mb-0">Nothing here yet.{% if can_post %} Share the first post.{% endif %}</p>
+    </div>
+  </div>
+{% endfor %}
+
+{% if can_post %}{% include 'profiles/_wall_modals.html' %}{% endif %}
+
+{% comment %}Like without leaving the page. Posting the form reloaded the wall,
+which scrolled the reader back to the top and shut every comment thread they had
+open — the like is the smallest possible action and was the most disruptive one.
+The form still works with JavaScript off; this just intercepts it.{% endcomment %}
+<script>
+(function () {
+  function csrf() {
+    var el = document.querySelector('[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+  document.addEventListener('submit', function (e) {
+    var form = e.target.closest('.wall-like-form');
+    if (!form) return;
+    e.preventDefault();
+    var btn = form.querySelector('.wall-like');
+    if (btn) btn.disabled = true;
+    fetch(form.action, {
+      method: 'POST', credentials: 'same-origin',
+      headers: {'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest'},
+      body: new FormData(form)
+    }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || !d.ok || !btn) return;
+      btn.classList.toggle('active', d.liked);
+      var icon = btn.querySelector('i');
+      if (icon) icon.className = 'bi bi-hand-thumbs-up' + (d.liked ? '-fill' : '') + ' pe-1';
+      var count = btn.querySelector('.wall-like-count');
+      if (count) count.textContent = '(' + d.likes + ')';
+    }).finally(function () { if (btn) btn.disabled = false; });
+  });
+})();
+</script>

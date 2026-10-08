@@ -1,0 +1,86 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% load custom_tags %}
+
+{% block additional_css %}
+<link rel="stylesheet" href="{% static 'myhub/vendor/datatables/css/jquery.dataTables.min.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="content-body">
+    <div class="container-fluid">
+        <div class="row page-titles mx-0">
+            <div class="col-sm-6 p-md-0">
+                <div class="welcome-text"><h4>{{ page_title }}</h4></div>
+            </div>
+            <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex align-items-center">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'orgtasks:all-tasks' %}">Tasks</a></li>
+                    <li class="breadcrumb-item active"><a href="javascript:void(0);">{{ page_title }}</a></li>
+                </ol>
+                <a href="{% url 'orgtasks:add-task' %}" class="btn btn-primary btn-sm ms-3"><i class="fa fa-plus me-1"></i> Add New</a>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">{{ page_title }}</h5>
+                        <a href="{% url 'orgtasks:add-task' %}" class="btn btn-primary btn-sm"><i class="fa fa-plus me-1"></i> Add New</a>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table id="example5" class="display" style="min-width:845px">
+                                <thead>
+                                    <tr><th>#</th><th>Title</th><th>Kind</th><th>Assigned to</th><th>Assignees</th><th>Completed</th><th>Avg progress</th><th>Due</th><th>Status</th><th>Action</th></tr>
+                                </thead>
+                                <tbody>
+                                {% for task in tasks %}
+                                    <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    {% comment %}The title opens what the task delivers; the eye icon
+                                    below goes to the task's own page for assignments and grading.{% endcomment %}
+                                    <td><a href="{{ task.get_absolute_url }}">{{ task.title }}</a></td>
+                                    <td><span class="badge bg-{{ task.kind_tone }} bg-opacity-10 text-{{ task.kind_tone }}">
+                                        <i class="bi {{ task.kind_icon }} me-1"></i>{{ task.kind_label }}</span></td>
+                                    <td>{{ task.get_assign_to_display }}</td>
+                                    <td>{{ task.assignment_count }}</td>
+                                    <td>{{ task.completed_count }}</td>
+                                    <td>
+                                        <div class="progress" style="height:6px;"><div class="progress-bar" style="width: {{ task.progress_avg }}%;"></div></div>
+                                        <small class="text-muted">{{ task.progress_avg }}%</small>
+                                    </td>
+                                    <td>{{ task.due_date|date:"d M Y"|default:"&mdash;" }}</td>
+                                    <td><span class="badge light badge-{% if task.status == 'open' %}success{% else %}secondary{% endif %}">{{ task.get_status_display }}</span></td>
+                                    <td class="text-nowrap">
+                                        <a href="{{ task.manage_url }}" class="btn btn-info shadow btn-xs sharp me-1" title="Assignments &amp; grading"><i class="fa fa-eye"></i></a><a href="{% url 'orgtasks:edit-task' task.pk %}" class="btn btn-primary shadow btn-xs sharp me-1"><i class="fa fa-pencil"></i></a>
+                                        <form method="post" action="{% url 'orgtasks:delete-task' task.pk %}" class="d-inline" onsubmit="return confirm('Delete this task?');">{% csrf_token %}<button class="btn btn-danger shadow btn-xs sharp"><i class="fa fa-trash"></i></button></form>
+                                    </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr><td colspan="10" class="text-center text-muted">No tasks yet.</td></tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% comment %}HTMX (Phase 5): init in the content block so it runs on a boosted
+swap-in. whenReady gates on jQuery (the base scripts load after this content on a
+full page load); ensureScript loads the DataTables plugin once; the isDataTable
+guard makes re-init on the fresh #example5 a no-op if already bound.{% endcomment %}
+<script>
+Thrive.whenReady(function () {
+  Thrive.ensureScript('{% static 'myhub/vendor/datatables/js/jquery.dataTables.min.js' %}', function () {
+    if (window.jQuery && jQuery.fn.DataTable && !jQuery.fn.DataTable.isDataTable('#example5')) {
+      jQuery('#example5').DataTable();
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}One import run and everything it printed. Polls while the command is still going.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow"><a href="{% url 'staffdesk:imports' %}">Content imports</a></span><h3>{{ run.command }}</h3>
+      <p>Started {{ run.started_at|date:"j M Y, H:i" }} by {{ run.started_by|person_name|default:"—" }}{% if run.duration %} · took {{ run.duration.total_seconds|floatformat:1 }}s{% endif %}</p></div>
+    <div class="tc-head__actions"><span id="sdaRunStatus">{% include 'staffdesk/academic/_run_status.html' %}</span></div>
+  </div>
+  <div class="tc-card">
+    <div class="tc-card__head"><h6>Command</h6></div>
+    <div class="tc-card__body"><code class="sda-cmdline">manage.py {{ run.command }} {{ run.args|join:" " }}</code></div>
+  </div>
+  <div class="tc-card">
+    <div class="tc-card__head"><h6>Output</h6></div>
+    <div class="tc-card__body"><pre class="sda-pre" id="sdaRunOutput">{% if run.output %}{{ run.output }}{% elif run.is_active %}Waiting for output…{% elif run.status == 'failed' %}No output — the run was interrupted.{% else %}(no output){% endif %}</pre></div>
+  </div>
+</div></div>
+{% endblock %}
+{% block additional_js %}
+{% if run.is_active %}
+<script>
+(function(){
+  var url = "{% url 'staffdesk:import-run-status' run.pk %}";
+  function poll(){
+    fetch(url, {credentials: 'same-origin'}).then(function(r){ return r.json(); }).then(function(d){
+      if (d.output) document.getElementById('sdaRunOutput').textContent = d.output;
+      if (d.active) setTimeout(poll, 3000); else window.location.reload();
+    }).catch(function(){ setTimeout(poll, 6000); });
+  }
+  setTimeout(poll, 2000);
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Start a new lesson — pick a module + title, then jump into the block editor.{% endcomment %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+  <div class="row justify-content-center"><div class="col-lg-7">
+    <div class="card app-form-focus"><div class="card-body p-4">
+      <h4 class="mb-1"><i class="bi bi-journal-plus text-primary me-2"></i>New lesson</h4>
+      <p class="text-muted small mb-4">Give it a title and a subject — you'll build the content next.</p>
+      <form method="post" class="app-form">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Lesson title</label>
+          <input name="title" class="form-control" required placeholder="e.g. Newton's Laws of Motion" autofocus>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Subject</label>
+          <select name="module" class="form-select" required>
+            {% for s in modules %}<option value="{{ s.id }}">{{ s }}</option>
+            {% empty %}<option value="">No subjects yet — create one first</option>{% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Estimated study time (minutes)</label>
+          <input name="estimated_minutes" type="number" min="1" value="30" class="form-control">
+        </div>
+        <div class="d-flex gap-2 mt-2">
+          <button class="btn btn-primary" data-loading><i class="bi bi-arrow-right-circle me-1"></i>Create &amp; edit</button>
+          <a href="{% url 'learning:lesson-manage' %}" class="btn btn-light">Cancel</a>
+        </div>
+      </form>
+    </div></div>
+  </div></div>
+</div></div>
+{% endblock %}

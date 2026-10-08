@@ -1,0 +1,132 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}
+The school calendar — one month, one query.
+
+Everything on this page comes from livesessions.audience.visible_sessions(), so
+admin/staff see every institution's sessions, an educator sees their modules,
+and a student sees only what they were enrolled or invited into. There is no
+second, differently-scoped view to keep in step.
+
+All times render in the reader's own zone: UserPreferenceMiddleware has already
+activated it, so `{{ x|time }}` is local without any per-view conversion.
+{% endcomment %}
+
+{% block additional_css %}
+<style>
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--bs-border-color)}
+  .cal-head{background:var(--bs-tertiary-bg);padding:.5rem;font-size:.75rem;font-weight:600;
+            text-transform:uppercase;letter-spacing:.04em;text-align:center}
+  .cal-day{background:var(--bs-body-bg);min-height:120px;padding:.4rem;position:relative}
+  .cal-day.out{background:var(--bs-tertiary-bg);opacity:.55}
+  .cal-day.today{box-shadow:inset 0 0 0 2px var(--bs-primary)}
+  .cal-date{font-size:.8rem;font-weight:600;display:block;margin-bottom:.25rem}
+  .cal-item{display:block;font-size:.72rem;line-height:1.25;padding:.15rem .35rem;margin-bottom:.15rem;
+            border-radius:.25rem;border-left:3px solid var(--bs-primary);background:var(--bs-tertiary-bg);
+            text-decoration:none;color:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cal-item:hover{background:var(--bs-secondary-bg)}
+  .cal-item.live{border-left-color:var(--bs-success);font-weight:600}
+  .cal-item.date-event{border-left-color:#C00000;font-style:italic}
+  .cal-more{font-size:.68rem;color:var(--bs-secondary-color)}
+  .cal-chip{display:inline-flex;align-items:center;gap:.35rem;font-size:.75rem;padding:.2rem .6rem;
+            border:1px solid var(--bs-border-color);border-radius:2rem;text-decoration:none;color:inherit}
+  .cal-chip:hover{background:var(--bs-tertiary-bg)}
+  .cal-chip.off{opacity:.45}
+  .cal-dot{width:.6rem;height:.6rem;border-radius:50%;display:inline-block}
+  @media (max-width:768px){.cal-day{min-height:84px}.cal-item{font-size:.65rem}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+      <h3 class="mb-0">Calendar</h3>
+      <small class="text-muted">
+        {% if sees_everything %}Every session across all schools.{% else %}Your sessions and the dates that apply to you.{% endif %}
+        {% if user_timezone %}Times shown in <strong>{{ user_timezone }}</strong>.{% endif %}
+      </small>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-light" href="{% url 'livesessions:past-sessions' %}"><i class="bi bi-play-btn me-1"></i>Past sessions</a>
+      <a class="btn btn-light" href="{% url 'accounts:settings' %}?tab=connected">
+        <i class="bi bi-calendar2-week me-1"></i>Connect a calendar</a>
+      <a class="btn btn-light" href="{% url 'livesessions:ics' %}"><i class="bi bi-download me-1"></i>Download (.ics)</a>
+      {% if can_schedule %}
+        <a class="btn btn-primary" href="{% url 'livesessions:session-create' %}"><i class="bi bi-camera-video me-1"></i>Schedule a session</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card mb-3"><div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <a class="btn btn-sm btn-light" href="?m={{ prev_month }}"><i class="bi bi-chevron-left"></i></a>
+      <h5 class="mb-0">{{ focus|date:"F Y" }}</h5>
+      <a class="btn btn-sm btn-light" href="?m={{ next_month }}"><i class="bi bi-chevron-right"></i></a>
+    </div>
+
+    {% comment %}The legend doubles as the filter — every source can be toggled
+    off, and the choice rides in ?show= so a filtered month is a shareable link.{% endcomment %}
+    <div class="cal-legend d-flex flex-wrap gap-2 mb-3">
+      {% for item in legend %}
+        <a class="cal-chip{% if not item.on %} off{% endif %}"
+           href="?m={{ focus|date:'Y-m' }}&show={{ item.kind }}"
+           title="Show only {{ item.label|lower }}">
+          <span class="cal-dot" style="background:{{ item.colour }}"></span>{{ item.label }}
+        </a>
+      {% endfor %}
+      <a class="cal-chip" href="?m={{ focus|date:'Y-m' }}">Show all</a>
+    </div>
+
+    <div class="cal-grid">
+      <div class="cal-head">Mon</div><div class="cal-head">Tue</div><div class="cal-head">Wed</div>
+      <div class="cal-head">Thu</div><div class="cal-head">Fri</div><div class="cal-head">Sat</div>
+      <div class="cal-head">Sun</div>
+
+      {% for week in weeks %}{% for cell in week %}
+        <div class="cal-day{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}">
+          <a class="cal-date text-decoration-none" href="{% url 'livesessions:day' cell.date|date:'Y-m-d' %}">{{ cell.date|date:"j" }}</a>
+          {% for entry in cell.entries %}
+            {% if entry.url %}
+              <a class="cal-item{% if entry.meta.live %} live{% endif %}" href="{{ entry.url }}"
+                 style="border-left-color:{{ entry.colour }}"
+                 title="{{ entry.label }} · {{ entry.title }}{% if entry.detail %} — {{ entry.detail }}{% endif %}">
+                {% if not entry.all_day %}{{ entry.local_start|time:"H:i" }} {% endif %}{{ entry.title }}
+              </a>
+            {% else %}
+              <span class="cal-item" style="border-left-color:{{ entry.colour }}"
+                    title="{{ entry.label }} · {{ entry.title }}">
+                {% if not entry.all_day %}{{ entry.local_start|time:"H:i" }} {% endif %}{{ entry.title }}
+              </span>
+            {% endif %}
+          {% endfor %}
+          {% if cell.overflow %}
+            <a class="cal-more text-decoration-none" href="{% url 'livesessions:day' cell.date|date:'Y-m-d' %}">+{{ cell.overflow }} more</a>
+          {% endif %}
+        </div>
+      {% endfor %}{% endfor %}
+    </div>
+  </div></div>
+
+  <div class="card"><div class="card-body">
+    <h6 class="mb-3">Coming up</h6>
+    <div class="list-group list-group-flush">
+      {% for e in upcoming %}
+        <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center flex-wrap gap-2"
+           href="{{ e.url|default:'#' }}">
+          <span>
+            <i class="bi bi-{{ e.icon }} me-1" style="color:{{ e.colour }}"></i>
+            <strong>{{ e.title }}</strong>
+            {% if e.meta.live %}<span class="badge bg-success ms-1">Live now</span>{% endif %}
+            <br><small class="text-muted">{{ e.label }}{% if e.detail %} · {{ e.detail }}{% endif %}</small>
+          </span>
+          <span class="text-nowrap"><small>{{ e.local_start|date:"D d M, H:i" }}</small></span>
+        </a>
+      {% empty %}
+        <p class="text-muted mb-0">Nothing coming up.</p>
+      {% endfor %}
+    </div>
+  </div></div>
+
+</div></div>
+{% endblock %}

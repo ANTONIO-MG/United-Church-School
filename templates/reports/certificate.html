@@ -1,0 +1,81 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}A certificate, on screen.
+
+The sheet shown here is the *same rendered artwork* the PNG and PDF downloads
+serve (apps.reports.certificate_render), fetched from the inline image endpoint
+— so the preview, the print, the .png and the .pdf are guaranteed identical
+rather than three layouts that have to be kept in step by hand.
+{% endcomment %}
+
+{% block additional_css %}
+<style>
+  .cert-stage{ background:#eef1f6; border-radius:12px; padding:20px; }
+  .cert-sheet{ width:100%; max-width:1100px; margin:0 auto; display:block; height:auto;
+               box-shadow:0 12px 32px rgba(34,48,63,.18); border-radius:4px; background:#fff; }
+  .cert-facts dt{ font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:#8392ab; font-weight:600; }
+  .cert-facts dd{ margin-bottom:.85rem; font-weight:600; color:#22303f; word-break:break-word; }
+
+  /* Print: just the certificate, edge to edge, nothing else on the page. */
+  @media print{
+    @page{ size:A4 landscape; margin:0; }
+    body *{ visibility:hidden !important; }
+    .cert-stage, .cert-stage *{ visibility:visible !important; }
+    .cert-stage{ position:fixed; inset:0; padding:0; background:#fff; border-radius:0; }
+    .cert-sheet{ max-width:none; width:100%; height:100%; object-fit:contain;
+                 box-shadow:none; border-radius:0; }
+    .no-print{ display:none !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 no-print gap-2">
+    <div class="min-w-0">
+      <h3 class="mb-0 text-truncate">{{ title }}</h3>
+      <small class="text-muted">{{ student_name }} · issued {{ cert.issued_at|date:"j M Y" }}</small>
+      {% if cert.is_revoked %}<div><span class="badge bg-danger">Revoked {{ cert.revoked_at|date:"j M Y" }}</span></div>{% endif %}
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-primary" href="{% url 'reports:certificate-pdf' cert.pk %}">
+        <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</a>
+      <a class="btn btn-primary-soft" href="{% url 'reports:certificate-png' cert.pk %}">
+        <i class="bi bi-file-earmark-image me-1"></i>Download PNG</a>
+      <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+        <i class="bi bi-printer me-1"></i>Print</button>
+      <a class="btn btn-light" href="{% url 'reports:verify' cert.verification_uuid %}">
+        <i class="bi bi-patch-check me-1"></i>Verify</a>
+      <a class="btn btn-light" href="{% url 'reports:my-reports' %}">
+        <i class="bi bi-arrow-left me-1"></i>Back</a>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-9">
+      <div class="cert-stage">
+        <img class="cert-sheet" src="{% url 'reports:certificate-image' cert.pk %}"
+             alt="Certificate for {{ student_name }}" width="1754" height="1240">
+      </div>
+    </div>
+
+    <div class="col-lg-3 no-print">
+      <div class="card">
+        <div class="card-header border-0 pb-0">
+          <h6 class="card-title mb-0"><i class="bi bi-info-circle text-primary me-2"></i>Details</h6>
+        </div>
+        <div class="card-body pt-2">
+          <dl class="cert-facts mb-0">
+            <dt>Awarded to</dt><dd>{{ student_name }}</dd>
+            <dt>For</dt><dd>{{ award_name }}</dd>
+            <dt>Final mark</dt><dd>{{ final_mark }}{% if grade_letter %} · grade {{ grade_letter }}{% endif %}</dd>
+            <dt>Issued</dt><dd>{{ cert.issued_at|date:"j F Y" }}</dd>
+            <dt>Certificate number</dt><dd><code>{{ number }}</code></dd>
+            <dt>Issued by</dt><dd>{{ issuer }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% comment %}One review card at a time. States: question → (revealed | feedback) → next; done when nothing is due.
+The memo is only in the context once the card's answer may be shown — the view decides, not this template.{% endcomment %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}"><link rel="stylesheet" href="{% static 'css/revision.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc rv">
+<div class="rv-session" data-state="{{ state }}" data-choice="{% if choice_card %}1{% endif %}">
+  <div class="rv-topbar">
+    <a class="btn btn-sm tc-btn-soft" href="{% url 'revision:home' %}"><i class="bi bi-arrow-left"></i><span class="d-none d-sm-inline ms-1">Revision</span></a>
+    {% if state != 'done' %}
+      <span class="tc-chip">{{ remaining }} left</span>
+      <span class="tc-chip tc-chip--primary">Box {{ card.box }}</span>
+    {% endif %}
+  </div>
+
+  {% if state == 'done' %}
+  <div class="tc-card"><div class="tc-empty">
+    <i class="bi bi-check2-circle"></i>
+    <h5>{% if reviewed_today %}Session complete{% else %}Nothing due right now{% endif %}</h5>
+    <p>{% if reviewed_today %}{{ reviewed_today }} card{{ reviewed_today|pluralize }} reviewed today.{% endif %}
+       {% if streak %}<span class="rv-streak"><i class="bi bi-fire"></i> {{ streak }}-day streak</span>{% endif %}</p>
+    {% if left_overall %}<a class="btn btn-sm btn-primary" href="{% url 'revision:session' %}">Review the other {{ left_overall }} due</a>{% endif %}
+    <a class="btn btn-sm tc-btn-soft" href="{% url 'revision:home' %}">Back to revision</a>
+  </div></div>
+  {% else %}
+
+  <article class="tc-card rv-card">
+    <div class="tc-card__body">
+      <div class="rv-meta">
+        {% if module %}<span class="tc-chip tc-chip--primary">{{ module.code }}</span>{% endif %}
+        <span class="text-muted small">{{ assessment.title }}</span>
+        <span class="text-muted small ms-auto">{{ question.marks }} mark{{ question.marks|pluralize }}</span>
+      </div>
+      <div class="rv-question">{{ question.text|linebreaksbr }}</div>
+      {% if question.media %}<img src="{{ question.media.url }}" class="img-fluid rounded mb-3 rv-media" alt="Question image">{% endif %}
+
+      {% if choice_card %}
+        {% if state == 'question' %}
+        <form method="post" id="rvAnswer">{% csrf_token %}
+          <input type="hidden" name="card" value="{{ card.pk }}"><input type="hidden" name="action" value="answer">
+          {% if module_id is not None %}<input type="hidden" name="module" value="{{ module_id }}">{% endif %}
+          <div class="rv-choices" role="{% if multi %}group{% else %}radiogroup{% endif %}">
+          {% for c in choices %}
+            <label class="rv-choice">
+              <input type="{% if multi %}checkbox{% else %}radio{% endif %}" name="choice" value="{{ c.id }}" data-key="{{ forloop.counter }}">
+              <span class="rv-choice__key">{{ forloop.counter }}</span><span>{{ c.text }}</span>
+            </label>
+          {% endfor %}
+          </div>
+          <button class="btn btn-primary w-100 mt-3" id="rvCheck">Check answer <kbd class="rv-kbd">Enter</kbd></button>
+        </form>
+        {% else %}
+          <div class="rv-choices">
+          {% for c in choices %}
+            <div class="rv-choice is-static {% if c.is_correct %}is-right{% elif c.id in chosen %}is-wrong{% endif %}">
+              <span class="rv-choice__key">{% if c.is_correct %}<i class="bi bi-check-lg"></i>{% elif c.id in chosen %}<i class="bi bi-x-lg"></i>{% else %}{{ forloop.counter }}{% endif %}</span><span>{{ c.text }}</span>
+            </div>
+          {% endfor %}
+          </div>
+          <div class="rv-verdict {% if correct %}is-right{% else %}is-wrong{% endif %}" role="status">
+            {% if correct %}<i class="bi bi-check-circle-fill"></i> <span>Correct — now in box {{ card.box }}, back in {{ card.due_at|timeuntil }}.</span>{% else %}<i class="bi bi-x-circle-fill"></i> <span>Not quite — back to box 1, you'll see it again in {{ card.due_at|timeuntil }}.</span>{% endif %}
+          </div>
+        {% endif %}
+      {% elif state == 'question' %}
+        <p class="small text-muted mb-2">Work it out on paper first, then check it against the memo.</p>
+        <a class="btn btn-primary w-100" id="rvReveal" href="?{% if module_id is not None %}module={{ module_id }}&amp;{% endif %}reveal={{ card.pk }}">Show answer <kbd class="rv-kbd">Space</kbd></a>
+      {% endif %}
+
+      {% if solution %}
+      <section class="rv-solution" aria-label="Model answer">
+        <h6><i class="bi bi-key me-1"></i>{% if choice_card %}Explanation{% else %}Model answer{% endif %}</h6>
+        {% if solution.kind == 'schedule' %}
+          <div class="tc-table-wrap"><table class="table table-sm align-middle small mb-0">
+            <thead><tr><th>Line</th><th>Authority</th><th class="text-end">Amount</th><th class="text-end">Marks</th></tr></thead>
+            <tbody>{% for line in solution.lines %}<tr><td>{{ line.label }}</td><td class="text-muted">{{ line.authority|default:'—' }}</td><td class="text-end font-monospace">{{ line.amount }}</td><td class="text-end">{{ line.marks }}</td></tr>{% endfor %}</tbody>
+          </table></div>
+        {% elif solution.kind == 'rubric' %}
+          <ul class="list-unstyled small mb-0">{% for point in solution.rubric %}
+            <li class="d-flex gap-2 mb-1"><span class="tc-chip tc-chip--success flex-shrink-0">{{ point.marks }}</span><span>{{ point.point }}{% if point.authority %} <span class="text-muted">— {{ point.authority }}</span>{% endif %}</span></li>
+          {% endfor %}</ul>
+        {% endif %}
+        {% if solution.text %}<div class="rv-solution__text">{{ solution.text|linebreaksbr }}</div>{% endif %}
+      </section>
+      {% elif state != 'question' and not choice_card %}
+        <p class="small text-muted mt-3 mb-0">No model answer was captured for this question — grade yourself against your notes.</p>
+      {% endif %}
+    </div>
+  </article>
+
+  {% if state == 'revealed' %}
+  <form method="post" class="rv-grades" id="rvGrade">{% csrf_token %}
+    <input type="hidden" name="card" value="{{ card.pk }}"><input type="hidden" name="action" value="grade">
+    {% if module_id is not None %}<input type="hidden" name="module" value="{{ module_id }}">{% endif %}
+    {% for value, label, key, days in grades %}
+      <button class="rv-grade rv-grade--{{ value }}" name="grade" value="{{ value }}" data-key="{{ key }}">
+        <b>{{ label }}</b><span>{{ days }} day{{ days|pluralize }}</span><kbd class="rv-kbd">{{ key }}</kbd>
+      </button>
+    {% endfor %}
+  </form>
+  {% elif state == 'feedback' %}
+  <a class="btn btn-primary w-100 mt-3" id="rvNext" href="{% url 'revision:session' %}{% if module_id is not None %}?module={{ module_id }}{% endif %}">Next card <kbd class="rv-kbd">Enter</kbd></a>
+  {% endif %}
+
+  {% if state != 'feedback' %}
+  <form method="post" class="text-center mt-3">{% csrf_token %}
+    <input type="hidden" name="card" value="{{ card.pk }}"><input type="hidden" name="action" value="suspend">
+    {% if module_id is not None %}<input type="hidden" name="module" value="{{ module_id }}">{% endif %}
+    <button class="btn btn-link btn-sm text-muted" onclick="return confirm('Stop showing this card?')"><i class="bi bi-eye-slash me-1"></i>Don't show this card again</button>
+  </form>
+  {% endif %}
+  <p class="rv-hint d-none d-md-block">Shortcuts: {% if state == 'revealed' %}1 Again · 2 Hard · 3 Good · 4 Easy{% elif state == 'question' and choice_card %}number keys pick an answer · Enter checks{% elif state == 'question' %}Space shows the answer{% else %}Enter for the next card{% endif %}</p>
+  {% endif %}
+</div>
+</div></div>
+{% endblock %}
+{% block additional_js %}
+<script>
+(function () {
+  var root = document.querySelector('.rv-session');
+  if (!root) return;
+  var state = root.dataset.state, choice = !!root.dataset.choice;
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var t = e.target;
+    if (t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.type === 'text') || t.isContentEditable)) return;
+    var el;
+    if (state === 'revealed' && /^[1-4]$/.test(e.key)) {
+      el = root.querySelector('.rv-grade[data-key="' + e.key + '"]');
+      if (el) { e.preventDefault(); el.click(); }
+    } else if (state === 'question' && choice && /^[1-9]$/.test(e.key)) {
+      el = root.querySelector('.rv-choice input[data-key="' + e.key + '"]');
+      if (el) { e.preventDefault(); el.checked = el.type === 'checkbox' ? !el.checked : true; el.focus(); }
+    } else if (state === 'question' && choice && e.key === 'Enter') {
+      if (root.querySelector('.rv-choice input:checked')) { e.preventDefault(); document.getElementById('rvAnswer').submit(); }
+    } else if (state === 'question' && !choice && (e.key === ' ' || e.key === 'Enter')) {
+      el = document.getElementById('rvReveal'); if (el) { e.preventDefault(); el.click(); }
+    } else if (state === 'feedback' && (e.key === 'Enter' || e.key === ' ')) {
+      el = document.getElementById('rvNext'); if (el) { e.preventDefault(); el.click(); }
+    }
+  });
+  var check = document.getElementById('rvCheck');
+  if (check) {
+    var sync = function () { check.disabled = !root.querySelector('.rv-choice input:checked'); };
+    root.addEventListener('change', sync); sync();
+  }
+})();
+</script>
+{% endblock %}

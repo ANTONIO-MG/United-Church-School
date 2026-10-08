@@ -1,0 +1,18 @@
+# Ticks ucs-lms-scheduler.service every minute.
+#
+#   sudo systemctl enable --now ucs-lms-scheduler.timer
+#   systemctl list-timers ucs-lms-scheduler.timer
+
+[Unit]
+Description=Tick the UCS LMS background jobs every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+# Run a missed tick after downtime instead of waiting for the next slot.
+Persistent=true
+Unit=ucs-lms-scheduler.service
+
+[Install]
+WantedBy=timers.target

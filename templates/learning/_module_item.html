@@ -1,0 +1,57 @@
+{% comment %}
+One material row — the smallest piece of the module feed, and the only place
+lock state is rendered. Included from the schedule accordion and from every
+filter tab, so a study guide looks identical wherever it is listed.
+
+A row can be shut for two different reasons, and they read differently:
+  · money  — "unlock the module", with a buy-this-item route out
+  · sequence — "read the guide first", "submit your attempt to see the solution"
+The second is an instruction the candidate can act on right now, so it is shown
+in the module's own accent rather than as a padlock-and-paywall.
+
+Context:
+  row      an apps.learning.access.MaterialState
+  next_step_id  optional pk — the row to mark "Start here"
+  show_where  optional bool — prefix the meta with which block/week it sits in
+  phase / week  used only when show_where is on
+{% endcomment %}
+{% with m=row.material %}
+{% if row.open and row.url %}<a class="mf-item{% if next_step_id == m.pk %} mf-item--next{% endif %}" href="{{ row.url }}"{% if m.file %} target="_blank" rel="noopener"{% endif %}>{% else %}<div class="mf-item mf-item--locked{% if row.is_sequence_lock %} mf-item--waiting{% endif %}">{% endif %}
+
+  <span class="mf-item__ico"><i class="bi {{ m.icon }}"></i></span>
+
+  <span class="mf-item__main">
+    <p class="mf-item__title">{{ m.title }}</p>
+    <p class="mf-item__meta">
+      {% if show_where %}{% if week %}{{ week.display_title }}{% else %}{{ phase.display_title }}{% endif %} · {% endif %}
+      {{ m.get_kind_display }}
+      {% if m.meeting and m.meeting.scheduled_start %} · {{ m.meeting.scheduled_start|date:"D j M, H:i" }}{% endif %}
+      {% if m.description %} · {{ m.description|truncatechars:70 }}{% endif %}
+      {% if row.locked and row.reason_label %} · {{ row.reason_label }}{% endif %}
+    </p>
+  </span>
+
+  <span class="mf-item__side">
+    {% if m.is_preview %}<span class="mf-tag mf-tag--success">Free preview</span>{% endif %}
+    {% if next_step_id == m.pk %}<span class="mf-tag mf-tag--primary">Start here</span>{% endif %}
+    <span class="mf-tag mf-tag--{{ m.tone }}">{{ m.get_kind_display|truncatechars:14 }}</span>
+    {% if row.is_sequence_lock %}
+      {# Not a padlock: they own this, they simply have not reached it yet. #}
+      <i class="bi bi-hourglass-split" style="color:var(--mf-muted)" title="{{ row.reason_label }}"></i>
+    {% elif row.locked %}
+      <i class="bi bi-lock-fill" style="color:var(--mf-lock)" title="{{ row.reason_label }}"></i>
+    {% else %}
+      <i class="bi bi-chevron-right small" style="color:var(--mf-muted)"></i>
+    {% endif %}
+  </span>
+
+{% if row.open and row.url %}</a>{% else %}</div>{% endif %}
+
+{# A locked item that is also sold on its own — the shop route out of the lock. #}
+{% if row.can_buy_single %}
+<div class="d-flex justify-content-end pe-2 pb-1">
+  <a class="mf-buy" href="{% url 'shop:product-detail' m.product.pk %}">
+    <i class="bi bi-bag me-1"></i>Buy just this — R{{ m.product.price|floatformat:2 }}</a>
+</div>
+{% endif %}
+{% endwith %}

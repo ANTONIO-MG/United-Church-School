@@ -1,0 +1,204 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% comment %}
+Test-taking player. One form posts every answer to `submit`; objective questions
+are auto-marked server-side. A client-side timer (when the assessment has a time
+limit) auto-submits when it runs out.
+
+When the assessment is proctored, static/js/exam-guard.js watches for the
+student leaving the window (another tab, another program, the pointer leaving
+the page, exiting fullscreen) and reports each occurrence to
+`assessments:proctor-event`. The warning tally and any decision to end the
+attempt are computed server-side in apps/assessments/proctoring.py.
+{% endcomment %}
+
+{% block additional_css %}{% if guard.enabled %}<link rel="stylesheet" href="{% static 'css/exam-guard.css' %}">{% endif %}{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+  <div class="card-body d-sm-flex justify-content-between align-items-center">
+    <div>
+      <h1 class="h5 mb-1"><i class="bi bi-ui-checks text-primary me-2"></i>{{ assessment.title }}</h1>
+      <p class="mb-0 small text-muted">{{ assessment.module }} · {{ assessment.get_kind_display }} · {{ assessment.total_marks }} marks · pass {{ assessment.pass_mark_pct }}%</p>
+    </div>
+    <div class="text-end d-flex align-items-center gap-2">
+      {% if guard.enabled %}<span class="guard-count" id="guardCount" hidden></span>{% endif %}
+      {% if time_limit %}<div><span class="badge bg-danger-soft fs-6" id="timer">--:--</span><div class="small text-muted">time remaining</div></div>{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if guard.enabled %}
+<div class="guard-notice mb-3">
+  <i class="bi bi-shield-check"></i>
+  <div>
+    <strong>This assessment is monitored</strong>
+    Stay on this page until you submit. Leaving the window is recorded and shown to your educator.
+    <ul>
+      <li>Switching tab, or moving to another window or program, counts as a warning.</li>
+      <li>Moving your pointer off this window for more than {{ assessment.proctor_grace_seconds }}s counts as a warning.</li>
+      {% if assessment.proctor_block_copy %}<li>Copy, paste, right-click and printing are disabled.</li>{% endif %}
+      {% if assessment.proctor_require_fullscreen %}<li>Fullscreen is required — leaving it counts as a warning.</li>{% endif %}
+      <li>
+        {% if assessment.proctor_warn_limit %}
+          After {{ assessment.proctor_warn_limit }} warning{{ assessment.proctor_warn_limit|pluralize }},
+          {% if assessment.proctor_action == 'autosubmit' %}your attempt is ended and submitted as it stands.
+          {% else %}your attempt is flagged for your educator to review.{% endif %}
+        {% else %}
+          Every occurrence is recorded for your educator.
+        {% endif %}
+      </li>
+    </ul>
+    {% if assessment.proctor_require_fullscreen %}
+    <button type="button" class="btn btn-sm btn-warning mt-2" id="guardFullscreen">
+      <i class="bi bi-fullscreen me-1"></i>Enter fullscreen to begin</button>
+    {% endif %}
+  </div>
+</div>
+
+<div class="guard-banner" id="guardBanner" hidden></div>
+<div class="guard-overlay" id="guardOverlay" hidden>
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  <h5>Return to your assessment</h5>
+  <p id="guardMsg">You have left the assessment window. Come back to this page — this has been recorded.</p>
+</div>
+{% endif %}
+
+<div id="guardContent">
+<form method="post" action="{% url 'assessments:submit' attempt.public_id %}" enctype="multipart/form-data" id="take-form">
+  {% csrf_token %}
+  {% for section in sections %}
+  <div class="card mb-3">
+    <div class="card-header"><h6 class="mb-0">{{ section.title }}</h6>{% if section.instructions %}<small class="text-muted">{{ section.instructions }}</small>{% endif %}</div>
+    <div class="card-body">
+      {% for q in section.questions.all %}
+      <div class="mb-4 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+        <div class="d-flex justify-content-between">
+          <p class="fw-semibold mb-2">{{ forloop.counter }}. {{ q.text }}</p>
+          <span class="badge bg-light text-dark ms-2">{{ q.marks }} mark{{ q.marks|pluralize }}</span>
+        </div>
+        {% if q.media %}<img src="{{ q.media.url }}" class="img-fluid rounded mb-2" style="max-height:240px">{% endif %}
+
+        {% if q.type == 'mcq' or q.type == 'tf' %}
+          {% for c in q.choices.all %}
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="q_{{ q.id }}" value="{{ c.id }}" id="c{{ c.id }}">
+            <label class="form-check-label" for="c{{ c.id }}">{{ c.text }}</label>
+          </div>
+          {% endfor %}
+        {% elif q.type == 'multi' %}
+          {% for c in q.choices.all %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="q_{{ q.id }}" value="{{ c.id }}" id="c{{ c.id }}">
+            <label class="form-check-label" for="c{{ c.id }}">{{ c.text }}</label>
+          </div>
+          {% endfor %}
+        {% elif q.type == 'fill' or q.type == 'short' %}
+          <input type="text" name="q_{{ q.id }}" class="form-control" data-qtext="{{ q.id }}" placeholder="Your answer">
+        {% elif q.type == 'schedule' %}
+          {% comment %}A computation, entered one line at a time — the shape the
+          solution workbook marks in. Each line carries its own marks, and the
+          candidate is told so: they can see which lines are worth fighting for.
+          Only the line labels and their marks come from the pack; the expected
+          figures never reach the page.{% endcomment %}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle sched-table mb-1">
+              <thead>
+                <tr>
+                  <th style="width:52%">Line</th>
+                  <th style="width:16%">Authority</th>
+                  <th style="width:22%" class="text-end">Your figure</th>
+                  <th style="width:10%" class="text-end">Marks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for line in q.config.lines %}
+                <tr>
+                  <td>{{ line.label }}</td>
+                  <td class="small text-muted">{{ line.authority|default:'—' }}</td>
+                  <td>
+                    <input type="text" inputmode="decimal" autocomplete="off"
+                           class="form-control form-control-sm text-end font-monospace sched-input"
+                           name="q_{{ q.id }}_line_{{ forloop.counter0 }}"
+                           data-qschedule="{{ q.id }}" data-line="{{ forloop.counter0 }}"
+                           placeholder="0">
+                  </td>
+                  <td class="text-end small text-muted">{{ line.marks }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="form-text">
+            Enter one figure per line. Brackets or a minus sign for a deduction —
+            <code>(2 000 000)</code> and <code>-2000000</code> are both read the same way.
+            Each line is marked on its own, so a wrong line costs only its own marks.
+          </div>
+        {% elif q.type == 'file_upload' or q.type == 'project' or q.type == 'audio_resp' or q.type == 'video_resp' %}
+          <input type="file" name="q_{{ q.id }}" class="form-control">
+          <div class="form-text">This response is marked by your educator.</div>
+        {% else %}
+          <textarea name="q_{{ q.id }}" rows="4" class="form-control" data-qtext="{{ q.id }}" placeholder="Your answer"></textarea>
+          {% if q.type == 'long' or q.type == 'essay' %}<div class="form-text">This response is marked by your educator.</div>{% endif %}
+        {% endif %}
+      </div>
+      {% empty %}
+      <p class="text-muted mb-0">No questions in this section.</p>
+      {% endfor %}
+    </div>
+  </div>
+  {% empty %}
+  <div class="card"><div class="card-body text-center text-muted py-5">This assessment has no questions yet.</div></div>
+  {% endfor %}
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <a href="{% url 'assessments:index' %}" class="btn btn-outline-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary btn-lg" id="submit-btn"><i class="bi bi-check2-circle me-1"></i>Submit</button>
+  </div>
+</form>
+</div>
+
+{% if guard.enabled %}
+<script>
+window.EXAM_GUARD = Object.assign({{ guard_json|safe }}, {
+  url: "{% url 'assessments:proctor-event' attempt.public_id %}",
+  csrf: '{{ csrf_token }}'
+});
+</script>
+<script src="{% static 'js/exam-guard.js' %}"></script>
+{% endif %}
+
+<script>
+  // Restore any previously-saved answers (resume an in-progress attempt).
+  (function () {
+    var selected = {{ selected_map|default:'{}'|safe }};
+    var texts = {{ text_map|default:'{}'|safe }};
+    Object.keys(selected).forEach(function (qid) {
+      selected[qid].forEach(function (cid) {
+        var input = document.querySelector('input[name="q_' + qid + '"][value="' + cid + '"]');
+        if (input) input.checked = true;
+      });
+    });
+    Object.keys(texts).forEach(function (qid) {
+      var field = document.querySelector('[data-qtext="' + qid + '"]');
+      if (field && texts[qid]) field.value = texts[qid];
+    });
+  })();
+</script>
+{% if time_limit %}
+<script>
+(function () {
+  var remaining = {{ time_limit }} * 60;
+  var el = document.getElementById('timer');
+  var form = document.getElementById('take-form');
+  var tick = setInterval(function () {
+    remaining--;
+    if (remaining <= 0) { clearInterval(tick); form.submit(); return; }
+    var m = Math.floor(remaining / 60), s = remaining % 60;
+    el.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    el.className = 'badge fs-6 bg-' + (remaining < 60 ? 'danger' : 'danger-soft');
+  }, 1000);
+})();
+</script>
+{% endif %}
+{% endblock %}

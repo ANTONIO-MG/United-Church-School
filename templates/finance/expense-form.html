@@ -1,0 +1,69 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static commerce %}
+{% block additional_css %}<link rel="stylesheet" href="{% static 'css/commerce.css' %}">{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><a class="small" href="{% if is_recurring %}{% url 'finance:recurring' %}{% else %}{% url 'finance:expenses' %}{% endif %}"><i class="bi bi-arrow-left me-1"></i>{% if is_recurring %}Recurring expenses{% else %}Expenses{% endif %}</a>
+      <h3 class="mt-1">{{ page_title }}</h3>{% if not is_recurring %}<p>Everything your accountant will ask for. Attach the slip or invoice so it's never lost.</p>{% endif %}</div>
+  </div>
+  <form method="post" enctype="multipart/form-data" novalidate>{% csrf_token %}
+    {% if form.non_field_errors %}<div class="tc-alert tc-alert--danger mb-3"><i class="bi bi-exclamation-circle"></i><div>{{ form.non_field_errors }}</div></div>{% endif %}
+    <div class="tc-card">
+      {% if is_recurring %}
+        <div class="tc-section"><div class="row g-3">
+          <div class="col-md-6">{% include 'shop/_field.html' with field=form.name %}</div>
+          <div class="col-md-6">{% include 'shop/_field.html' with field=form.description %}</div>
+          <div class="col-md-4">{% include 'shop/_field.html' with field=form.category %}</div>
+          <div class="col-md-4">{% include 'shop/_field.html' with field=form.vendor %}</div>
+          <div class="col-md-4">{% include 'shop/_field.html' with field=form.amount %}</div>
+          <div class="col-md-4">{% include 'shop/_field.html' with field=form.vat_treatment %}</div>
+          <div class="col-md-4">{% include 'shop/_field.html' with field=form.paid_through %}</div>
+          <div class="col-md-4">{% include 'shop/_field.html' with field=form.institution %}</div>
+        </div></div>
+        <div class="tc-section"><div class="tc-section__title"><i class="bi bi-arrow-repeat"></i><h6>Schedule</h6></div><div class="row g-3 align-items-end">
+          <div class="col-6 col-md-2">{% include 'shop/_field.html' with field=form.every %}</div>
+          <div class="col-6 col-md-2">{% include 'shop/_field.html' with field=form.frequency %}</div>
+          <div class="col-md-2">{% include 'shop/_field.html' with field=form.start_date %}</div>
+          <div class="col-md-3">{% include 'shop/_field.html' with field=form.next_date %}</div>
+          <div class="col-md-3">{% include 'shop/_field.html' with field=form.end_date %}</div>
+          <div class="col-12"><div class="form-check form-switch">{{ form.is_active }}<label class="form-check-label" for="{{ form.is_active.id_for_label }}">Active — book expenses automatically</label></div></div>
+          <div class="col-12">{% include 'shop/_field.html' with field=form.notes %}</div>
+        </div></div>
+        {% if history %}<div class="tc-section"><div class="tc-section__title"><i class="bi bi-clock-history"></i><h6>Booked so far</h6></div>
+          {% for e in history %}<div class="d-flex justify-content-between small py-1 border-bottom"><span>{{ e.date|date:"j M Y" }}</span><b>{{ e.amount|rand }}</b></div>{% endfor %}</div>{% endif %}
+      {% else %}
+        <div class="tc-section"><div class="row g-3">
+          <div class="col-sm-4 col-md-3">{% include 'shop/_field.html' with field=form.date %}</div>
+          <div class="col-sm-8 col-md-5">{% include 'shop/_field.html' with field=form.description %}</div>
+          <div class="col-sm-6 col-md-4">{% include 'shop/_field.html' with field=form.category %}</div>
+          <div class="col-sm-6 col-md-4">{% include 'shop/_field.html' with field=form.vendor %}</div>
+          <div class="col-sm-6 col-md-4">{% include 'shop/_field.html' with field=form.new_vendor %}</div>
+          <div class="col-sm-6 col-md-4">{% include 'shop/_field.html' with field=form.reference %}</div>
+        </div></div>
+        <div class="tc-section"><div class="tc-section__title"><i class="bi bi-cash-coin"></i><h6>Amount &amp; payment</h6></div><div class="row g-3">
+          <div class="col-sm-4">{% include 'shop/_field.html' with field=form.amount %}</div>
+          <div class="col-sm-4">{% include 'shop/_field.html' with field=form.vat_treatment %}</div>
+          <div class="col-sm-4">{% include 'shop/_field.html' with field=form.paid_through %}</div>
+          <div class="col-sm-4">{% include 'shop/_field.html' with field=form.status %}</div>
+          <div class="col-sm-4">{% include 'shop/_field.html' with field=form.due_date %}</div>
+          <div class="col-sm-4">{% include 'shop/_field.html' with field=form.institution %}</div>
+        </div></div>
+        <div class="tc-section"><div class="row g-3">
+          <div class="col-md-6">{% include 'shop/_field.html' with field=form.receipt %}{% if object.receipt %}<div class="small mt-1"><a href="{% url 'finance:expense-receipt' object.pk %}"><i class="bi bi-paperclip"></i> Current receipt</a></div>{% endif %}</div>
+          <div class="col-md-6">{% include 'shop/_field.html' with field=form.notes %}</div>
+          {% if form.repeat %}<div class="col-sm-6">{% include 'shop/_field.html' with field=form.repeat %}</div>
+          <div class="col-sm-6">{% include 'shop/_field.html' with field=form.repeat_until %}</div>{% endif %}
+        </div></div>
+      {% endif %}
+      <div class="tc-savebar">
+        {% if object and not is_recurring %}<button class="btn btn-link text-danger me-auto" form="deleteExpense" onclick="return confirm('Delete this expense?');">Delete</button>{% endif %}
+        <a class="btn btn-link" href="{% if is_recurring %}{% url 'finance:recurring' %}{% else %}{% url 'finance:expenses' %}{% endif %}">Cancel</a>
+        {% if not object %}<button class="btn btn-outline-secondary" name="then" value="another">Save &amp; add another</button>{% endif %}
+        <button class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Save</button>
+      </div>
+    </div>
+  </form>
+  {% if object and not is_recurring %}<form id="deleteExpense" method="post" action="{% url 'finance:expense-delete' object.pk %}">{% csrf_token %}</form>{% endif %}
+</div></div>
+{% endblock %}

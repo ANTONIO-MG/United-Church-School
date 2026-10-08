@@ -1,0 +1,269 @@
+{
+ "pack": "thrive-pack/1",
+ "module": "ACC",
+ "programme": "UCS-GR12",
+ "cohort": "2026",
+ "topic": {
+  "code": "T5",
+  "title": "Estate duty & deceased estates",
+  "description": "s4(q) · s9HA(1) CGT on death · 2026 year of assessment. Death triggers two taxes that mirror the donations topic almost exactly."
+ },
+ "items": [
+  {
+   "type": "study_guide",
+   "source_ref": "TAXA/T5/guide",
+   "title": "Topic 5 — Estate duty & deceased estates",
+   "subtitle": "Two taxes, one death, and the spouse mirror that links them",
+   "author_name": "UCS Accounting Department",
+   "sections": [
+    {
+     "heading": "How to use this guide",
+     "summary": "Read this before you attempt the mock.",
+     "body_html": "<p>Death triggers <strong>two</strong> taxes, and they mirror the donations topic almost exactly: estate duty under the Estate Duty Act, and capital gains tax under s9HA(1) of the Income Tax Act. Work through the framework in Section 3 before you attempt the mock — the whole topic is one ladder worked straight down, twice.</p>"
+    },
+    {
+     "heading": "Section 1 — Why this topic matters",
+     "body_html": "<p>Estate duty is the topic on the rise. It entered Test 3 in P25S and the IAC has been signalling it since. It is also satisfying once you see the symmetry: you already know the donations / CGT two-track split, and this is the same shape with different section numbers.</p>"
+    },
+    {
+     "heading": "Section 2 — The principle",
+     "body_html": "<p><strong>Track 1 — Estate duty (Estate Duty Act).</strong> Levied on the dutiable estate at 20% (25% above R30m). Property + deemed property, less s4 deductions, less the s4A abatement.</p><p><strong>Track 2 — CGT on death (s9HA(1)).</strong> The deceased is deemed to dispose of all assets at market value on the date of death — a capital gain arises in the final return.</p><p><strong>The spouse mirror — the heart of the topic.</strong> Assets left to the surviving spouse escape <em>both</em>. s4(q) deducts them from the dutiable estate, and s9HA(2)/s25(4) rolls the CGT over so the spouse inherits the base cost.</p>"
+    },
+    {
+     "heading": "Section 3 — The framework",
+     "body_html": "<p><strong>3.1 The estate-duty order — work straight down.</strong></p><ol><li>Property (s3): all assets at death, SA and foreign, at market value</li><li>+ Deemed property (s3(3)): domestic life policies, donationes mortis causa — <em>not</em> retirement-fund benefits (s3(2))</li><li>= Total property</li><li>− s4 deductions: debts, funeral, deathbed and administration costs</li><li>− s4(q): all property accruing to the surviving spouse — the big one</li><li>= Net value of the estate</li><li>− s4A abatement: R3.5 million (up to R7m with spousal roll-over) — portable</li><li>= Dutiable amount × 20% (25% above R30m)</li></ol><p><strong>3.2 CGT on death (s9HA(1)).</strong> Deemed disposal at market value of all assets. Assets to the surviving spouse roll over (s9HA(2)/s25(4)). The year-of-death annual exclusion is <strong>R300 000</strong>, not R40 000. Long-term insurance policy gains are excluded (para 55).</p><p><strong>3.3 The deceased estate itself (s25).</strong> Income accruing <em>after</em> death is taxed in the deceased estate, not in the final return.</p>"
+    },
+    {
+     "heading": "Section 4 — Worked mini-example",
+     "body_html": "<p>An estate has property and deemed property of R12 000 000. Debts, funeral and administration come to R1 000 000, and R4 000 000 accrues to the surviving spouse.</p><p>Total property R12 000 000 − s4 deductions R1 000 000 − s4(q) R4 000 000 = net value R7 000 000. Less the s4A abatement of R3 500 000 gives a dutiable amount of R3 500 000, and estate duty at 20% of R700 000.</p><p><em>See what the spouse bequest did.</em> The R4m came straight off under s4(q) <strong>before</strong> the abatement — so it bears no estate duty now, and the unused abatement can roll over to Maria later.</p>"
+    },
+    {
+     "heading": "Section 5 — Exam technique",
+     "body_html": "<p><strong>5.1 Two calculations, like Topic 4.</strong> Present them separately and label them.</p><p><strong>5.2 Sort every asset by destination first.</strong> Before any arithmetic, split the assets into “to the spouse” and “to everyone else.” The spouse column is deducted under s4(q) and rolls over for CGT; everything else runs the full ladder.</p><p><strong>5.3 Watch deemed property and the exclusions.</strong> Domestic life-policy proceeds <em>are</em> deemed property for estate duty (s3(3)) — but the policy's capital gain is disregarded (para 55).</p><p><strong>5.4 Use the R300 000 death exclusion, not R40 000.</strong> In the year of death the CGT annual exclusion jumps to R300 000. Using the ordinary R40 000 is a common and costly slip.</p>"
+    },
+    {
+     "heading": "Section 6 — Quick reference (2026 YOA)",
+     "body_html": "<table><tr><th>Item</th><th>Amount / rate</th></tr><tr><td>Estate duty rate</td><td>20% (25% above R30m)</td></tr><tr><td>s4A abatement</td><td>R3 500 000 (portable, up to R7m)</td></tr><tr><td>Year-of-death CGT annual exclusion</td><td>R300 000</td></tr><tr><td>Individual CGT inclusion rate</td><td>40%</td></tr></table>"
+    }
+   ]
+  },
+  {
+   "type": "mock",
+   "source_ref": "TAXA/T5/mock",
+   "title": "TAX Test 3 — Topic 5 Mock: Estate duty & deceased estates",
+   "total_marks": 50,
+   "minutes": 90,
+   "release_solution": "on_submit",
+   "instructions": "Attempt cold, under timed conditions (90 minutes). All amounts exclude VAT unless stated. Assume taxpayers use all legal means to minimise tax. Round to the nearest Rand.",
+   "scenario_html": "<p>Johannes Botha (a South African resident) died on 30 September 2025, survived by his wife Maria (to whom he was married out of community of property) and two adult children. His estate comprised the following, at market value on the date of death:</p><table><tr><th>Asset</th><th>Market value</th><th>Base cost</th></tr><tr><td>Primary residence</td><td>R4 500 000</td><td>R1 500 000</td></tr><tr><td>Holiday house</td><td>R3 000 000</td><td>R1 000 000</td></tr><tr><td>Share portfolio</td><td>R6 000 000</td><td>R2 500 000</td></tr><tr><td>Cash and bank balances</td><td>R1 500 000</td><td>—</td></tr><tr><td>Life insurance policy on his life (paid to the estate)</td><td>R2 000 000</td><td>— (deemed property)</td></tr></table><p><strong>Liabilities and costs.</strong> A mortgage bond of R800 000 over the holiday house. Funeral expenses R100 000; other debts R200 000; estate administration costs R150 000.</p><p><strong>The will.</strong> To Maria (spouse): the primary residence and R2 000 000 of the cash. To the two adult children: the holiday house and the share portfolio.</p><p>Johannes had not been predeceased by any spouse. Ignore any income earned before death.</p>",
+   "solution_notes": {
+    "recap": "Johannes died 30 Sep 2025, survived by Maria (married out of community of property) and two adult children.",
+    "triggers": "Estate Duty Act: s3 property + s3(3) deemed property; s4 deductions; s4(q) spouse; s4A abatement. CGT: s9HA(1) deemed disposal at market value on death; s9HA(2)/s25(4) spouse roll-over; para 55 policy exclusion.",
+    "traps": "Leaving the spouse's assets inside the dutiable estate — s4(q) removes them. Using the R40 000 annual exclusion instead of the R300 000 year-of-death exclusion.",
+    "answers": "Estate duty R1 150 000; taxable capital gain on death R2 080 000."
+   },
+   "parts": [
+    {
+     "ref": "a",
+     "required": "Calculate the estate duty payable by the estate of Johannes Botha. Support items with a nil effect with reasons or references to legislation.",
+     "marks": 18,
+     "marking": "auto",
+     "lines": [
+      {
+       "label": "Primary residence",
+       "authority": "s3",
+       "amount": 4500000,
+       "marks": 1
+      },
+      {
+       "label": "Holiday house",
+       "authority": "s3",
+       "amount": 3000000,
+       "marks": 1
+      },
+      {
+       "label": "Share portfolio",
+       "authority": "s3",
+       "amount": 6000000,
+       "marks": 1
+      },
+      {
+       "label": "Cash and bank",
+       "authority": "s3",
+       "amount": 1500000,
+       "marks": 1
+      },
+      {
+       "label": "Life policy on his life (deemed property)",
+       "authority": "s3(3)",
+       "amount": 2000000,
+       "marks": 2
+      },
+      {
+       "label": "Total property",
+       "authority": "",
+       "amount": 17000000,
+       "marks": 1
+      },
+      {
+       "label": "Less: bond + funeral + debts + admin",
+       "authority": "s4",
+       "amount": -1250000,
+       "marks": 3
+      },
+      {
+       "label": "Less: accruing to spouse Maria — residence + R2m cash",
+       "authority": "s4(q)",
+       "amount": -6500000,
+       "marks": 3
+      },
+      {
+       "label": "Net value of estate",
+       "authority": "",
+       "amount": 9250000,
+       "marks": 1
+      },
+      {
+       "label": "Less: s4A abatement",
+       "authority": "s4A",
+       "amount": -3500000,
+       "marks": 2
+      },
+      {
+       "label": "Dutiable amount",
+       "authority": "",
+       "amount": 5750000,
+       "marks": 1
+      },
+      {
+       "label": "Estate duty at 20% (below R30m)",
+       "authority": "",
+       "amount": 1150000,
+       "marks": 1
+      }
+     ]
+    },
+    {
+     "ref": "b",
+     "required": "Calculate the taxable capital gain in Johannes's final return arising on his death.",
+     "marks": 14,
+     "marking": "auto",
+     "lines": [
+      {
+       "label": "Holiday house: 3 000 000 − 1 000 000 (to children)",
+       "authority": "s9HA(1)",
+       "amount": 2000000,
+       "marks": 3
+      },
+      {
+       "label": "Shares: 6 000 000 − 2 500 000 (to children)",
+       "authority": "s9HA(1)",
+       "amount": 3500000,
+       "marks": 3
+      },
+      {
+       "label": "Residence + cash to spouse — roll-over, no gain",
+       "authority": "s9HA(2)/s25(4)",
+       "amount": 0,
+       "marks": 2
+      },
+      {
+       "label": "Life policy — capital gain disregarded",
+       "authority": "para 55",
+       "amount": 0,
+       "marks": 1
+      },
+      {
+       "label": "Sum of capital gains",
+       "authority": "",
+       "amount": 5500000,
+       "marks": 1
+      },
+      {
+       "label": "Less: year-of-death annual exclusion",
+       "authority": "R300 000",
+       "amount": -300000,
+       "marks": 2
+      },
+      {
+       "label": "Taxable capital gain (× 40% inclusion rate)",
+       "authority": "",
+       "amount": 2080000,
+       "marks": 2
+      }
+     ]
+    },
+    {
+     "ref": "c",
+     "required": "Explain how leaving the residence and cash to Maria affects BOTH the estate duty and the capital gains tax — and what would have changed had they gone to the children instead.",
+     "marks": 10,
+     "marking": "ai_assisted",
+     "rubric": [
+      {
+       "point": "Assets accruing to the surviving spouse escape estate duty: s4(q) deducts the residence and the R2m cash from the dutiable estate.",
+       "authority": "s4(q)",
+       "marks": 3
+      },
+      {
+       "point": "The same assets escape CGT on death: s9HA(2)/s25(4) rolls the disposal over, so no capital gain arises and Maria inherits Johannes's base cost.",
+       "authority": "s9HA(2)/s25(4)",
+       "marks": 3
+      },
+      {
+       "point": "Had they gone to the children, both reliefs fall away: the R6.5m would sit in the dutiable estate and a further capital gain would arise at market value.",
+       "authority": "s3/s9HA(1)",
+       "marks": 2
+      },
+      {
+       "point": "Concludes that the relief is a deferral, not an exemption — the tax arrives in Maria's estate later.",
+       "authority": "",
+       "marks": 1
+      },
+      {
+       "point": "Y2: Critical thinking — communication and clarity of expression.",
+       "authority": "",
+       "marks": 1,
+       "professional_skill": true
+      }
+     ]
+    },
+    {
+     "ref": "d",
+     "required": "Explain the R3.5 million abatement and how it could roll over to Maria.",
+     "marks": 4,
+     "marking": "ai_assisted",
+     "rubric": [
+      {
+       "point": "s4A grants every estate an abatement of R3.5 million, deducted from the net value of the estate to arrive at the dutiable amount.",
+       "authority": "s4A",
+       "marks": 2
+      },
+      {
+       "point": "Any portion unused on the first death rolls over to the surviving spouse, giving her estate an abatement of up to R7 million.",
+       "authority": "s4A(2)",
+       "marks": 2
+      }
+     ]
+    },
+    {
+     "ref": "e",
+     "required": "Explain the estate-duty and CGT treatment of the life insurance policy.",
+     "marks": 4,
+     "marking": "ai_assisted",
+     "rubric": [
+      {
+       "point": "The domestic policy on Johannes's own life is DEEMED property and is included in the estate at R2 000 000.",
+       "authority": "s3(3)",
+       "marks": 2
+      },
+      {
+       "point": "For CGT the gain on a long-term insurance policy in the hands of the original beneficial owner is disregarded, so nothing is added to the capital gain.",
+       "authority": "para 55",
+       "marks": 2
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

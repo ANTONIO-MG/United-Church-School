@@ -1,0 +1,49 @@
+{% load people %}{% load static humanize org_branding %}{% org_string "school.registration" "" as school_registration %}{% org_string "school.memberships" "" as school_memberships %}<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+  @page { size: letter; margin: 0; @frame content_frame { left: 0pt; top: 25pt; width: 612pt; height: 730pt; } }
+  body { font-family: Helvetica, Arial, sans-serif; color: #000; font-size: 9.5pt; }
+  div, p, table { margin: 0; padding: 0; } table { width: 100%; border-collapse: collapse; }
+  td, th { vertical-align: top; padding: 0; }
+  .title { font-size: 26pt; line-height: 28pt; } .muted { color: #67748e; } .b { font-weight: bold; } .r { text-align: right; }
+  .rule { background-color: #DEE1E2; height: 1pt; font-size: 1pt; line-height: 1pt; }
+  .items th { background-color: #34CAFB; font-weight: bold; padding-top: 7pt; padding-bottom: 7pt; }
+  .items td { padding-top: 5pt; padding-bottom: 4pt; border-bottom: 0.5pt solid #EEF0F1; }
+  .shade { background-color: #F4F5F5; }
+</style></head><body>
+  <table><tr>
+    <td style="width:280pt; padding-left:21.5pt;"><img src="{% static brand.logo_wide|default:'images/brand/ucs-logo.png' %}" style="width:200pt; height:60pt;"></td>
+    <td class="r" style="padding-right:21.5pt;"><div class="title">STATEMENT</div>
+      <div class="b" style="padding-top:8pt;">{{ brand.invoice_name|default:brand.name }}</div>
+      <div>{{ brand.contact.email }}</div>{% for addr in brand.contact.address_lines %}<div>{{ addr }}</div>{% endfor %}</td>
+  </tr></table>
+  <div class="rule" style="margin-top:14pt;">&nbsp;</div>
+  <table style="margin-top:10pt;"><tr>
+    <td style="width:300pt; padding-left:21.5pt;"><div class="muted">STATEMENT FOR</div><div class="b">{{ s.user|person_name }}</div><div>{{ s.user.email }}</div></td>
+    <td style="padding-right:21.5pt;"><table>
+      <tr><td class="b r" style="width:60%;">Period:&nbsp;</td><td>{{ s.start|date:"j M Y" }} – {{ s.end|date:"j M Y" }}</td></tr>
+      <tr><td class="b r">Opening balance:&nbsp;</td><td>R{{ s.opening|floatformat:2|intcomma }}</td></tr>
+      <tr><td class="b r">Invoiced:&nbsp;</td><td>R{{ s.invoiced|floatformat:2|intcomma }}</td></tr>
+      <tr><td class="b r">Paid:&nbsp;</td><td>R{{ s.paid|floatformat:2|intcomma }}</td></tr>
+      <tr class="shade"><td class="b r" style="padding-top:3pt;padding-bottom:3pt;">Balance due (ZAR):&nbsp;</td><td class="b" style="padding-top:3pt;">R{{ s.closing|floatformat:2|intcomma }}</td></tr>
+    </table></td>
+  </tr></table>
+  <table class="items" style="margin-top:16pt;">
+    <thead><tr><th style="padding-left:21.5pt; text-align:left; width:70pt;">Date</th><th style="text-align:left; width:95pt;">Reference</th><th style="text-align:left;">Details</th>
+      <th class="r" style="width:70pt;">Invoiced</th><th class="r" style="width:70pt;">Paid</th><th class="r" style="width:80pt; padding-right:21.5pt;">Balance</th></tr></thead>
+    <tbody>
+      <tr><td style="padding-left:21.5pt;">{{ s.start|date:"j M Y" }}</td><td></td><td class="muted">Opening balance</td><td></td><td></td><td class="r" style="padding-right:21.5pt;">R{{ s.opening|floatformat:2|intcomma }}</td></tr>
+      {% for r in s.rows %}<tr><td style="padding-left:21.5pt;">{{ r.date|date:"j M Y" }}</td><td>{{ r.ref }}</td><td>{{ r.text|truncatechars:60 }}</td>
+        <td class="r">{% if r.debit %}R{{ r.debit|floatformat:2|intcomma }}{% endif %}</td><td class="r">{% if r.credit %}R{{ r.credit|floatformat:2|intcomma }}{% endif %}</td>
+        <td class="r" style="padding-right:21.5pt;">R{{ r.balance|floatformat:2|intcomma }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <table style="margin-top:14pt;"><tr><td class="muted" style="padding-left:21.5pt; padding-right:21.5pt;">
+    Bank Details: {{ brand.banking.account_name }}, {{ brand.banking.bank }}, Acc Number {{ brand.banking.account_number }}, Branch Code {{ brand.banking.branch_code }}.
+    Please use your invoice number as the payment reference.
+    {% if brand.banking.reference_hint %}<br>{{ brand.banking.reference_hint }}{% endif %}</td></tr></table>
+  <table style="margin-top:18pt;"><tr><td class="muted" style="padding-left:21.5pt; padding-right:21.5pt; text-align:center; font-size:8pt; line-height:11pt;">
+    {{ brand.legal_name|default:brand.invoice_name|default:brand.name }}
+    {% if school_registration %}<br>{{ school_registration }}{% endif %}
+    {% if school_memberships %}<br>{{ school_memberships }}{% endif %}</td></tr></table>
+</body></html>

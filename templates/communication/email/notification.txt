@@ -1,0 +1,13 @@
+{% load org_branding %}{% org_brand as brand %}{{ notification.title|default:notification.verb }}
+{% if notification.actor %}From: {{ notification.actor|greeting_name:"" }}
+{% endif %}
+{{ notification.body }}
+{% if notification.url %}
+Open: {{ notification.url }}
+{% endif %}
+Kind regards,
+The {{ brand.name|default:"United Church School" }} team
+{% if brand.support_email %}Questions? E-mail {{ brand.support_email }}
+{% endif %}
+--
+{{ brand.copyright|default:"United Church School" }}

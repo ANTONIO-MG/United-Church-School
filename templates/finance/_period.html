@@ -1,0 +1,10 @@
+{% comment %}Period picker shared by the reports. Context: period, PERIOD_CHOICES.{% endcomment %}
+<form method="get" class="tc-toolbar" id="periodForm">
+  {% for key, label in PERIOD_CHOICES %}{% if key != 'custom' %}
+    <a class="btn btn-sm {% if period.key == key %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="?period={{ key }}">{{ label }}</a>
+  {% endif %}{% endfor %}
+  <input type="hidden" name="period" value="custom">
+  <label class="small text-muted ms-md-auto" for="pFrom">From</label><input id="pFrom" type="date" name="from" value="{{ period.start|date:'Y-m-d' }}" class="form-control form-control-sm" style="max-width:10rem">
+  <label class="small text-muted" for="pTo">To</label><input id="pTo" type="date" name="to" value="{{ period.end|date:'Y-m-d' }}" class="form-control form-control-sm" style="max-width:10rem">
+  <button class="btn btn-sm btn-outline-primary">Apply</button>
+</form>

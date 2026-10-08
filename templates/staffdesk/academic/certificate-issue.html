@@ -1,0 +1,46 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}Issue a module or programme certificate through apps.reports.services.issue_certificate.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow"><a href="{% url 'staffdesk:certificates' %}">Certificates</a></span><h3>Issue a certificate</h3>
+      <p>Subject certificates are normally issued automatically on a pass; use this for the exceptions and for grade awards.</p></div>
+  </div>
+
+  <form method="post" class="tc-card sda-narrow">{% csrf_token %}
+    {% if form.non_field_errors %}<div class="tc-section"><div class="tc-alert tc-alert--danger"><i class="bi bi-exclamation-circle"></i><div>{{ form.non_field_errors|join:" " }}</div></div></div>{% endif %}
+    <div class="tc-section">
+      {% for field in form %}
+      <div class="mb-3 {% if field.name == 'module' %}sda-kind-module{% elif field.name == 'programme' %}sda-kind-programme{% endif %}">
+        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {% if field.field.widget.input_type == 'select' %}
+          <select class="form-select" name="{{ field.html_name }}" id="{{ field.id_for_label }}">
+            {% for value, label in field.field.choices %}<option value="{{ value }}" {% if value|stringformat:'s' == field.value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        {% else %}
+          <input class="form-control" type="{% if field.name == 'final_mark' %}number{% else %}text{% endif %}" {% if field.name == 'final_mark' %}step="0.01" min="0" max="100"{% endif %} name="{{ field.html_name }}" id="{{ field.id_for_label }}" value="{{ field.value|default_if_none:'' }}">
+        {% endif %}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {% for e in field.errors %}<div class="tc-field-error">{{ e }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="tc-savebar">
+      <a class="btn btn-outline-secondary btn-sm" href="{% url 'staffdesk:certificates' %}">Cancel</a>
+      <button class="btn btn-primary btn-sm"><i class="bi bi-award me-1"></i>Issue</button>
+    </div>
+  </form>
+</div></div>
+{% endblock %}
+{% block additional_js %}
+<script>
+(function(){
+  var kind = document.getElementById('id_kind');
+  function sync(){ var k = kind.value;
+    document.querySelectorAll('.sda-kind-module').forEach(function(e){ e.hidden = k !== 'module'; });
+    document.querySelectorAll('.sda-kind-programme').forEach(function(e){ e.hidden = k !== 'programme'; }); }
+  if (kind){ kind.addEventListener('change', sync); sync(); }
+})();
+</script>
+{% endblock %}

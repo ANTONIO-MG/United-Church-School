@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block page_title %}{{ page_title }}{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">{{ page_title }}</h3>
+    <a class="btn btn-sm btn-primary" href="{% url 'shop:add-discount' %}"><i class="bi bi-plus-lg me-1"></i>New discount</a>
+  </div>
+  <div class="card"><div class="card-body table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Name</th><th>Type</th><th>Off</th><th>Applies to</th><th>Window</th><th>Used</th><th>Live</th><th></th></tr></thead>
+      <tbody>
+      {% for d in discounts %}
+        <tr>
+          <td><strong>{{ d.name }}</strong>{% if d.code %}<br><code>{{ d.code }}</code>{% else %}<br><span class="text-muted small">automatic</span>{% endif %}</td>
+          <td>{{ d.get_discount_type_display }}</td>
+          <td>{% if d.discount_type == 'percent' %}{{ d.value|floatformat:0 }}%{% else %}R{{ d.value|floatformat:2 }}{% endif %}</td>
+          <td class="small">
+            {% if d.products.exists %}{{ d.products.count }} item{{ d.products.count|pluralize }}
+            {% elif d.category %}{{ d.category.name }}
+            {% elif d.programme %}{{ d.programme.institution.code }} · {{ d.programme.name }}
+            {% elif d.institution %}{{ d.institution.code }}
+            {% else %}<span class="text-muted">Whole catalogue</span>{% endif %}
+            {% if d.min_spend %}<br><span class="text-muted">min R{{ d.min_spend|floatformat:2 }}</span>{% endif %}
+          </td>
+          <td class="small">{% if d.starts_at %}{{ d.starts_at|date:"d M Y" }}{% else %}—{% endif %} → {% if d.ends_at %}{{ d.ends_at|date:"d M Y" }}{% else %}—{% endif %}</td>
+          <td>{{ d.times_used }}{% if d.max_uses %} / {{ d.max_uses }}{% endif %}</td>
+          <td>{% if d.is_live %}<span class="badge bg-success">Live</span>{% else %}<span class="badge bg-secondary">Off</span>{% endif %}</td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-secondary" href="{% url 'shop:edit-discount' d.pk %}">Edit</a>
+            <form method="post" action="{% url 'shop:delete-discount' d.pk %}" class="d-inline">{% csrf_token %}
+              <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this discount?')">Delete</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="text-muted">No discounts yet. A discount with no code applies automatically; one with a code has to be typed at checkout.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div>
+{% endblock %}
