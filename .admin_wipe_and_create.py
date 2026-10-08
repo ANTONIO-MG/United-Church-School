@@ -16,13 +16,14 @@ For every database configured in ``config.settings.DATABASES`` this script:
      shop** (uniform and additional fees, 2026 prices). This is the same data
      ``.demo_seed.py`` enrols its demo learners into: it is defined once, and
      neither script keeps a copy of it.
-  4. Creates exactly **four accounts**, one per role — administrator, educator,
-     student and parent — each with a verified e-mail, a completed profile and a
-     profile picture, so they can sign in immediately with no confirmation step.
-     The parent is linked to the student, so the parent-only view has a child to
-     look at from the first login. The student is a Grade 10 learner with an
-     admitted application and their subjects unlocked, and the educator teaches
-     them.
+  4. Creates exactly **five accounts**, one per role — administrator, office
+     staff, educator, student and parent — each with a verified e-mail, a
+     completed profile and a profile picture, so they can sign in immediately
+     with no confirmation step. The parent is linked to the student, so the
+     parent-only view has a child to look at from the first login. The student
+     is a Grade 10 learner with an admitted application, an admission and LURITS
+     number (for the SA-SAMS export) and their subjects unlocked; the educator
+     teaches them and is the Grade 10 class teacher (daily register, promotion).
   5. Builds the **General course**: *Getting Started with the UCS Learning
      Platform*, with a generated cover and five areas — Communication · Lessons ·
      Online Classes · Dashboard and Student Matrix · Quizzes and Assessments.
@@ -45,20 +46,25 @@ A ``Person`` profile is created by the ``post_save`` signal in
 ``apps.accounts.signals``; these accounts are marked onboarded (``registered`` +
 ``profile_status``) so they skip the onboarding gate.
 
-THE ACCOUNTS (all four share the password ``Password@99``):
+THE ACCOUNTS (all five share the password ``Password@99``):
 
-    admin@ucs.org.za        superuser — the Django admin at /admin/, full CRUD
-    educator@ucs.org.za     teaches Grade 10's subjects
+    admin@ucs.org.za        administrator — everything, plus the system pages
+                            (backups, error log, audit trail, jobs) and /admin/
+    staff@ucs.org.za        the school office — admissions, learners & parents,
+                            fees, invoices, shop & prices, notifications,
+                            class teachers, SA-SAMS export, all lessons/quizzes
+    educator@ucs.org.za     teaches Grade 10's subjects; Grade 10 class teacher
     student@ucs.org.za      a Grade 10 learner, subjects unlocked
     parent@ucs.org.za       linked to the learner, sees their child and nothing else
 
-SETUP ORDER (run from the directory that contains ``manage.py``):
+SETUP ORDER (run from the directory that contains ``manage.py``) — the full
+list is at the top of ``.install_requirements.py``; in short:
 
-    0) python3.12 -m venv .venv && source .venv/bin/activate
-       # the venv MUST be .venv — .env is the settings file this project reads
-    1) python .install_requirements.py     # install Python deps first
-    2) python .admin_wipe_and_create.py    # THEN reset + seed the database
-    3) python .demo_seed.py                # (optional) add the demonstration data
+    1) bash .setup                         # environment, packages, PostgreSQL, database
+    2) source .environment/bin/activate    # the virtual environment is .environment
+    3) python .admin_wipe_and_create.py    # (DESTRUCTIVE) reset + the five accounts
+    4) python .demo_seed.py                # (optional) add the demonstration data
+    5) python run.py                       # start the platform
 
     python .admin_wipe_and_create.py          # asks for confirmation first
     python .admin_wipe_and_create.py --yes     # skip the confirmation prompt
@@ -84,17 +90,19 @@ from django.db import connections  # noqa: E402
 
 from core import academic_spine, hub_guide, seed_builders, seed_media  # noqa: E402
 
-# The four accounts this script creates — one per role. The administrator is the
+# The five accounts this script creates — one per role. The administrator is the
 # superuser and becomes the author of the guide course; the educator teaches its
 # subjects; the student sits them; the parent watches the student.
 #   (email, first_name, last_name, user_type, is_superuser)
 ACCOUNTS = [
     ("admin@ucs.org.za",    "Gerson",     "Ilha",   "admin",    True),
+    ("staff@ucs.org.za",    "Lindiwe",    "Khumalo", "staff",   False),
     ("educator@ucs.org.za", "Tariro",     "Moyo",   "educator", False),
     ("student@ucs.org.za",  "Anesu",      "Sibanda", "student",  False),
     ("parent@ucs.org.za",   "Nomsa",      "Sibanda", "parent",   False),
 ]
 ADMIN_EMAIL = "admin@ucs.org.za"
+STAFF_EMAIL = "staff@ucs.org.za"
 EDUCATOR_EMAIL = "educator@ucs.org.za"
 STUDENT_EMAIL = "student@ucs.org.za"
 PARENT_EMAIL = "parent@ucs.org.za"
@@ -130,6 +138,13 @@ PROFILE_DETAIL = {
                         city="Johannesburg", suburb="Yeoville",
                         province="Gauteng"),
     },
+    STAFF_EMAIL: {
+        "person": dict(title="ms", gender="female", phone="+27 82 000 0105",
+                       primary_device="laptop"),
+        "contact": dict(phone_country="ZA", primary_phone="+27 82 000 0105",
+                        city="Johannesburg", suburb="Yeoville",
+                        province="Gauteng"),
+    },
     EDUCATOR_EMAIL: {
         "person": dict(title="ms", gender="female", phone="+27 82 000 0102",
                        primary_device="laptop"),
@@ -140,7 +155,10 @@ PROFILE_DETAIL = {
     STUDENT_EMAIL: {
         "person": dict(title="mr", gender="male", phone="+27 82 000 0103",
                        enrolled_class="Grade 10", funding_source="parent",
-                       primary_device="phone"),
+                       primary_device="phone",
+                       # The school's and the Department's learner numbers,
+                       # so the SA-SAMS export has a complete first row.
+                       admission_number="UCS2026001", lurits_number="10010158000"),
         "contact": dict(phone_country="ZA", primary_phone="+27 82 000 0103",
                         city="Johannesburg", suburb="Yeoville", province="Gauteng"),
     },
@@ -355,7 +373,7 @@ def migrate(alias):
 # Accounts
 # ---------------------------------------------------------------------------
 def create_accounts(avatars):
-    """Create the four accounts, complete their profiles and verify their e-mail.
+    """Create the five accounts, complete their profiles and verify their e-mail.
 
     Every account ends up immediately usable: the password is set (never left
     unusable), the allauth ``EmailAddress`` is marked verified + primary so the
@@ -372,7 +390,7 @@ def create_accounts(avatars):
 
     User = get_user_model()
     roles = " · ".join(role for _, _, _, role, _ in ACCOUNTS)
-    print(f"  → creating the four accounts ({roles}) ...")
+    print(f"  → creating the five accounts ({roles}) ...")
     people = {}
 
     for email, first, last, role, is_super in ACCOUNTS:
@@ -394,7 +412,8 @@ def create_accounts(avatars):
             action = "reset   "
 
         # The admin is the superuser AND reaches the Django admin. Nobody else
-        # does — educators teach, students learn, parents watch.
+        # does — staff run the office from the platform itself, educators
+        # teach, students learn, parents watch.
         want_staff, want_super = bool(is_super), bool(is_super)
         if user.is_staff != want_staff or user.is_superuser != want_super:
             user.is_staff, user.is_superuser = want_staff, want_super
@@ -668,7 +687,7 @@ def confirm():
     print("=" * 70)
     print("WARNING — this will PERMANENTLY DROP ALL TABLES on:")
     print(f"  {aliases}")
-    print("then re-run migrations and create the four base accounts:")
+    print("then re-run migrations and create the five base accounts:")
     for email, _first, _last, role, is_super in ACCOUNTS:
         print(f"    {email:24} ({role}){' · superuser' if is_super else ''}")
     print("=" * 70)
@@ -705,7 +724,7 @@ def main():
           "(school · grades · subjects · fees · calendar · shop)")
     spine = seed_academic_spine()
 
-    print("\n[5/8] Creating the four accounts (admin · educator · student · parent)")
+    print("\n[5/8] Creating the five accounts (admin · staff · educator · student · parent)")
     people = create_accounts(avatars)
     place_accounts_on_spine(people)
 
@@ -730,7 +749,7 @@ def main():
         print(f"    (skipped: {exc})")
 
     print("\n" + "=" * 70)
-    print("All done. The academic spine is installed and four accounts, one per")
+    print("All done. The academic spine is installed and five accounts, one per")
     print(f"role, are e-mail-verified and signing in with the password '{PASSWORD}'.")
     print("=" * 70)
     print(f"  School        {spine['institution'].name}")
@@ -747,7 +766,7 @@ def main():
     print("has five areas, each with a separate lesson for learners, for")
     print("educators/staff, and for parents. Each role only sees its own.")
     print("\nNext:  python .demo_seed.py     # add people, chat history and financials")
-    print("Start: python run_server.py")
+    print("Start: python run.py")
 
 
 if __name__ == "__main__":

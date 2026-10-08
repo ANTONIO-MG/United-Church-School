@@ -28,14 +28,48 @@ the human-curated ranges; if a fresh install misbehaves, reconcile against
 
     python3.12 -m venv .environment && source .environment/bin/activate
 
-SETUP ORDER on a new computer (or just:  bash .setup):
-    1) bash .setup                          # environment + packages + PostgreSQL + database
-       …or by hand:
-       python .install_requirements.py      # THIS script — Python deps
-       python manage.py migrate
-       python manage.py seed_school_structure && python manage.py seed_shop
-    2) python .admin_wipe_and_create.py     # (optional, DESTRUCTIVE) reset + base accounts
-    3) python .demo_seed.py                 # (optional) demo learners, teachers, parents
+INSTALL ORDER — a new computer, start to finish (macOS or Debian/Ubuntu):
+
+    1) Get the code
+         git clone git@github.com:ANTONIO-MG/United-Church-School.git
+         cd United-Church-School
+
+    2) Settings — create .env from the example and fill it in
+         cp .env.example .env
+         # SECRET_KEY, POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD /
+         # POSTGRES_HOST / POSTGRES_PORT, SITE_URL, e-mail, USE_REDIS=false,
+         # SCHOOL_EMIS_NUMBER (for the SA-SAMS export), PayFast, MS_GRAPH_* …
+
+    3) Everything else in one go
+         bash .setup
+         # Python 3.12+, the .environment virtual environment, requirements.txt
+         # (calls THIS script if a bulk install fails), PostgreSQL, the database
+         # and user from .env, migrations, Grade 1 – 12 with CAPS subjects and
+         # fees, the 2026 + 2027 GDE calendars, the shop, demo lessons, static
+         # files — then it verifies all of it. Safe to run again.
+
+    4) Turn on the environment (every new terminal)
+         source .environment/bin/activate
+
+    5) The five base accounts — if .setup did not already create them
+         python .admin_wipe_and_create.py    # DESTRUCTIVE: wipes the database first
+         # admin@ · staff@ · educator@ · student@ · parent@ucs.org.za
+         # all with the password Password@99 — change them before going live
+
+    6) (Optional) demonstration data — learners, teachers, parents, finances
+         python .demo_seed.py
+
+    7) Start the platform
+         python run.py                       # preflight checks, then http://127.0.0.1:8000
+         python run_server.py                # or serve it to the whole network
+
+    8) First things to do in the browser (signed in as admin or staff)
+         /staff/class-teachers/   class teacher and subject teachers per grade
+         /finance/school-fees/    check the monthly fees per grade
+         /sasams/                 enter admission / LURITS numbers, test an export
+
+    Check an existing install at any time:   bash .setup --check
+    Packages only (this script):              python .install_requirements.py
 
 Note: the in-browser learning runtimes (SCORM's scorm-again, H5P's h5p-standalone)
 are client-side JavaScript loaded from a CDN by default — they add **no** Python
@@ -710,19 +744,10 @@ except Exception:
 # --------------------------------------------------
 # Next steps (program initialisation)
 # --------------------------------------------------
-print("\n" + "=" * 60)
-print(" Next steps")
-print("=" * 60)
-print("  1) Check .env (SECRET_KEY, POSTGRES_*, e-mail, …)")
-print("     For live classes, set MS_GRAPH_* + MS_TEAMS_ENABLED (see docs/TEAMS_INTEGRATION.md)")
-print("  2) Database + school data (PostgreSQL install, database from .env, checks):")
-print("       bash .setup                            # does all of it, safely re-runnable")
-print("     …or by hand:")
-print("       python manage.py migrate")
-print("       python manage.py seed_school_structure # Grade 1 – 12, CAPS subjects, fees, calendar")
-print("       python manage.py seed_shop             # uniform + additional fees")
-print("       python .admin_wipe_and_create.py       # (DESTRUCTIVE) wipe + base accounts")
-print("  3) Run it:")
-print("       python run.py              # full stack with a preflight check")
-print("       python run_server.py       # dev server for your whole network")
-print("=" * 60)
+print("\n" + "=" * 64)
+print(" Next steps — the full install order")
+print("=" * 64)
+_doc = __doc__ or ""
+_steps = _doc[_doc.index("INSTALL ORDER"):_doc.index("Note: the in-browser")].rstrip()
+print("\n".join("  " + line if line else "" for line in _steps.splitlines()))
+print("=" * 64)

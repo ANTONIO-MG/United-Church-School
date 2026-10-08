@@ -223,10 +223,15 @@ bash .setup --reset    # ⚠️ wipe the database and rebuild it
    with the EDB installer it asks once for the `postgres` administrator password (or reads
    `POSTGRES_ADMIN_PASSWORD`) if the `.env` user does not exist yet;
 7. checks Redis when `USE_REDIS=true`;
-8. migrates, installs the school structure (`seed_school_structure`) and the shop (`seed_shop`),
-   collects static files, and offers to create the four base accounts;
-9. verifies the environment, the database connection, migrations, the school data and the landing
-   page, and prints how to start the app.
+8. migrates, installs the school structure (`seed_school_structure`: grades, subjects, fees, a class
+   per grade, the 2026 + 2027 calendars), the shop (`seed_shop`) and the demo lessons
+   (`seed_lessons`), collects static files, and offers to create the five base accounts;
+9. verifies the environment, the database connection, migrations, the school data (calendars,
+   lessons, class teachers), the time zone, the SA-SAMS EMIS number and the landing page, and
+   prints how to start the app.
+
+The complete install order, step by step, is printed at the top of `.install_requirements.py`
+(and at the end of every run of it).
 
 It is safe to run again — every step checks first and only does what is missing.
 
@@ -266,9 +271,11 @@ python manage.py collectstatic --noinput
 python .admin_wipe_and_create.py    # wipe → migrate → school, grades, subjects, fees, shop + base accounts
 ```
 
-The base accounts (all verified, password `Password@99`) are `admin@ucs.org.za` (superuser),
-`educator@ucs.org.za`, `student@ucs.org.za` (a Grade 10 learner with an admitted application) and
-`parent@ucs.org.za` (linked to the learner).
+The five base accounts (all verified, password `Password@99`) are `admin@ucs.org.za` (superuser:
+everything, including backups, the error log, audit trail and jobs), `staff@ucs.org.za` (the school
+office), `educator@ucs.org.za` (teaches Grade 10 and is its class teacher), `student@ucs.org.za` (a
+Grade 10 learner with an admitted application and admission/LURITS numbers) and `parent@ucs.org.za`
+(linked to the learner).
 
 ### 🎭 Demo data
 

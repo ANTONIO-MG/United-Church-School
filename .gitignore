@@ -49,3 +49,6 @@ htmlcov/
 .vscode/
 .idea/
 user_activity.log
+
+# Client copy of the README (kept on this computer only)
+/United Church School - Learning Platform.pdf

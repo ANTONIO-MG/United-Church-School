@@ -173,12 +173,15 @@ pillow>=11.3.0,<13.0         # Django ImageField (profile pictures) + the genera
 # PDF generation (registration invoices / receipts)
 # ----------------------------------------------------------
 xhtml2pdf>=0.2.17,<0.3       # HTML→PDF for invoices; pure-pip (reportlab), no system libs
+reportlab>=4.2,<6.0          # Imported directly: the demo-lesson worksheet PDFs (core/seed_lessons/pdf.py)
+pypdf>=5.0,<7.0              # Read uploaded PDFs when importing lesson content (core/content_pack/extract.py)
 
 
 # ----------------------------------------------------------
 # Document extraction (AI authoring — read memo/solution workbooks)
 # ----------------------------------------------------------
-openpyxl>=3.1,<4.0           # Read .xlsx solution workbooks for AI assessment import
+openpyxl>=3.1,<4.0           # Excel: learner bulk import/export template, SA-SAMS export workbook,
+                             #   attendance & analytics exports, AI assessment workbooks
 python-docx>=1.2,<2.0        # Read .docx memos/scenarios for AI import
 
 

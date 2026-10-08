@@ -27,10 +27,17 @@
 #      POSTGRES_PORT, or DATABASE_URL) — with exactly those credentials.
 #   7. Checks Redis when .env turns it on (USE_REDIS=true).
 #   8. Runs Django's checks and migrations, installs the school structure
-#      (Grade 1 – 12, CAPS subjects, 2026 fees, calendar) and the school shop,
-#      collects static files, and offers to create the four base accounts.
+#      (Grade 1 – 12, CAPS subjects, monthly fees per grade, a class per grade,
+#      the GDE school calendars for 2026 and 2027), the school shop and three
+#      days of demo lessons per subject, collects static files, and offers to
+#      create the five base accounts (admin, staff, educator, student, parent).
 #   9. Verifies everything: the environment, packages, the database
-#      connection, migrations, the school data, Redis, and the web app itself.
+#      connection, migrations, the school data (grades, subjects, calendars,
+#      lessons, class teachers), the time zone, the SA-SAMS EMIS number,
+#      Redis, and the web app itself.
+#
+# The full install order (with what to run after this) is at the top of
+# .install_requirements.py.
 #
 # Safe to run again: every step checks first and only does what is missing.
 # Supported: macOS (Homebrew, the EDB PostgreSQL installer in /Library/PostgreSQL,
@@ -448,7 +455,7 @@ PY
 )"
     if [ "$HAS_USERS" != "True" ]; then
       echo "  The database has no accounts yet."
-      if confirm "Create the four base accounts (admin, educator, student, parent — password Password@99)? This rebuilds the empty database."; then
+      if confirm "Create the five base accounts (admin, staff, educator, student, parent — password Password@99)? This rebuilds the empty database."; then
         python .admin_wipe_and_create.py --yes >/dev/null && ok "base accounts created (admin@ucs.org.za …)" || fail "account creation failed"
       else
         echo "  You can create an administrator later with:  python manage.py createsuperuser"
@@ -507,6 +514,22 @@ report('grades', grades == 12, f'{grades} grade(s), {ProgrammeModule.objects.cou
 report('school shop', Product.objects.filter(sku__startswith='UCS-').exists(),
        f'{Product.objects.filter(status="active").count()} active product(s)')
 
+from apps.learning.models import Cohort, Lesson
+from apps.learning.models import AcademicCalendar
+years = sorted(AcademicCalendar.objects.values_list('year', flat=True).distinct())
+report('school calendars', bool(years), ', '.join(map(str, years)) or 'missing — run: python manage.py seed_school_structure')
+report('demo lessons', True, f'{Lesson.objects.count()} lesson(s)' + ('' if Lesson.objects.exists() else ' — optional: python manage.py seed_lessons'))
+classes = Cohort.objects.filter(programme__institution=school).count() if school else 0
+with_teacher = Cohort.objects.filter(programme__institution=school, class_teacher__isnull=False).count() if school else 0
+report('classes', classes > 0, f'{classes} class(es), {with_teacher} with a class teacher'
+       + ('' if with_teacher == classes else ' — set them on /staff/class-teachers/'))
+
+from django.conf import settings as _s
+report('time zone', _s.TIME_ZONE == 'Africa/Johannesburg', _s.TIME_ZONE)
+emis = getattr(_s, 'SCHOOL_EMIS_NUMBER', '')
+print(f"  {'[ ok ]' if emis else '[note]'} SA-SAMS EMIS number — "
+      + (emis if emis else 'not set; add SCHOOL_EMIS_NUMBER= to .env before exporting to the Department'))
+
 from django.contrib.auth import get_user_model
 users = get_user_model().objects.count()
 report('accounts', True, f'{users} account(s)' + ('' if users else ' — create one: python manage.py createsuperuser'))
@@ -534,11 +557,14 @@ cat <<EOF
 
 Next:
   source ${ENV_DIR}/bin/activate
+  python .demo_seed.py          # (optional) demo learners, teachers, parents and finances
   python run.py                 # the full stack (preflight, then serve on :8000)
   python manage.py runserver    # or the Django development server
   python run_server.py          # or serve to the whole network
 
   Landing page : http://127.0.0.1:8000/social/landing/
+  Sign in      : admin@ucs.org.za · staff@ucs.org.za · educator@ucs.org.za ·
+                 student@ucs.org.za · parent@ucs.org.za  (password Password@99)
   Admin        : http://127.0.0.1:8000/admin/
 EOF
 exit $([ "$FAILURES" -eq 0 ] && echo 0 || echo 1)
