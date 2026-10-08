@@ -159,11 +159,19 @@ class BroadcastTests(TestCase):
         self.assertEqual(broadcast.embed_url_for('https://example.com/video.mp4'), '')
 
     # --- pages ---------------------------------------------------------------
-    def test_students_and_educators_cannot_open_the_composer(self):
-        for user in (self.student, self.educator):
-            self.client.force_login(user)
-            r = self.client.get(reverse('communication:announcement-compose'))
-            self.assertNotEqual(r.status_code, 200)
+    def test_students_cannot_open_the_composer(self):
+        self.client.force_login(self.student)
+        r = self.client.get(reverse('communication:announcement-compose'))
+        self.assertNotEqual(r.status_code, 200)
+
+    def test_educators_compose_only_for_their_own_subjects(self):
+        self.client.force_login(self.educator)
+        r = self.client.get(reverse('communication:announcement-compose'))
+        self.assertEqual(r.status_code, 200)
+        form = r.context['form']
+        self.assertFalse(form.fields['institutions'].queryset.exists())
+        taught = set(self.educator.profile.taught_modules.values_list('pk', flat=True))
+        self.assertEqual(set(form.fields['modules'].queryset.values_list('pk', flat=True)), taught)
 
     def test_compose_send_now_with_file_and_video(self):
         self.client.force_login(self.staff)

@@ -228,6 +228,9 @@ def invite_guardians(application, invited_by=None):
             break
         if person.user_id and guardian.email.lower() == (person.user.email or '').lower():
             continue                      # the parent IS the account holder
+        if person.user_id and ParentLink.objects.filter(
+                student=person.user, parent__email__iexact=guardian.email).exists():
+            continue                      # already linked (a parent applied for their child)
         invite = Invitation.objects.create(role=Invitation.ROLE_PARENT, email=guardian.email,
                                            student=person, invited_by=invited_by)
         try:

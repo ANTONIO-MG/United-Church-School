@@ -43,6 +43,9 @@ def _can_access(user, assessment):
     half-built (imported against a topic, or created before an offering was
     picked), and a candidate meeting one should be turned away, not shown a 500.
     """
+    from apps.learning.access import is_staff_like
+    if is_staff_like(user):          # admin and staff open every paper in the school
+        return True
     person = getattr(user, 'profile', None)
     offering = assessment.module
     if person is None or offering is None:

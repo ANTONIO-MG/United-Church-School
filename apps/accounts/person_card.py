@@ -13,6 +13,7 @@ wrote a message), just nothing else.
 """
 
 from django.contrib.auth.decorators import login_required
+from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.urls import NoReverseMatch, reverse
 
@@ -92,6 +93,9 @@ def card_context(request, person):
 @login_required
 def person_card(request, pk):
     person = get_object_or_404(models.Person.objects.select_related('user'), pk=pk)
+    from core.scoping import can_view_person
+    if not can_view_person(request.user, person):
+        raise Http404
     ctx = card_context(request, person)
     if request.GET.get('fragment'):
         return render(request, 'accounts/_person_card.html', ctx)

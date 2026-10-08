@@ -276,20 +276,18 @@ def my_offerings(user):
 
 
 def directory_users(user, *, include_self=False):
-    """Everyone this user is allowed to find in a search or a people picker.
+    """Everyone this user is allowed to find in a search, a people picker, a
+    person card or a profile — and so message.
 
-    Two groups, unioned:
-
-    * **Your class, in the widest sense** — learners and teachers who share your
-      school, your grade or your year group. Sharing any one of the three
-      is enough: a Grade 10 learner can find another Grade 10 learner even in
-      a different year group.
-    * **Everyone whose job is to be reachable** — admins, staff and educators,
-      always, whatever spine they sit on. A student must be able to find the
-      office and a teacher without knowing which programme they are attached to.
-
-    Admin and staff are not scoped and get the whole active directory. Parents
-    are handled separately by :func:`parent_contacts`, whose narrower rule wins.
+    * **Admin / staff** — the whole active directory.
+    * **A learner** — the office (admin and staff), *their own* teachers (the
+      educators of the subjects they take and their class teacher), their own
+      parents and the classmates in *their own grade*. Not other grades.
+    * **An educator** — the office and fellow educators, *their own* learners
+      (in the subjects they teach or the classes they are class teacher of) and
+      those learners' parents. Not learners they do not teach.
+    * **A parent** — :func:`parent_contacts` (the office and their children's
+      teachers), plus their own children.
     """
     from django.db.models import Q
 
@@ -297,7 +295,9 @@ def directory_users(user, *, include_self=False):
     if user is None or not getattr(user, 'is_authenticated', False):
         return User.objects.none()
     if is_parent(user):
-        return parent_contacts(user)
+        return User.objects.filter(
+            Q(pk__in=parent_contacts(user).values('pk')) | Q(pk__in=children_of(user).values('pk'))
+        ).distinct()
 
     qs = User.objects.filter(is_active=True)
     if not include_self:
@@ -305,13 +305,43 @@ def directory_users(user, *, include_self=False):
     if not is_scoped(user):
         return qs.distinct()
 
-    institution_ids, programme_ids, cohort_ids, _offerings = _spine_ids(user)
+    office = (Q(profile__user_type__in=('admin', 'staff')) | Q(is_staff=True)
+              | Q(is_superuser=True))
+    me = Q(pk=user.pk) if include_self else Q(pk__in=[])
+    person = getattr(user, 'profile', None)
+    if role_of_user(user) == 'educator':
+        from apps.accounts.models import ParentLink
+        taught = list(person.taught_modules.values_list('pk', flat=True)) if person else []
+        classes = list(person.classes_taught.values_list('pk', flat=True)) if person else []
+        learners = User.objects.filter(
+            Q(profile__module_enrolments__programme_module_id__in=taught)
+            | Q(profile__programme_enrolments__cohort_id__in=classes,
+                profile__programme_enrolments__is_active=True)).values('pk')
+        parents = ParentLink.objects.filter(student_id__in=learners).values('parent_id')
+        return qs.filter(office | Q(profile__user_type='educator') | Q(pk__in=learners)
+                         | Q(pk__in=parents) | me).distinct()
 
-    # Always reachable, whoever they are attached to.
-    reachable = (Q(profile__user_type__in=('admin', 'staff', 'educator'))
-                 | Q(is_staff=True) | Q(is_superuser=True))
-    # …plus anyone sharing a level of your spine.
-    same_spine = (Q(profile__programme_enrolments__programme__institution_id__in=institution_ids)
-                  | Q(profile__programme_enrolments__programme_id__in=programme_ids)
-                  | Q(profile__programme_enrolments__cohort_id__in=cohort_ids))
-    return qs.filter(reachable | same_spine).distinct()
+    # A learner (or anyone else scoped): their teachers and their own grade.
+    _institutions, programme_ids, cohort_ids, offering_ids = _spine_ids(user)
+    teachers = (Q(profile__taught_modules__in=offering_ids)
+                | Q(profile__classes_taught__in=cohort_ids))
+    classmates = Q(profile__programme_enrolments__programme_id__in=programme_ids,
+                   profile__programme_enrolments__is_active=True,
+                   profile__user_type='student')
+    subject_mates = Q(profile__module_enrolments__programme_module_id__in=offering_ids,
+                      profile__user_type='student')
+    own_parents = Q(guardian_of__student=user)
+    return qs.filter(office | teachers | classmates | subject_mates | own_parents | me).distinct()
+
+
+def can_view_person(user, person):
+    """True when ``user`` may open ``person``'s card or profile."""
+    if person is None:
+        return False
+    if person.user_id and person.user_id == getattr(user, 'pk', None):
+        return True
+    if not is_parent(user) and not is_scoped(user):
+        return True
+    if not person.user_id:
+        return False
+    return directory_users(user).filter(pk=person.user_id).exists()

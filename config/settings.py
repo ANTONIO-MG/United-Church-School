@@ -136,6 +136,7 @@ except Exception:  # pragma: no cover
         pass
 
 
+SCHOOL_EMIS_NUMBER = os.getenv('SCHOOL_EMIS_NUMBER', '').strip()  # GDE EMIS number (SA-SAMS export header)
 # ---------------------------------------------------------
 # SECURITY SETTINGS
 # ---------------------------------------------------------
@@ -224,6 +225,7 @@ INSTALLED_APPS = [
     'apps.tasks',                 # assignable tasks (per-user / group / subject / course)
     'apps.admissions',            # UCS application for admission: family, medical, documents, office checklist
     'apps.attendance',            # daily school register: everyone present, teacher marks absentees
+    'apps.sasams',                # SA-SAMS / LURITS export for the Department (learners, marks, attendance)
 
     # --------------------
     # My Learning Hub (learning-lifecycle platform)

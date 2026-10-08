@@ -46,6 +46,9 @@ def _year(request):
 @login_required
 def promotion_index(request):
     from apps.learning.models import Programme
+    flags = role_flags(request)
+    if not (_is_office(request) or flags.get('is_educator')):
+        raise Http404
     year = _year(request)
     rows = []
     for programme in (Programme.objects.filter(is_active=True, institution__code='UCS')

@@ -18,6 +18,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -464,11 +465,19 @@ def notification_detail(request, pk):
 # Staff write a message, attach pictures / video / documents, choose who gets it
 # (everyone, or any mix of institutions, programmes, cohorts, modules and
 # people, narrowed by role) and send it now, schedule it or keep it as a draft.
-# Educators reach their own classes through Messages and the module feed.
+# Educators use the same composer for *their* subjects and classes only: the
+# form narrows their audience (AnnouncementForm._scope_for_educator), and they
+# see, edit and send only the notifications they wrote (_own_or_404).
 # ---------------------------------------------------------------------------
 announce_required = user_passes_test(
     lambda u: u.is_active and (u.is_staff or getattr(
-        getattr(u, 'profile', None), 'user_type', '') in ('staff', 'admin')))
+        getattr(u, 'profile', None), 'user_type', '') in ('staff', 'admin', 'educator')))
+
+
+def _own_or_404(request, announcement):
+    """A teacher may open only the notifications they sent themselves."""
+    if role_flags(request).get('is_educator') and announcement.sender_id != request.user.pk:
+        raise Http404
 
 #: The most files one broadcast may carry.
 MAX_BROADCAST_FILES = 10
@@ -500,6 +509,8 @@ def announcement_list(request):
     base = A.objects.select_related('sender').annotate(
         n_read=Count('notifications', filter=_Q(notifications__is_read=True), distinct=True),
         n_attachments=Count('attachments', distinct=True))
+    if role_flags(request).get('is_educator'):
+        base = base.filter(sender=request.user)          # a teacher sees what they sent
     tab = request.GET.get('tab', 'all')
     tabs = {
         'all': base,
@@ -543,11 +554,16 @@ def announcement_compose(request, pk=None):
     instance = None
     if pk is not None:
         instance = get_object_or_404(A, pk=pk)
+        if role_flags(request).get('is_educator') and instance.sender_id != request.user.pk:
+            raise Http404                                 # a teacher edits only their own
         if not instance.is_editable:
             messages.info(request, 'That notification has already gone out — duplicate it to send again.')
             return redirect('communication:announcement-detail', pk=pk)
     elif request.GET.get('copy'):
         source = A.objects.filter(pk=request.GET.get('copy')).first()
+        if source is not None and role_flags(request).get('is_educator') \
+                and source.sender_id != request.user.pk:
+            source = None
     else:
         source = None
 
@@ -650,6 +666,7 @@ def announcement_detail(request, pk):
     announcement = get_object_or_404(
         models.Announcement.objects.select_related('sender').prefetch_related(
             'attachments', 'institutions', 'programmes', 'cohorts', 'modules', 'users'), pk=pk)
+    _own_or_404(request, announcement)
     notes = (models.Notification.objects.filter(announcement=announcement)
              .select_related('recipient', 'recipient__profile').order_by('is_read', 'recipient__first_name'))
     show = request.GET.get('show', 'all')
@@ -676,6 +693,7 @@ def announcement_action(request, pk):
 
     A = models.Announcement
     announcement = get_object_or_404(A, pk=pk)
+    _own_or_404(request, announcement)
     action = request.POST.get('action')
     if action == 'send' and announcement.status in (A.STATUS_DRAFT, A.STATUS_SCHEDULED, A.STATUS_FAILED,
                                                     A.STATUS_CANCELLED):
@@ -714,6 +732,19 @@ def announcement_audience_preview(request):
         return [x for x in request.POST.getlist(name) if x.isdigit()]
 
     roles = [r for r in request.POST.getlist('roles') if r in dict(A.ROLE_CHOICES)]
+    if role_flags(request).get('is_educator'):
+        # A teacher's preview counts only the audience they are allowed to pick.
+        scoped = forms.AnnouncementForm(user=request.user)
+        allowed = {name: {str(pk) for pk in scoped.fields[name].queryset.values_list('pk', flat=True)}
+                   for name in ('institutions', 'programmes', 'cohorts', 'modules')}
+        raw_ids = ids
+        def ids(name):  # noqa: F811 — narrowed for teachers
+            if name == 'users':
+                reach = set(scoped.fields['users'].queryset.values_list('pk', flat=True))
+                return [x for x in raw_ids(name) if int(x) in reach]
+            return [x for x in raw_ids(name) if x in allowed[name]]
+        if request.POST.get('audience') == A.AUDIENCE_ALL:
+            return JsonResponse(broadcast.audience_summary(broadcast.audience_users(users=[])))
     if request.POST.get('audience') == A.AUDIENCE_ALL:
         users = broadcast.audience_users(everyone=True, roles=roles)
     else:
@@ -736,7 +767,8 @@ def announcement_people_search(request):
     q = (request.GET.get('q') or '').strip()
     if len(q) < 2:
         return JsonResponse({'results': []})
-    users = get_user_model().objects.filter(is_active=True)
+    from core.scoping import directory_users
+    users = directory_users(request.user)               # teachers: their own reach only
     for word in q.split()[:3]:
         users = users.filter(Q(first_name__icontains=word) | Q(last_name__icontains=word)
                              | Q(profile__first_name__icontains=word) | Q(profile__last_name__icontains=word)

@@ -40,6 +40,8 @@ class OpsTestBase(TestCase):
         cls.student = make_user('ops-student', 'student', first_name='Stu', last_name='Dent')
         cls.parent = make_user('ops-parent', 'parent', first_name='Pat', last_name='Rent')
         cls.educator = make_user('ops-educator', 'educator')
+        # The jobs page and the audit trail are the system administrator's.
+        cls.admin = make_user('ops-admin', 'admin', first_name='Ada', last_name='Admin')
 
     def setUp(self):
         self.client.force_login(self.staff)
@@ -69,10 +71,18 @@ class AccessTests(OpsTestBase):
         self.assertNotIn('/staff/', resp.url.split('?')[0])
 
     def test_actions_need_post(self):
+        self.client.force_login(self.admin)
         self.assertEqual(self.client.get(reverse('staffdesk:ops-jobs-run-due')).status_code, 405)
 
 
 class JobsTests(OpsTestBase):
+    def setUp(self):
+        self.client.force_login(self.admin)
+
+    def test_staff_are_refused(self):
+        self.client.force_login(self.staff)
+        self.assertEqual(self.client.get(reverse('staffdesk:ops-jobs')).status_code, 302)
+
     def test_page_lists_every_registered_job(self):
         resp = self.client.get(reverse('staffdesk:ops-jobs'))
         self.assertEqual(resp.status_code, 200)
@@ -227,7 +237,7 @@ class ModerationTests(OpsTestBase):
 
 class AuditTests(OpsTestBase):
     def setUp(self):
-        super().setUp()
+        self.client.force_login(self.admin)
         ActivityLog.objects.all().delete()
         old = timezone.now() - timedelta(days=10)
         ActivityLog.objects.create(action='login', actor=self.student.profile, description='Signed in from home')

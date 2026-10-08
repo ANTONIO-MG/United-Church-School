@@ -41,11 +41,11 @@ sees exactly what belongs to them.
 
 | Role | Sees / can do |
 |------|---------------|
-| **Learner** | Their grade and its subjects, the schedule, lessons, homework/tasks, tests, marks, attendance, messages and the school calendar. Learner↔learner DMs need an accepted connection. Can invite up to two parents. |
-| **Parent / Guardian** | Their child's progress, marks, notices and calendar; school-fee invoices to **view and pay**. |
-| **Teacher (educator)** | **Teach-only**: their subjects, the subject schedule, lessons, assessments, the marking queue, live classes, class registers and nudges. |
-| **Staff / Admin** | **Full CRUD** across the school: admissions, grades and subjects, enrolment, invoicing, announcements, analytics, backups, diagnostics and the advanced Claude assistant. |
-
+| **Learner** | Only their own record, their grade and the subjects they are registered for: schedule, lessons, homework/tasks, tests, marks, attendance and the school calendar. They can find and message the office, their own teachers, their parents and learners in their grade or subjects — not other grades. Learner↔learner DMs need an accepted connection. Can invite up to two parents. |
+| **Parent / Guardian** | Their own children only (child selector): reports, marks, attendance, the calendar for their children's grades, the shop, fee invoices to **view and pay**, school notifications and messages to the office and their children's teachers. Can **apply for another child** from their account. |
+| **Teacher (educator)** | **Their own subjects and classes**: lessons, materials, quizzes, tests and exams, the marking queue, mark sheets and term reports, the daily register for their class, promotion decisions for the grade they are class teacher of, chat with their own learners (and those learners' parents), and **notifications to their own subjects/classes** only. No office, admissions, finance, analytics or system pages. |
+| **Staff (office)** | The school office: admissions and registration (approve, decline, documents), learners and parents, grades, subjects and class/subject teachers, fees, invoices and payments, the shop and its prices, notifications to anyone, the school calendar and events, the SA-SAMS export, and every lesson, material and assessment in every grade. |
+| **Admin** | Everything staff can do, plus the system: backups and restore, the error log, the audit trail, background jobs, closed-account recovery and Django admin. |
 ---
 
 ## 🏫 The academic structure
@@ -122,8 +122,11 @@ additional fees: report reprint (R90), drug test (R90), LRC badge replacement (R
 | **Bulk import / export** | An Excel template (`static/documents/UCS-learner-import-template.xlsx`, 101 columns — everything the application form asks) imports learners, parents, applications and enrolments with a dry-run preview; export writes the same format. | *Admissions → Import / export* · `learners_template`, `learners_export` |
 | **Demo lessons** | `python manage.py seed_lessons` — three days of Term 1 Week 1 lessons for every subject in every grade, each with notes, a YouTube video, a PDF worksheet, a quiz and homework. | `core/seed_lessons/` |
 | **Stories** | The school's full stories from ucs.org.za on our own pages. | `/social/stories/` |
+| **Class & subject teachers** | One page per school year: every grade's class teacher and the teacher of every subject, saved in one go. A grade with no class for the year gets one when its class teacher is chosen. | *Class & subject teachers* `/staff/class-teachers/` |
+| **Parent applies for another child** | From the parent dashboard: start an application for a brother or sister. The parent fills it in on the child's behalf, already linked as guardian, and can give the child their own login. | `/community/apply/` |
+| **SA-SAMS export** | A workbook for the Department: learners (with admission and LURITS numbers), parents, term marks per grade and as a list (SBA, exam, term mark, CAPS level) and attendance, with a *Data quality* sheet that checks SA ID numbers, missing fields and duplicate numbers. Excel or a zip of CSVs; numbers can be entered per grade in bulk. Set `SCHOOL_EMIS_NUMBER` in `.env`. The DBE does not publish SA-SAMS's import layout, so the column headers sit in one list per sheet in `apps/sasams/exports.py` and are easy to rename. | *SA-SAMS export* `/sasams/` · `manage.py sasams_export --year 2026 --term 1` |
 
-Class teachers are set on each grade's class (*Academic structure → grade → classes*); they take the
+Class teachers are set for all grades at once on *Class & subject teachers* (or on each grade's class under *Academic structure*); they take the
 daily register and decide promotion. The time zone is **Africa/Johannesburg**.
 
 ## ✨ Features
@@ -337,6 +340,8 @@ See `deploy/server/README.md`, `deploy/scheduler/README.md` and `docs/RENDER_DEP
 ```
 apps/accounts       identity, profiles, registration wizard, parent links, invitations, audit log
 apps/admissions     the UCS application for admission (learner, guardians, medical, consents, documents)
+apps/attendance     the daily school register
+apps/sasams         the SA-SAMS export for the Department of Education
 apps/myhub          dashboard, landing page, search, social feed
 apps/learning       grades & subjects (the academic spine), schedules, lessons, enrolment & unlocking
 apps/assessments    quizzes/tests/exams, take-engine, auto + rubric marking, weighting

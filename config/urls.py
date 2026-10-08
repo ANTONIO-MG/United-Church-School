@@ -72,6 +72,7 @@ urlpatterns = [
     path('finance/', include('apps.finance.urls')),
     path('admissions/', include('apps.admissions.urls')),       # UCS application for admission
     path('attendance/', include('apps.attendance.urls')),       # daily school register
+    path('sasams/', include('apps.sasams.urls')),               # SA-SAMS export for the Department
     path('tasks/', include('apps.tasks.urls')),
 
     # My Learning Hub — lessons/study, assessments, reports/certificates, analytics

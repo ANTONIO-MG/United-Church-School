@@ -1,0 +1,75 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+{% comment %}Class and subject teachers for every grade in one school year, saved in one go.{% endcomment %}
+{% block additional_css %}{% include 'staffdesk/academic/_head.html' %}{% endblock %}
+{% block content %}
+<div class="content-body"><div class="container-fluid pt-3 tc">
+  <div class="tc-head">
+    <div><span class="tc-eyebrow">Staff desk · Academic</span><h3>Class &amp; subject teachers · {{ year }}</h3>
+      <p>Choose each grade's class teacher (who takes the register and decides promotion) and the teacher of every subject, then save once.</p></div>
+    <form method="get" class="tc-head__actions">
+      <label class="visually-hidden" for="ctYear">School year</label>
+      <select id="ctYear" name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+        {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+      </select>
+      <noscript><button class="btn btn-sm btn-primary">Show</button></noscript>
+    </form>
+  </div>
+
+  {% if unassigned %}
+  <div class="tc-alert tc-alert--info mb-3"><i class="bi bi-info-circle"></i>
+    <div>{{ unassigned }} grade{{ unassigned|pluralize }} {{ unassigned|pluralize:"has,have" }} no class teacher for {{ year }} yet.</div></div>
+  {% endif %}
+
+  <form method="post">{% csrf_token %}
+    <input type="hidden" name="year" value="{{ year }}">
+    {% for row in rows %}
+    <div class="tc-card mb-3">
+      <div class="tc-card__head"><i class="bi bi-mortarboard text-primary"></i><h6>{{ row.programme.display_name }}</h6></div>
+      <div class="tc-card__body">
+        <div class="row g-2 align-items-center mb-3">
+          {% for cohort in row.classes %}
+          <div class="col-12 col-md-6">
+            <label class="form-label small mb-1" for="class_{{ cohort.pk }}">Class teacher · {{ cohort.name|default:cohort.code }}</label>
+            <select id="class_{{ cohort.pk }}" name="class_{{ cohort.pk }}" class="form-select form-select-sm">
+              <option value="">— none —</option>
+              {% for e in educators %}<option value="{{ e.pk }}" {% if e.pk == cohort.class_teacher_id %}selected{% endif %}>{{ e.user|person_name }}</option>{% endfor %}
+            </select>
+          </div>
+          {% empty %}
+          <div class="col-12 col-md-6">
+            <label class="form-label small mb-1" for="new_class_{{ row.programme.pk }}">Class teacher · new {{ year }} class</label>
+            <select id="new_class_{{ row.programme.pk }}" name="new_class_{{ row.programme.pk }}" class="form-select form-select-sm">
+              <option value="">— none —</option>
+              {% for e in educators %}<option value="{{ e.pk }}">{{ e.user|person_name }}</option>{% endfor %}
+            </select>
+            <div class="form-text">There is no {{ year }} class for this grade yet; choosing a teacher creates it.</div>
+          </div>
+          {% endfor %}
+        </div>
+
+        {% if row.subjects %}
+        <div class="tc-table-wrap"><table class="tc-table">
+          <thead><tr><th>Subject</th><th>Teacher</th><th class="d-none d-md-table-cell">Currently</th></tr></thead>
+          <tbody>
+          {% for s in row.subjects %}
+            <tr>
+              <td class="fw-semibold"><label for="subject_{{ s.module.pk }}">{{ s.module.display_name }}</label> <span class="small text-muted">{{ s.module.code }}</span></td>
+              <td>
+                <select id="subject_{{ s.module.pk }}" name="subject_{{ s.module.pk }}" class="form-select form-select-sm">
+                  <option value="">— none —</option>
+                  {% for e in educators %}<option value="{{ e.pk }}" {% if s.teachers and e == s.teachers.0 %}selected{% endif %}>{{ e.user|person_name }}</option>{% endfor %}
+                </select>
+              </td>
+              <td class="d-none d-md-table-cell small text-muted">{% for t in s.teachers %}{{ t.user|person_name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    <div class="tc-savebar"><button class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Save all</button></div>
+  </form>
+</div></div>
+{% endblock %}

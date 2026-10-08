@@ -145,6 +145,13 @@ class Person(models.Model):
     # above is whichever of these is current/primary. Enrolment is managed by
     # apps.accounts.services.enrol_person, which keeps the two in sync.
     enrolled_class = models.CharField('Class', max_length=80, blank=True)
+    # Learner identifiers the Department of Education uses (SA-SAMS / LURITS).
+    admission_number = models.CharField(
+        'Admission number', max_length=20, blank=True, db_index=True,
+        help_text="The school's own learner number (SA-SAMS admission / accession number).")
+    lurits_number = models.CharField(
+        'LURITS number', max_length=20, blank=True, db_index=True,
+        help_text='Learner Unit Record Information and Tracking System number issued by the DBE.')
     # Microsoft 365 / Teams user principal name (e.g. teacher@school.onmicrosoft.com).
     # When set for an educator, live classes are hosted under their licensed Teams
     # account; otherwise the account e-mail or MS_GRAPH_DEFAULT_ORGANIZER is used.

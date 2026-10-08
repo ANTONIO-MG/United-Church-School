@@ -4,8 +4,11 @@ imports and AI reports. Views in :mod:`apps.staffdesk.views_academic`."""
 from django.urls import path
 
 from . import views_academic as views
+from . import views_teachers
 
 urlpatterns = [
+    # Class and subject teachers for a school year, in bulk
+    path('class-teachers/', views_teachers.class_teachers, name='class-teachers'),
     # Grades
     path('grades/', views.grades, name='grades'),
     path('grades/recompute-module/', views.grades_recompute_module, name='grades-recompute-module'),

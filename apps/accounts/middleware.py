@@ -249,7 +249,22 @@ _ADMIN_ONLY_URL_NAMES = frozenset({
     # The recovery desk: reactivating or restoring somebody else's account is
     # the most consequential thing an administrator does here.
     'accounts:closed-accounts', 'accounts:reactivate-account', 'accounts:restore-archive',
+    # Creating and editing school events is the office's job; everyone else
+    # reads the school calendar (/calendar/) and the events list.
+    'myhub:event-management',
 })
+
+
+# The system itself — the error log, the audit trail, scheduled jobs and the
+# account-recovery desk — is the administrator's alone. Staff run the school
+# office (admissions, finance, shop, notifications, documents); they do not
+# operate the platform. (Backups have their own admin-only gate.)
+_ADMIN_ROLE_URL_NAMES = frozenset({
+    'staffdesk:ops-jobs', 'staffdesk:ops-jobs-run-due', 'staffdesk:ops-job-run',
+    'staffdesk:ops-audit', 'staffdesk:ops-audit-export',
+    'accounts:closed-accounts', 'accounts:reactivate-account', 'accounts:restore-archive',
+})
+_ADMIN_ROLE_NAMESPACES = frozenset({'diagnostics'})
 
 
 class ManagementAccessMiddleware:
@@ -270,6 +285,12 @@ class ManagementAccessMiddleware:
         if match is None or not match.url_name:
             return None
         name = f'{match.namespace}:{match.url_name}' if match.namespace else match.url_name
+        if match.namespace in _ADMIN_ROLE_NAMESPACES and not role_flags(request).get('is_admin'):
+            from django.http import Http404
+            raise Http404  # the console does not admit it exists
+        if name in _ADMIN_ROLE_URL_NAMES and not role_flags(request).get('is_admin'):
+            messages.error(request, 'That page is for the system administrator.')
+            return redirect('myhub:index')
         if name in _ADMIN_ONLY_URL_NAMES and not role_flags(request).get('is_admin_staff'):
             messages.error(request, "You don't have permission to manage that — ask an administrator.")
             return redirect('myhub:index')
@@ -323,10 +344,12 @@ _PARENT_ALLOWED_PREFIXES = (
     '/attendance/my/',
 
     # When things happen.
-    '/myhub/events/', '/myhub/event-management/', '/myhub/events-feed/',
+    '/myhub/events/', '/myhub/events-feed/', '/myhub/events.json',
 
     # Their own account, and invitations to be another child's parent.
     '/community/profile/', '/community/settings/', '/community/invite/',
+    # Applying for another child from the parent account (accounts:parent-apply…).
+    '/community/apply/',
 
     # The school's public stories, and the school calendar's day pages (the
     # calendar shows a parent their children's grades — apps.livesessions.academic).

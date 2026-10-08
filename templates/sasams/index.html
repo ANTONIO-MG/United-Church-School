@@ -1,0 +1,73 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% block content %}
+<div class="card mb-3">
+  <div class="card-header border-0 pb-0 d-flex flex-wrap justify-content-between gap-2">
+    <div>
+      <h1 class="h4 card-title mb-1">SA-SAMS export</h1>
+      <p class="text-sm text-muted mb-0">Learner register, parents, mark schedules and attendance in the SA-SAMS / LURITS layout,
+        for the Department (GDE). Fix the data-quality errors below before you import into SA-SAMS or submit.</p>
+      <p class="text-sm mb-0 mt-1">EMIS number:
+        {% if emis %}<b>{{ emis }}</b>{% else %}<span class="text-danger">not set</span> <span class="text-muted">(add <code>SCHOOL_EMIS_NUMBER</code> to the server environment)</span>{% endif %}</p>
+    </div>
+    <div><a class="btn btn-sm btn-outline-info mb-0" href="{{ numbers_url }}"><i class="bi bi-123 me-1"></i>Admission &amp; LURITS numbers</a></div>
+  </div>
+  <div class="card-body">
+    <form method="get" class="d-flex flex-wrap gap-2 align-items-end">
+      <div><label class="text-xs text-muted d-block">Year</label>
+        <select name="year" class="form-select form-select-sm">{% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}</select></div>
+      <div><label class="text-xs text-muted d-block">Term</label>
+        <select name="term" class="form-select form-select-sm">{% for t in terms %}<option value="{{ t }}" {% if t == term %}selected{% endif %}>Term {{ t }}</option>{% endfor %}</select></div>
+      <div><label class="text-xs text-muted d-block">Grade</label>
+        <select name="grade" class="form-select form-select-sm"><option value="">All grades</option>
+          {% for g in grades %}<option value="{{ g.grade }}" {% if g.grade == grade %}selected{% endif %}>{{ g.display_name }}</option>{% endfor %}</select></div>
+      <div class="form-check ms-1 mb-1"><input class="form-check-input" type="checkbox" name="drafts" value="1" id="drafts" {% if drafts %}checked{% endif %}>
+        <label class="form-check-label text-sm" for="drafts">Include draft marks</label></div>
+      <button class="btn btn-sm btn-outline-secondary mb-0" type="submit">Show</button>
+      <div class="ms-auto d-flex gap-2">
+        <a class="btn btn-sm bg-gradient-info mb-0" href="{{ xlsx_url }}"><i class="bi bi-file-earmark-excel me-1"></i>Download Excel (.xlsx)</a>
+        <a class="btn btn-sm btn-outline-info mb-0" href="{{ csv_url }}"><i class="bi bi-filetype-csv me-1"></i>CSV files (.zip)</a>
+      </div>
+    </form>
+    <p class="text-xs text-muted mt-2 mb-0">The workbook has: Read me · Learners · Parents · one mark schedule per grade · Marks (list) · Attendance · Data quality.
+      Only <b>published</b> term results are included unless you tick "Include draft marks".</p>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body p-3"><div class="text-xs text-muted">Learners</div><div class="h4 mb-0">{{ learner_count }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body p-3"><div class="text-xs text-muted">Ready (no errors)</div><div class="h4 mb-0 text-success">{{ clean_learners }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body p-3"><div class="text-xs text-muted">Errors</div><div class="h4 mb-0 {% if errors %}text-danger{% endif %}">{{ errors }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body p-3"><div class="text-xs text-muted">Warnings</div><div class="h4 mb-0 {% if warnings %}text-warning{% endif %}">{{ warnings }}</div></div></div></div>
+</div>
+
+<div class="card">
+  <div class="card-header border-0 pb-0"><h2 class="h5 card-title mb-0">Data quality</h2></div>
+  <div class="card-body">
+    {% if summary %}
+    <div class="table-responsive mb-3"><table class="table table-sm align-middle mb-0">
+      <thead><tr class="text-xs text-uppercase text-muted"><th>Field</th><th>Errors</th><th>Warnings</th></tr></thead>
+      <tbody>{% for field, e, w in summary %}<tr><td class="text-sm">{{ field }}</td><td class="text-sm {% if e %}text-danger fw-bold{% endif %}">{{ e }}</td><td class="text-sm">{{ w }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <div class="table-responsive"><table class="table table-sm align-middle">
+      <thead><tr class="text-xs text-uppercase text-muted"><th>Grade</th><th>Class</th><th>Learner</th><th>Admission no.</th><th>Field</th><th>Problem</th></tr></thead>
+      <tbody>
+      {% for i in issues %}
+        <tr>
+          <td class="text-sm">{{ i.Grade }}</td><td class="text-sm">{{ i.register_class }}</td>
+          <td class="text-sm"><a href="{% url 'sasams:learner-numbers' %}?year={{ year }}&grade={{ i.Grade }}">{{ i.name|default:"(no name)" }}</a></td>
+          <td class="text-sm">{% if i.admission %}{{ i.admission }}{% else %}—{% endif %}</td>
+          <td class="text-sm">{{ i.Field }}</td>
+          <td class="text-sm"><span class="badge {% if i.is_error %}bg-danger{% else %}bg-warning text-dark{% endif %} me-1">{{ i.Severity }}</span>{{ i.Problem }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% if issues_total > issues|length %}<p class="text-xs text-muted">Showing {{ issues|length }} of {{ issues_total }} — the full list is on the workbook's Data quality sheet.</p>{% endif %}
+    <p class="text-xs text-muted mb-0">ID, home language, population group, citizenship and parents come from the learner's application (Admissions → office page).
+      Admission and LURITS numbers can be filled in on <a href="{{ numbers_url }}">Admission &amp; LURITS numbers</a>.</p>
+    {% else %}
+      <p class="text-success mb-0"><i class="bi bi-check-circle me-1"></i>No data problems for {{ learner_count }} learner{{ learner_count|pluralize }}.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

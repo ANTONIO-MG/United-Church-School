@@ -130,6 +130,32 @@ class AnnouncementForm(_StyledForm):
         self.fields['media_url'].widget.attrs['placeholder'] = 'https://youtu.be/...'
         if self.instance.pk and self.instance.status == A.STATUS_SCHEDULED:
             self.initial.setdefault('when', self.WHEN_LATER)
+        self._scope_for_educator(user)
+
+    def _scope_for_educator(self, user):
+        """An educator notifies only their own audience: the subjects they
+        teach, the grades those are in, the classes they are class teacher of
+        and the people they may reach (their learners, those learners' parents,
+        colleagues and the office) — never the whole school."""
+        from core.roles import role_of_user
+        self.educator_scoped = role_of_user(user) == 'educator'
+        if not self.educator_scoped:
+            return
+        from core.scoping import directory_users
+        from apps.learning.models import Programme
+        person = getattr(user, 'profile', None)
+        A = models.Announcement
+        taught = person.taught_modules.filter(is_active=True) if person else self.fields['modules'].queryset.none()
+        classes = person.classes_taught.filter(is_active=True) if person else self.fields['cohorts'].queryset.none()
+        self.fields['audience'].choices = [(A.AUDIENCE_TARGETED, 'Choose who')]
+        self.initial['audience'] = A.AUDIENCE_TARGETED
+        self.fields['institutions'].queryset = self.fields['institutions'].queryset.none()
+        self.fields['modules'].queryset = self.fields['modules'].queryset.filter(pk__in=taught.values('pk'))
+        self.fields['cohorts'].queryset = self.fields['cohorts'].queryset.filter(pk__in=classes.values('pk'))
+        self.fields['programmes'].queryset = self.fields['programmes'].queryset.filter(
+            pk__in=Programme.objects.filter(modules__in=taught).values('pk')
+        ) | self.fields['programmes'].queryset.filter(pk__in=classes.values('programme_id'))
+        self.fields['users'].queryset = directory_users(user)
 
     def clean_url(self):
         url = (self.cleaned_data.get('url') or '').strip()
@@ -141,6 +167,9 @@ class AnnouncementForm(_StyledForm):
     def clean(self):
         cleaned = super().clean()
         A = models.Announcement
+        if getattr(self, 'educator_scoped', False) and cleaned.get('audience') != A.AUDIENCE_TARGETED:
+            self.add_error('audience', 'Teachers send notifications to their own subjects, grades, '
+                                       'classes or learners — choose who.')
         if cleaned.get('audience') == A.AUDIENCE_TARGETED and not any(
                 cleaned.get(n) for n in ('institutions', 'programmes', 'cohorts', 'modules', 'users')):
             self.add_error('audience', 'Pick at least one institution, programme, cohort, module or person.')

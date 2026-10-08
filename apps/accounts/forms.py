@@ -514,3 +514,84 @@ class StaffAccountForm(forms.Form):
         if get_user_model().objects.filter(email__iexact=email).exists():
             raise forms.ValidationError('An account with that e-mail address already exists.')
         return email
+
+
+# ---------------------------------------------------------------------------
+# A parent applies for another child from their own account
+# ---------------------------------------------------------------------------
+#: How the parent is related to the child (stored on ParentLink.relationship)
+#: and which guardian section of step 3 they are pre-filled into.
+PARENT_RELATIONSHIP_CHOICES = [
+    ('Mother', 'Mother'), ('Father', 'Father'), ('Legal guardian', 'Legal guardian'),
+    ('Grandparent', 'Grandparent'), ('Other family', 'Other family member'),
+    ('Sponsor', 'Sponsor'),
+]
+RELATIONSHIP_GUARDIAN_ROLE = {'Mother': 'mother', 'Father': 'father'}
+
+
+def application_year_choices():
+    """The school years a parent can apply for: this one and the next."""
+    from core import school
+    return [(school.YEAR, str(school.YEAR)), (school.YEAR + 1, str(school.YEAR + 1))]
+
+
+class ParentApplyStartForm(forms.Form):
+    """Start an application for a child from a parent account: who the child
+    is, how the parent is related, the school year — and, optionally, the
+    child's own e-mail address if they should sign in with it."""
+    first_name = forms.CharField(max_length=50, label="Child's first name(s)")
+    last_name = forms.CharField(max_length=50, label="Child's surname")
+    relationship = forms.ChoiceField(choices=PARENT_RELATIONSHIP_CHOICES,
+                                     label='Your relationship to the child')
+    year = forms.TypedChoiceField(coerce=int, label='School year applied for')
+    email = forms.EmailField(
+        required=False, label="Child's own e-mail (optional)",
+        help_text='Only if your child should sign in with their own e-mail address. '
+                  'Leave it blank and a learner login is generated for them.')
+
+    def __init__(self, *args, parent=None, **kwargs):
+        self.parent = parent
+        super().__init__(*args, **kwargs)
+        self.fields['year'].choices = application_year_choices()
+        _style_fields(self)
+
+    def clean_email(self):
+        from django.contrib.auth import get_user_model
+        from django.db.models import Q
+        email = (self.cleaned_data.get('email') or '').strip().lower()
+        if not email:
+            return ''
+        if self.parent is not None and email == (self.parent.email or '').lower():
+            raise forms.ValidationError(
+                "That is your own e-mail address. Use your child's own address, or leave it blank.")
+        if get_user_model().objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).exists():
+            raise forms.ValidationError(
+                'That e-mail address already belongs to an account. If it is your child\'s '
+                'existing account, ask the school office to link it to you instead.')
+        return email
+
+
+class LearnerPasswordForm(forms.Form):
+    """A parent sets the password for a child's generated learner login."""
+    password1 = forms.CharField(label='New password', widget=forms.PasswordInput(
+        attrs={'autocomplete': 'new-password'}), strip=False)
+    password2 = forms.CharField(label='Repeat the password', widget=forms.PasswordInput(
+        attrs={'autocomplete': 'new-password'}), strip=False)
+
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+        _style_fields(self)
+
+    def clean(self):
+        from django.contrib.auth import password_validation
+        cleaned = super().clean()
+        p1, p2 = cleaned.get('password1'), cleaned.get('password2')
+        if p1 and p2 and p1 != p2:
+            self.add_error('password2', 'The two passwords do not match.')
+        elif p1:
+            try:
+                password_validation.validate_password(p1, self.user)
+            except forms.ValidationError as exc:
+                self.add_error('password1', exc)
+        return cleaned

@@ -1,0 +1,59 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% comment %}A parent applies for a child from their own account
+(accounts.views.parent_apply). Starting makes the child's learner account,
+links it to the parent and opens the five-step application wizard acting for
+the child. Unfinished applications are listed with "Continue".{% endcomment %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row g-3 justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <div class="card">
+        <div class="card-header pb-0">
+          <h5 class="mb-0">Apply for a child</h5>
+          <p class="text-xs text-muted mb-0">Start an application to {{ brand.name|default:"United Church School" }} for
+            another child. The child appears among your children straight away; you then complete the same five
+            steps as the paper application form — learner, grade &amp; subjects, family, medical &amp; documents,
+            agreements &amp; fees.</p>
+        </div>
+        <div class="card-body">
+          <form method="post" class="app-form" novalidate>
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="mb-3">
+              <label class="form-label text-sm fw-bold" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-text text-xs">{{ field.help_text }}</div>{% endif %}
+              {% for error in field.errors %}<div class="text-danger text-xs mt-1">{{ error }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+            {% if form.non_field_errors %}<div class="alert alert-danger text-sm">{{ form.non_field_errors }}</div>{% endif %}
+            <button type="submit" class="btn bg-gradient-info mb-0"><i class="bi bi-person-plus me-1"></i>Start the application</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6 col-md-8">
+      <div class="card h-100">
+        <div class="card-header pb-0"><h6 class="mb-0">Applications in progress</h6></div>
+        <div class="card-body pt-2">
+          <div class="list-group">
+            {% for row in open_applications %}
+            <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+              <div>
+                <span class="fw-bold">{{ row.name }}</span>
+                <div class="text-xs text-muted">{% if row.application %}{{ row.application.year }} · {% if row.application.programme %}{{ row.application.programme.display_name }} · {% endif %}{{ row.application.get_status_display }}{% else %}Not started{% endif %}</div>
+              </div>
+              <a class="btn btn-sm bg-gradient-info mb-0" href="{% url 'accounts:parent-apply-continue' row.child.pk %}">Continue</a>
+            </div>
+            {% empty %}
+            <p class="text-sm text-muted mb-0">No unfinished applications.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

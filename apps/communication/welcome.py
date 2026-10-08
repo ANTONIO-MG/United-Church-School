@@ -57,7 +57,7 @@ def send_welcome_pack(user):
                  "and examinations. Open your subject's Schedule to see the dates for your "
                  "grade, and watch Notifications — we'll remind you as each test and deadline "
                  "approaches so nothing sneaks up on you."),
-           url='/myhub/event-management/')
+           url='/calendar/')
 
     notify(user, verb='welcome', level='info',
            title='Who to talk to',

@@ -17,7 +17,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -253,6 +253,9 @@ def events(request):
 def event_detail(request, pk):
     """Detail page for a stored calendar Event."""
     event = get_object_or_404(models.Event, pk=pk)
+    # A personal reminder belongs to its owner (and the office) only.
+    if event.owner_id and event.owner_id != request.user.pk and not role_flags(request).get('is_admin_staff'):
+        raise Http404
     return render(request, 'myhub/event-detail.html', {'page_title': event.title, 'event': event})
 
 
@@ -278,14 +281,14 @@ def add_reminder(request):
         start = _tz.make_aware(start, _tz.get_current_timezone())
     if not title or not start:
         messages.error(request, 'A reminder needs a title and a date/time.')
-        return redirect('myhub:event-management')
+        return redirect('myhub:events')
     models.Event.objects.create(
         title=title, start=start, owner=request.user,
         category=models.Event.CATEGORY_REMINDER, color='#6f42c1',
         description=request.POST.get('description', ''),
     )
     messages.success(request, 'Reminder added to your calendar.')
-    return redirect('myhub:event-management')
+    return redirect('myhub:events')
 
 
 # ===========================================================================

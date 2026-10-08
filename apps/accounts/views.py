@@ -155,6 +155,80 @@ def _get_or_create_consent(person):
     return consent
 
 
+# ---- "Acting for" — a parent walking the wizard for their child -------------
+#: Session key: the user id of the child a parent is applying for. Only ever
+#: honoured for one of the parent's own linked children (core.scoping.children_of).
+APPLYING_FOR = 'applying_for'
+
+
+def _acting_child(request):
+    """The child ``User`` a signed-in parent is applying for, or ``None``.
+
+    Resolved against :func:`core.scoping.children_of` on every request, so a
+    tampered or stale session value (somebody else's child, an unlinked child)
+    is dropped rather than obeyed. Cached on the request."""
+    if hasattr(request, '_ucs_acting_child'):
+        return request._ucs_acting_child
+    child = None
+    child_id = request.session.get(APPLYING_FOR)
+    if child_id:
+        from core.scoping import children_of
+        child = (children_of(request.user).filter(pk=child_id).select_related('profile').first()
+                 if str(child_id).isdigit() else None)
+        if child is None:
+            request.session.pop(APPLYING_FOR, None)
+    request._ucs_acting_child = child
+    return child
+
+
+def _applicant(request):
+    """The learner the application wizard is filling in: the parent's child
+    when a parent is acting for one, otherwise the signed-in learner."""
+    child = _acting_child(request)
+    if child is not None:
+        return _person_for(child) or models.Person.objects.create(user=child)
+    return _person_for(request.user)
+
+
+def _wizard_reg(request, person):
+    """The grade/subjects held in the session — only when they were chosen for
+    this applicant (a parent may apply for several children in turn)."""
+    reg = request.session.get('reg') or {}
+    if reg.get('person_id') not in (None, getattr(person, 'pk', None)):
+        return {}
+    return reg
+
+
+def _parent_link(request, child):
+    from .models import ParentLink
+    return ParentLink.objects.filter(parent=request.user, student=child).first()
+
+
+def _parent_guardian_initial(request):
+    """Step 3 pre-fill: the signed-in parent as a guardian (editable)."""
+    parent = _person_for(request.user)
+    contact = _related_or_none(parent, 'contact') if parent is not None else None
+    name = (f'{getattr(parent, "first_name", "")} {getattr(parent, "last_name", "")}'.strip()
+            or request.user.get_full_name())
+    address = ', '.join(x for x in (getattr(contact, 'suburb', ''), getattr(contact, 'city', ''),
+                                    getattr(contact, 'province', '')) if x)
+    return {
+        'title': getattr(parent, 'title', '') or '',
+        'full_name': name,
+        'cell_phone': getattr(contact, 'primary_phone', '') or getattr(parent, 'phone', '') or '',
+        'email': request.user.email or '',
+        'residential_address': address,
+    }
+
+
+def _finish_acting(request, child):
+    """After submitting: stop acting for the child and make them the child the
+    rest of the parent's pages show."""
+    request.session.pop(APPLYING_FOR, None)
+    request.session['viewing_child'] = child.pk
+    request.session.modified = True
+
+
 def _serialize_person(person):
     """A JSON-able snapshot of everything we hold about a person (POPIA right of
     access). File fields are referenced by name only, not dumped."""
@@ -181,8 +255,11 @@ def _serialize_person(person):
 def register(request):
     """Step 1 — personal detail. Saved to Person + the grouped side-tables so
     the wizard can be resumed; only the lean fields are required. Marks
-    ``profile_status`` so the data persists, then advances to course selection."""
-    person = _person_for(request.user) or models.Person.objects.create(user=request.user)
+    ``profile_status`` so the data persists, then advances to course selection.
+
+    A parent applying for a child (``_acting_child``) fills in the child's
+    Person here instead of their own."""
+    person = _applicant(request) or models.Person.objects.create(user=request.user)
     if person.onboarding_complete:
         return redirect('myhub:index')
     # Invited parents get their own single-page registration; a team member
@@ -221,6 +298,7 @@ def register(request):
 
     return render(request, 'accounts/register/step1.html', {
         'page_title': 'Registration', 'person': person, 'sections': sections, 'step': 1,
+        'acting_for': _acting_child(request),
     })
 
 
@@ -326,10 +404,10 @@ def _application(person):
     return application_for(person)
 
 
-def _reg_programme(request):
+def _reg_programme(request, person=None):
     """The grade chosen on step 2 (from the session), or ``None``."""
     from apps.learning.models import Programme
-    reg = request.session.get('reg') or {}
+    reg = _wizard_reg(request, person) if person is not None else (request.session.get('reg') or {})
     if not reg.get('programme_id'):
         return None
     return (Programme.objects.filter(pk=reg['programme_id'], is_active=True)
@@ -406,14 +484,14 @@ def register_course(request):
     choices. Compulsory subjects come with the grade. The fee schedule for the
     grade is shown live; the choice is held in the session and on the learner's
     application so going back keeps it."""
-    person = _person_for(request.user)
+    person = _applicant(request)
     if person is None or not person.profile_status:
         return redirect('accounts:register')
     if person.onboarding_complete:
         return redirect('myhub:index')
 
     from apps.learning.models import Programme
-    reg = request.session.get('reg', {})
+    reg = _wizard_reg(request, person)
     application = _application(person)
 
     if request.method == 'POST':
@@ -449,6 +527,7 @@ def register_course(request):
                     'module_ids': module_ids,
                     'cohort_id': int(cohort_id) if cohort_id.isdigit() else (cohort_id or None),
                     'is_new_learner': is_new,
+                    'person_id': person.pk,
                 }
                 request.session.modified = True
                 application.programme = programme
@@ -467,6 +546,7 @@ def register_course(request):
     return render(request, 'accounts/register/step2.html', {
         'page_title': 'Grade & subjects', 'person': person, 'reg': reg,
         'grades': grades, 'groups': groups, 'step': 2,
+        'acting_for': _acting_child(request),
     })
 
 
@@ -479,12 +559,12 @@ def register_family(request):
     from apps.admissions import services as admissions
     from apps.admissions.models import Guardian
 
-    person = _person_for(request.user)
+    person = _applicant(request)
     if person is None or not person.profile_status:
         return redirect('accounts:register')
     if person.onboarding_complete:
         return redirect('myhub:index')
-    if _reg_programme(request) is None:
+    if _reg_programme(request, person) is None:
         return redirect('accounts:register-course')
     application = _application(person)
 
@@ -492,9 +572,25 @@ def register_family(request):
     learner_form = aforms.LearnerDetailsForm(data, instance=application, prefix='learner')
     general_form = aforms.GeneralForm(data, instance=application, prefix='general')
     emergency_form = aforms.EmergencyForm(data, instance=application, prefix='emergency')
+    acting = _acting_child(request)
+    prefill_role, prefill = None, None
+    if acting is not None and data is None and not application.guardians.exists():
+        # A parent applying for their child: start with the parent as a
+        # guardian (editable), under the section their relationship names.
+        link = _parent_link(request, acting)
+        prefill_role = forms.RELATIONSHIP_GUARDIAN_ROLE.get(getattr(link, 'relationship', ''),
+                                                            'guardian')
+        prefill = _parent_guardian_initial(request)
+        if not application.siblings_at_ucs:
+            from core.scoping import children_of
+            others = children_of(request.user).exclude(pk=acting.pk).filter(
+                profile__registered=True).count()
+            if others:
+                general_form.initial['siblings_at_ucs'] = others
     guardian_forms = [
         aforms.GuardianForm(data, instance=admissions.guardian_instance(application, role),
-                            prefix=role, role=role)
+                            prefix=role, role=role,
+                            initial=prefill if role == prefill_role else None)
         for role, _label in Guardian.ROLE_CHOICES
     ]
     forms_all = [learner_form, general_form, emergency_form, *guardian_forms]
@@ -522,6 +618,7 @@ def register_family(request):
         'learner_form': learner_form, 'general_form': general_form,
         'emergency_form': emergency_form,
         'guardian_forms': list(zip(Guardian.ROLE_CHOICES, guardian_forms)),
+        'acting_for': acting,
     })
 
 
@@ -533,12 +630,12 @@ def register_medical(request):
     from apps.admissions import forms as aforms
     from apps.admissions.models import ApplicationDocument
 
-    person = _person_for(request.user)
+    person = _applicant(request)
     if person is None or not person.profile_status:
         return redirect('accounts:register')
     if person.onboarding_complete:
         return redirect('myhub:index')
-    if _reg_programme(request) is None:
+    if _reg_programme(request, person) is None:
         return redirect('accounts:register-course')
     application = _application(person)
 
@@ -567,7 +664,7 @@ def register_medical(request):
     return render(request, 'accounts/register/step_medical.html', {
         'page_title': 'Medical & documents', 'person': person, 'step': 4,
         'medical_form': medical_form, 'document_rows': document_rows,
-        'upload_errors': upload_errors,
+        'upload_errors': upload_errors, 'acting_for': _acting_child(request),
     })
 
 
@@ -612,10 +709,10 @@ def register_review(request):
     annual levy and the first month's school fees; the subjects unlock when it
     is paid. "The application is pending until payment is received."
     """
-    person = _person_for(request.user)
+    person = _applicant(request)
     if person is None or not person.profile_status:
         return redirect('accounts:register')
-    reg = request.session.get('reg')
+    reg = _wizard_reg(request, person)
     if not reg or not reg.get('programme_id') or not reg.get('module_ids'):
         return redirect('accounts:register-course')
 
@@ -624,7 +721,7 @@ def register_review(request):
     from apps.learning import enrolment as enrol
     from apps.learning.models import ProgrammeModule
 
-    programme = _reg_programme(request)
+    programme = _reg_programme(request, person)
     if programme is None:
         note('USER-3002', request, programme=reg.get('programme_id'))
         return redirect('accounts:register-course')
@@ -652,7 +749,18 @@ def register_review(request):
         fees = admissions.fee_summary(programme, new_learner=application.is_new_learner,
                                       siblings=application.siblings_at_ucs, months=months,
                                       application=application, person=person)
-    form = aforms.DeclarationsForm(request.POST or None, instance=application, prefix='decl')
+    acting = _acting_child(request)
+    initial = None
+    if acting is not None and not application.signed_by:
+        # The parent signs for their child: default the signer to them.
+        parent = _person_for(request.user)
+        link = _parent_link(request, acting)
+        initial = {'signed_by': (f'{getattr(parent, "first_name", "")} '
+                                 f'{getattr(parent, "last_name", "")}'.strip()
+                                 or request.user.get_full_name()),
+                   'signed_relationship': getattr(link, 'relationship', '') or ''}
+    form = aforms.DeclarationsForm(request.POST or None, instance=application, prefix='decl',
+                                   initial=initial)
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -670,7 +778,7 @@ def register_review(request):
             person.registered = True
             try:
                 from apps.communication.welcome import send_welcome_pack
-                send_welcome_pack(request.user)
+                send_welcome_pack(person.user)
             except Exception:  # pragma: no cover - best-effort
                 logging.getLogger('accounts').exception('accounts: welcome pack failed')
 
@@ -689,6 +797,10 @@ def register_review(request):
             person.save(update_fields=['registered', 'pending_invoice_uid'])
             request.session.pop('reg', None)
             request.session.modified = True
+            if acting is not None:
+                _finish_acting(request, acting)
+                if invoice is not None:
+                    _send_parent_invoice(request, invoice)
 
             if invoice is None:  # a grade with no fees configured
                 for e in enrolments:
@@ -722,8 +834,24 @@ def register_review(request):
         'page_title': 'Agreements & fees', 'person': person, 'programme': programme,
         'modules': modules, 'fees': fees, 'application': application, 'form': form,
         'missing_documents': application.missing_documents(),
-        'currency': 'ZAR', 'step': 5,
+        'currency': 'ZAR', 'step': 5, 'acting_for': acting,
     })
+
+
+def _send_parent_invoice(request, invoice):
+    """A parent who applied for their child gets the invoice's pay link too —
+    the invoice's customer is the child, whose login may not receive mail."""
+    email = (request.user.email or '').strip()
+    if not email or email.lower() == (invoice.customer.email or '').lower():
+        return
+    try:
+        from apps.communication import emails as cemails
+        from core.utils import absolute_url
+        cemails.send_branded_email(f'Invoice {invoice.number} — payment requested', email,
+                                   'invoice', {'invoice': invoice,
+                                               'pay_url': absolute_url(invoice.get_pay_url())})
+    except Exception:  # pragma: no cover - best-effort
+        logging.getLogger('accounts').exception('accounts: parent invoice e-mail failed')
 
 
 #: The two ways registration finishes, and what the hand-off screen says about
@@ -773,6 +901,207 @@ def registration_complete(request):
         'mode': mode,
         'seconds': REGISTRATION_COMPLETE_SECONDS,
         'next_url': reverse('myhub:index'),
+        **_learner_login_offer(request),
+    })
+
+
+def _learner_login_offer(request):
+    """For a parent who has just applied for a child: the "create the
+    learner's login" link, while the child has no password yet."""
+    from core.scoping import is_parent, viewing_child
+    if not is_parent(request.user):
+        return {}
+    child = viewing_child(request)
+    if child is None or child.has_usable_password():
+        return {}
+    person = _person_for(child)
+    return {'learner_login_url': reverse('accounts:parent-apply-login', args=[child.pk]),
+            'learner_name': (person.first_name if person else '') or child.get_username()}
+
+
+# ---------------------------------------------------------------------------
+# A parent applies for a child from their own account
+# ---------------------------------------------------------------------------
+# The parent starts here; a learner account (User + Person, a ParentLink to the
+# parent, an Application draft) is made for the child at once, so the child is
+# among the parent's children from the first step. The parent then walks the
+# SAME five-step wizard "acting for" the child (``request.session[APPLYING_FOR]``,
+# resolved by ``_applicant``). Submitting clears it.
+def _require_parent(request):
+    from core.scoping import is_parent
+    if is_parent(request.user):
+        return None
+    messages.info(request, 'Applying for a child is done from a parent account.')
+    return redirect('myhub:index')
+
+
+def _own_child_or_404(request, child_id):
+    """One of the signed-in parent's linked children — never anybody else's."""
+    from django.http import Http404
+
+    from core.scoping import children_of
+    child = children_of(request.user).filter(pk=child_id).select_related('profile').first()
+    if child is None:
+        raise Http404('No such child.')
+    return child
+
+
+def _open_applications(parent_user):
+    """The parent's children whose application has not been submitted yet."""
+    from apps.admissions.models import Application
+
+    from core.scoping import children_of
+    rows = []
+    for child in children_of(parent_user).select_related('profile').order_by('first_name', 'pk'):
+        person = _person_for(child)
+        if person is None or person.registered:
+            continue
+        application = Application.objects.filter(person=person).order_by('-year').first()
+        rows.append({'child': child, 'person': person, 'application': application,
+                     'name': f'{person.first_name} {person.last_name}'.strip()
+                             or child.get_username()})
+    return rows
+
+
+def _start_acting(request, child):
+    request.session[APPLYING_FOR] = child.pk
+    request.session.pop('reg', None)         # grade/subjects belong to one applicant
+    request.session.modified = True
+    request._ucs_acting_child = child
+
+
+@login_required
+def parent_apply(request):
+    """Start (or resume) an application for a child from a parent account."""
+    from django.db import transaction
+
+    from apps.admissions import services as admissions
+    from apps.admissions.bulk import generate_email, is_generated_email
+    from core.seed_builders import verify_email
+
+    refused = _require_parent(request)
+    if refused:
+        return refused
+    form = forms.ParentApplyStartForm(request.POST or None, parent=request.user)
+    if request.method == 'POST' and form.is_valid():
+        cd = form.cleaned_data
+        first, last = cd['first_name'].strip(), cd['last_name'].strip()
+        # Reuse an unfinished draft for the same child rather than a duplicate.
+        child = next((row['child'] for row in _open_applications(request.user)
+                      if row['person'].first_name.strip().lower() == first.lower()
+                      and row['person'].last_name.strip().lower() == last.lower()), None)
+        with transaction.atomic():
+            if child is None:
+                User = get_user_model()
+                email = cd['email'] or generate_email(first, last)
+                child = User.objects.create_user(username=email, email=email,
+                                                 first_name=first[:150], last_name=last[:150])
+                child.set_unusable_password()
+                child.save(update_fields=['password'])
+                person = _person_for(child) or models.Person.objects.create(user=child)
+                person.user_type = 'student'
+                person.first_name, person.last_name = first[:50], last[:50]
+                person.registered = False
+                person.profile_status = False
+                person.save()
+                models.ParentLink.objects.create(parent=request.user, student=child,
+                                                 relationship=cd['relationship'])
+                if not is_generated_email(email):
+                    verify_email(child)
+            else:
+                person = _person_for(child)
+                models.ParentLink.objects.filter(parent=request.user, student=child).update(
+                    relationship=cd['relationship'])
+            admissions.application_for(person, year=cd['year'])
+        _start_acting(request, child)
+        request.session['viewing_child'] = child.pk
+        messages.success(request, f'Application started for {first}. Complete the five steps '
+                                  'below — your progress is saved as you go.')
+        return redirect('accounts:register')
+    return render(request, 'accounts/parent_apply.html', {
+        'page_title': 'Apply for a child', 'form': form,
+        'open_applications': _open_applications(request.user),
+    })
+
+
+@login_required
+def parent_apply_continue(request, child_id):
+    """Resume the wizard for one of the parent's children whose application
+    has not been submitted."""
+    refused = _require_parent(request)
+    if refused:
+        return refused
+    child = _own_child_or_404(request, child_id)
+    person = _person_for(child)
+    if person is None or person.registered:
+        messages.info(request, 'That application has already been submitted.')
+        return redirect('myhub:index')
+    _start_acting(request, child)
+    request.session['viewing_child'] = child.pk
+    return redirect('accounts:register-course' if person.profile_status else 'accounts:register')
+
+
+@login_required
+@require_POST
+def parent_apply_stop(request):
+    """Leave the wizard; the draft stays and can be continued later."""
+    request.session.pop(APPLYING_FOR, None)
+    request.session.pop('reg', None)
+    request.session.modified = True
+    messages.info(request, 'Application saved as a draft — continue it any time from your dashboard.')
+    return redirect('myhub:index')
+
+
+@login_required
+def parent_learner_login(request, child_id):
+    """Give a child their own learner login.
+
+    * A child with a real e-mail address is sent a set-password e-mail.
+    * A child with a generated login (``…@learners.ucs.local``, which cannot
+      receive mail) gets a password the parent chooses; the username is shown.
+
+    Only ever for the parent's own children, and only while the child has no
+    password yet — this is a first-time set-up, not a way to take over an
+    account a child already uses."""
+    from apps.admissions.bulk import is_generated_email
+    from core.seed_builders import verify_email
+
+    refused = _require_parent(request)
+    if refused:
+        return refused
+    child = _own_child_or_404(request, child_id)
+    person = _person_for(child)
+    name = (person.first_name if person else '') or child.get_username()
+    generated = is_generated_email(child.email)
+    if child.has_usable_password():
+        messages.info(request, f'{name} already has a password. They can reset it from the '
+                               'sign-in page with "Forgot password".')
+        return redirect('myhub:index')
+
+    form = forms.LearnerPasswordForm(request.POST or None, user=child) if generated else None
+    if request.method == 'POST':
+        if generated:
+            if form.is_valid():
+                child.set_password(form.cleaned_data['password1'])
+                child.save(update_fields=['password'])
+                verify_email(child)          # a placeholder address: nothing to verify
+                messages.success(request, f"{name}'s learner login is ready. Username: "
+                                          f'{child.email}')
+                return redirect('myhub:index')
+        else:
+            from allauth.account.forms import ResetPasswordForm
+            verify_email(child)
+            reset = ResetPasswordForm(data={'email': child.email})
+            if reset.is_valid():
+                reset.save(request)
+                messages.success(request, f'We have e-mailed {child.email} a link for {name} '
+                                          'to choose a password.')
+            else:
+                messages.error(request, 'The e-mail could not be sent — please try again later.')
+            return redirect('myhub:index')
+    return render(request, 'accounts/parent_learner_login.html', {
+        'page_title': "Learner's login", 'child': child, 'name': name,
+        'generated': generated, 'form': form,
     })
 
 
@@ -1129,6 +1458,11 @@ def profile(request, pk, tab='feed'):
     is_staff = (request.user.is_staff or request.user.is_superuser
                 or (viewer and viewer.user_type in ('admin', 'staff')))
 
+    if not is_self and not is_staff:
+        from core.scoping import can_view_person
+        if not can_view_person(request.user, person):
+            messages.info(request, 'That profile is not available to you.')
+            return redirect('myhub:index')
     if not is_self and not is_staff and person.user_id:
         vis = models.UserSettings.for_user(person.user).profile_visibility
         if vis == models.UserSettings.VISIBILITY_PRIVATE:

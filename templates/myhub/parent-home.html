@@ -9,10 +9,12 @@ child the rest of the platform shows (remembered across pages).{% endcomment %}
     <p class="text-sm text-muted mb-0">{{ cards|length }} child{{ cards|length|pluralize:"ren" }} linked to your account.
       Choose a child to see their subjects, results, attendance and fees.</p>
   </div>
+  <a class="btn btn-sm bg-gradient-info mb-0" href="{% url 'accounts:parent-apply' %}"><i class="bi bi-person-plus me-1"></i>Apply for a child</a>
 </div>
 {% if not cards %}
   <div class="card"><div class="card-body text-sm text-muted">No learners are linked to your account yet. When the school invites you for a child,
-    open the invitation e-mail and accept it — each child you accept appears here.</div></div>
+    open the invitation e-mail and accept it — each child you accept appears here. To apply for a
+    child yourself, choose <a href="{% url 'accounts:parent-apply' %}">Apply for a child</a>.</div></div>
 {% endif %}
 <div class="row g-4">
   {% for card in cards %}
@@ -48,6 +50,12 @@ child the rest of the platform shows (remembered across pages).{% endcomment %}
         </table></div>
         {% endif %}
         <div class="d-flex flex-wrap gap-2">
+          {% if not card.person.registered %}
+          <a class="btn btn-sm bg-gradient-success mb-0" href="{% url 'accounts:parent-apply-continue' card.user.pk %}"><i class="bi bi-pencil-square me-1"></i>Continue application</a>
+          {% endif %}
+          {% if card.person.registered and not card.user.has_usable_password %}
+          <a class="btn btn-sm btn-outline-info mb-0" href="{% url 'accounts:parent-apply-login' card.user.pk %}"><i class="bi bi-key me-1"></i>Create the learner's login</a>
+          {% endif %}
           <a class="btn btn-sm bg-gradient-info mb-0" href="{% url 'finance:school-fees' %}?student={{ card.user.pk }}">School fees</a>
           <a class="btn btn-sm btn-outline-secondary mb-0" href="{% url 'admissions:my-application' %}?student={{ card.user.pk }}">Application</a>
           <a class="btn btn-sm btn-outline-secondary mb-0" href="/reports/progress/?student={{ card.user.pk }}">Progress</a>

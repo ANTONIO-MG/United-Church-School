@@ -26,6 +26,10 @@ ring even if an icon font is still in flight.
     <h4 class="font-weight-bolder mt-4 mb-2">{{ outcome.heading }}</h4>
     <p class="text-sm text-muted mb-2">{{ outcome.detail }}</p>
     <p class="text-xs text-muted mb-4">{{ outcome.note }}</p>
+    {% if learner_login_url %}
+    <p class="text-sm mb-4"><a href="{{ learner_login_url }}" class="btn btn-sm btn-outline-info mb-0" id="rcLearnerLogin">
+      <i class="bi bi-key me-1"></i>Create {{ learner_name }}'s learner login</a></p>
+    {% endif %}
 
     <div class="rc-progress" role="progressbar" aria-label="Redirecting to your dashboard">
       <span class="rc-bar" style="animation-duration:{{ seconds }}s"></span>
@@ -72,11 +76,13 @@ ring even if an icon font is still in flight.
   var seconds = {{ seconds }};
   var next = "{{ next_url|escapejs }}";
   var out = document.getElementById('rcCount');
+  var login = document.getElementById('rcLearnerLogin');
   var timer = setInterval(function () {
     seconds -= 1;
     if (out) out.textContent = seconds > 0 ? seconds : 0;
     if (seconds <= 0) { clearInterval(timer); window.location.replace(next); }
   }, 1000);
+  if (login) login.addEventListener('click', function () { clearInterval(timer); });
 })();
 </script>
 {% endblock %}

@@ -1,0 +1,47 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% block content %}
+<div class="card">
+  <div class="card-header border-0 pb-0 d-flex flex-wrap justify-content-between gap-2">
+    <div>
+      <h1 class="h4 card-title mb-1">Admission &amp; LURITS numbers</h1>
+      <p class="text-sm text-muted mb-0">The school's admission (accession) number and the DBE's LURITS number for every learner, as used on SA-SAMS.
+        New learners receive a LURITS number once they have been captured on SA-SAMS — fill it in here when it is issued.</p>
+    </div>
+    <div class="d-flex gap-2 align-items-start">
+      <form method="get" class="d-flex gap-2">
+        <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">{% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}</select>
+        <select name="grade" class="form-select form-select-sm" onchange="this.form.submit()">
+          {% for g in grades %}<option value="{{ g.grade }}" {% if g.grade == grade %}selected{% endif %}>{{ g.display_name }}</option>{% endfor %}</select>
+      </form>
+      <a class="btn btn-sm btn-outline-secondary mb-0" href="{% url 'sasams:index' %}?year={{ year }}&grade={{ grade|default_if_none:'' }}">Back to export</a>
+    </div>
+  </div>
+  <div class="card-body">
+    <p class="text-sm mb-2">{{ rows|length }} learner{{ rows|length|pluralize }} ·
+      <span class="{% if missing_admission %}text-danger{% endif %}">{{ missing_admission }} without an admission number</span> ·
+      <span class="{% if missing_lurits %}text-warning{% endif %}">{{ missing_lurits }} without a LURITS number</span></p>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="grade" value="{{ grade }}">
+      <div class="table-responsive"><table class="table table-sm align-middle">
+        <thead><tr class="text-xs text-uppercase text-muted"><th>#</th><th>Learner</th><th>Class</th><th>Date of birth</th><th>ID number</th><th>Admission number</th><th>LURITS number</th></tr></thead>
+        <tbody>
+        {% for row in rows %}{% with p=row.record.person %}
+          <tr>
+            <td class="text-xs text-muted">{{ forloop.counter }}</td>
+            <td class="text-sm">{{ p.last_name }}, {{ p.first_name }}</td>
+            <td class="text-sm">{{ row.record.register_class }}</td>
+            <td class="text-sm">{{ p.date_of_birth|date:"Y-m-d"|default:"—" }}</td>
+            <td class="text-sm">{{ row.id_number|default:"—" }}</td>
+            <td><input type="text" name="admission_{{ p.pk }}" value="{{ p.admission_number }}" maxlength="{{ max_length }}" class="form-control form-control-sm" style="max-width:11rem" aria-label="Admission number for {{ p.first_name }} {{ p.last_name }}"></td>
+            <td><input type="text" name="lurits_{{ p.pk }}" value="{{ p.lurits_number }}" maxlength="{{ max_length }}" inputmode="numeric" pattern="[0-9]*" class="form-control form-control-sm" style="max-width:13rem" aria-label="LURITS number for {{ p.first_name }} {{ p.last_name }}"></td>
+          </tr>
+        {% endwith %}{% empty %}
+          <tr><td colspan="7" class="text-center text-muted py-4">No learners in this grade for {{ year }}.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+      {% if rows %}<button type="submit" class="btn btn-sm bg-gradient-info mb-0">Save numbers</button>{% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}

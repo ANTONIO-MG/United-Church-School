@@ -19,6 +19,12 @@ urlpatterns = [
     # so the outcome is read before the dashboard replaces it.
     path('register/complete/', views.registration_complete, name='register-complete'),
     path('register/checkout/', views.enrol_checkout, name='enrol-checkout'),
+    # A parent applies for a child from their own account (then walks the
+    # same wizard above "acting for" the child).
+    path('apply/', views.parent_apply, name='parent-apply'),
+    path('apply/stop/', views.parent_apply_stop, name='parent-apply-stop'),
+    path('apply/<int:child_id>/continue/', views.parent_apply_continue, name='parent-apply-continue'),
+    path('apply/<int:child_id>/login/', views.parent_learner_login, name='parent-apply-login'),
     # Invite-based single-page registration (role decided by the invite link).
     path('invite/<uuid:token>/', views.accept_invite, name='accept-invite'),
     path('invite/<uuid:token>/accept/', views.invite_confirm, name='invite-confirm'),
