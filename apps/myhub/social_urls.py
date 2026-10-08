@@ -11,7 +11,7 @@ exists.
 
 from django.urls import path
 
-from . import views
+from . import stories_views, views
 
 app_name = 'pages'
 
@@ -19,4 +19,7 @@ urlpatterns = [
     path('', views.social_dashboard, name='dashboard'),
     path('landing/', views.page_landing, name='landing'),
     path('privacy-and-terms/', views.page_privacy_terms, name='privacy-and-terms'),
+    # The school's stories (public — see apps.accounts.middleware).
+    path('stories/', stories_views.story_index, name='stories'),
+    path('stories/<slug:slug>/', stories_views.story_detail, name='story'),
 ]

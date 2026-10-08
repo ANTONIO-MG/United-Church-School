@@ -42,6 +42,7 @@ class Application(TimeStampedModel):
     """A learner's application for admission to UCS."""
 
     STATUS_DRAFT = 'draft'
+    STATUS_PREREGISTERED = 'preregistered'
     STATUS_SUBMITTED = 'submitted'
     STATUS_DOCUMENTS = 'documents'
     STATUS_REVIEW = 'review'
@@ -50,6 +51,7 @@ class Application(TimeStampedModel):
     STATUS_WITHDRAWN = 'withdrawn'
     STATUS_CHOICES = [
         (STATUS_DRAFT, 'Draft — being completed'),
+        (STATUS_PREREGISTERED, 'Pre-registered — awaiting confirmation the learner is returning'),
         (STATUS_SUBMITTED, 'Submitted — pending payment'),
         (STATUS_DOCUMENTS, 'Documents outstanding'),
         (STATUS_REVIEW, 'Under review by the office'),
@@ -57,7 +59,8 @@ class Application(TimeStampedModel):
         (STATUS_DECLINED, 'Declined'),
         (STATUS_WITHDRAWN, 'Withdrawn'),
     ]
-    OPEN_STATUSES = (STATUS_DRAFT, STATUS_SUBMITTED, STATUS_DOCUMENTS, STATUS_REVIEW)
+    OPEN_STATUSES = (STATUS_DRAFT, STATUS_PREREGISTERED, STATUS_SUBMITTED, STATUS_DOCUMENTS,
+                     STATUS_REVIEW)
 
     DOC_SA_ID = 'sa_id'
     DOC_BIRTH_CERT = 'birth_certificate'
@@ -82,10 +85,12 @@ class Application(TimeStampedModel):
     ]
 
     public_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
-    person = models.OneToOneField('accounts.Person', on_delete=models.CASCADE,
-                                  related_name='application',
-                                  help_text='The learner this application is for.')
-    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_DRAFT,
+    # One application per learner per school year: a returning learner is
+    # pre-registered for the next year by the year-end promotion.
+    person = models.ForeignKey('accounts.Person', on_delete=models.CASCADE,
+                               related_name='applications',
+                               help_text='The learner this application is for.')
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_DRAFT,
                               db_index=True)
     year = models.PositiveSmallIntegerField(default=2026, db_index=True,
                                             help_text='The school year applied for.')
@@ -247,6 +252,11 @@ class Application(TimeStampedModel):
     submitted_at = models.DateTimeField(null=True, blank=True)
     invoice_uid = models.UUIDField(null=True, blank=True,
                                    help_text='public_id of the registration invoice.')
+    months_prepaid = models.PositiveSmallIntegerField(
+        default=1, help_text='Months of school fees paid in advance on enrolment.')
+    previous = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='next_year',
+                                 help_text="Last year's application (returning learners).")
 
     # -- office use only (page 1) ------------------------------------------------
     office_account_number = models.CharField(max_length=40, blank=True, verbose_name='ACC No')
@@ -269,9 +279,11 @@ class Application(TimeStampedModel):
     decision_note = models.TextField(blank=True)
 
     class Meta:
-        ordering = ['-submitted_at', '-created_at']
+        ordering = ['-year', '-submitted_at', '-created_at']
         verbose_name = 'Application for admission'
         verbose_name_plural = 'Applications for admission'
+        constraints = [models.UniqueConstraint(fields=['person', 'year'],
+                                               name='uniq_application_per_learner_per_year')]
 
     def __str__(self):
         grade = self.programme.display_name if self.programme_id else 'grade not chosen'
@@ -432,3 +444,56 @@ class ApplicationDocument(TimeStampedModel):
 
     def __str__(self):
         return f'{self.get_kind_display()} — {self.original_name or self.file.name}'
+
+
+class PromotionDecision(TimeStampedModel):
+    """The year-end decision for one learner in one grade (CAPS promotion).
+
+    :attr:`recommended` is what the promotion rule (core.school.
+    evaluate_promotion) says from the learner's final marks; :attr:`outcome` is
+    what the class teacher (or staff) decides. Promoted and retained learners
+    are pre-registered for the next year (:attr:`next_application`); the office
+    confirms each one once it knows the learner is returning.
+    """
+    OUTCOME_PENDING = 'pending'
+    OUTCOME_PROMOTE = 'promote'
+    OUTCOME_PROGRESS = 'progress'
+    OUTCOME_RETAIN = 'retain'
+    OUTCOME_COMPLETE = 'complete'
+    OUTCOME_LEAVING = 'leaving'
+    OUTCOME_CHOICES = [
+        (OUTCOME_PENDING, 'Not decided yet'),
+        (OUTCOME_PROMOTE, 'Promoted to the next grade'),
+        (OUTCOME_PROGRESS, 'Progressed (condoned) to the next grade'),
+        (OUTCOME_RETAIN, 'Retained in the same grade'),
+        (OUTCOME_COMPLETE, 'Completed Grade 12'),
+        (OUTCOME_LEAVING, 'Leaving the school'),
+    ]
+    MOVES_UP = (OUTCOME_PROMOTE, OUTCOME_PROGRESS)
+
+    person = models.ForeignKey('accounts.Person', on_delete=models.CASCADE,
+                               related_name='promotion_decisions')
+    programme = models.ForeignKey('learning.Programme', on_delete=models.CASCADE,
+                                  related_name='promotion_decisions', verbose_name='Grade')
+    year = models.PositiveSmallIntegerField(db_index=True)
+    final_marks = models.JSONField(default=dict, blank=True,
+                                   help_text='{subject code: final %} used for the decision.')
+    checks = models.JSONField(default=list, blank=True,
+                              help_text='The promotion requirements and whether each was met.')
+    recommended = models.CharField(max_length=10, choices=OUTCOME_CHOICES, default=OUTCOME_PENDING)
+    outcome = models.CharField(max_length=10, choices=OUTCOME_CHOICES, default=OUTCOME_PENDING,
+                               db_index=True)
+    note = models.TextField(blank=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                   blank=True, related_name='+')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    next_application = models.ForeignKey(Application, on_delete=models.SET_NULL, null=True,
+                                         blank=True, related_name='promotion_decisions')
+
+    class Meta:
+        ordering = ['programme__grade', 'person__last_name', 'person__first_name']
+        constraints = [models.UniqueConstraint(fields=['person', 'year'],
+                                               name='uniq_promotion_decision_per_year')]
+
+    def __str__(self):
+        return f'{self.person} · {self.programme} {self.year}: {self.get_outcome_display()}'

@@ -441,6 +441,52 @@ def _billing_outcome(index, total):
     return BILLING_SPLIT[-1][0]
 
 
+def seed_classes_and_results(per_programme, educators):
+    """Give every grade's class a class teacher, and every learner published
+    Term 1 and Term 2 results (Term 2 with the mid-year exam from Grade 4), so
+    report cards, the parent dashboard and year-end promotion have data."""
+    from decimal import Decimal
+
+    from apps.reports.models import TermResult
+
+    teachers = 0
+    for index, (programme, people) in enumerate(sorted(per_programme.items(),
+                                                       key=lambda kv: kv[0].grade or 0)):
+        cohort = programme.cohorts.filter(code=str(timezone.localdate().year)).first() \
+            or programme.cohorts.first()
+        if cohort is not None and educators and cohort.class_teacher_id is None:
+            cohort.class_teacher = educators[index % len(educators)]
+            cohort.save(update_fields=['class_teacher', 'updated_at'])
+            teachers += 1
+    made = 0
+    year = timezone.localdate().year
+    for programme, people in per_programme.items():
+        offerings = list(programme.modules.filter(is_active=True))
+        for person in people:
+            ability = random.randint(35, 88)
+            for offering in offerings:
+                if not person.module_enrolments.filter(programme_module=offering).exists():
+                    continue
+                for term in (1, 2):
+                    sba = max(10, min(98, ability + random.randint(-12, 12)))
+                    exam = (max(10, min(98, ability + random.randint(-15, 10)))
+                            if term == 2 and (programme.grade or 0) >= 4 and offering.code != 'LO' else None)
+                    result, created = TermResult.objects.get_or_create(
+                        student=person.user, module=offering, year=year, term=term,
+                        defaults={'sba_pct': Decimal(sba), 'exam_pct': Decimal(exam) if exam else None,
+                                  'status': TermResult.STATUS_PUBLISHED,
+                                  'comment': random.choice(['Good effort this term.',
+                                                            'Keep practising every day.',
+                                                            'Excellent participation in class.',
+                                                            'Needs to complete homework regularly.'])})
+                    if created:
+                        result.recompute()
+                        result.published_at = timezone.now()
+                        result.save()
+                        made += 1
+    print(f"  → {teachers} class teacher(s) assigned · {made} published term result(s) (Terms 1 – 2)")
+
+
 def seed_finances(per_programme):
     """The enrolment invoice per learner, then settle a realistic proportion.
 
@@ -763,6 +809,7 @@ def main():
 
         print("  → financial records ...")
         seed_finances(per_programme)
+        seed_classes_and_results(per_programme, educators)
 
         print("  → conversations ...")
         groups, group_msgs = seed_cohort_chats(per_programme, educators)

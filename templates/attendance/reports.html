@@ -1,0 +1,85 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+
+{% block content %}
+<style>
+  .att-grid { font-size:.8rem; }
+  .att-grid th, .att-grid td { text-align:center; padding:.25rem .35rem; white-space:nowrap; }
+  .att-grid td.att-name, .att-grid th.att-name { text-align:left; position:sticky; left:0; background:var(--bs-body-bg, #fff); }
+  .att-A { color:#dc3545; font-weight:700; } .att-L { color:#d39e00; font-weight:700; }
+  .att-E { color:#0aa2c0; font-weight:700; } .att-P { color:#198754; }
+</style>
+<div class="content-body">
+  <div class="container-fluid">
+    <div class="row page-titles mx-0">
+      <div class="col-sm-6 p-md-0"><div class="welcome-text"><h4>{{ page_title }}</h4>
+        <p class="mb-0 small text-muted">The daily school register across every grade.</p></div></div>
+      <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex">
+        <a class="btn btn-sm btn-outline-primary" href="{% url 'attendance:index' %}"><i class="bi bi-list-check me-1"></i>Today's registers</a>
+      </div>
+    </div>
+
+    {% if flagged %}
+    <div class="card border-danger">
+      <div class="card-header"><h5 class="card-title text-danger mb-0"><i class="bi bi-exclamation-octagon me-1"></i>
+        {{ limit }}+ consecutive school days absent</h5></div>
+      <div class="card-body">
+        <p class="small text-muted">Department rule (UCS parent code of conduct): a learner absent for {{ limit }} consecutive school days
+          is removed from the enrolment register. Contact the family before that happens.</p>
+        <ul class="list-group list-group-flush">
+          {% for person, streak, since in flagged %}
+          <li class="list-group-item d-flex justify-content-between flex-wrap gap-2">
+            <a href="{% url 'attendance:learner' person.pk %}">{{ person }}</a>
+            <span class="text-danger small"><b>{{ streak }}</b> days in a row{% if since %}, since {{ since|date:"j M" }}{% endif %}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if open_today %}
+    <div class="alert alert-warning small">
+      Still open today: {% for r in open_today %}<a href="{{ r.get_absolute_url }}">{{ r.cohort_label }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-body">
+        <form method="get" class="d-flex gap-2 flex-wrap align-items-end mb-3">
+          <div><label class="small text-muted">Class</label>
+            <select name="cohort" class="form-select form-select-sm" onchange="this.form.submit()">
+              {% for c, label in cohorts %}<option value="{{ c.pk }}" {% if cohort and c.pk == cohort.pk %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select></div>
+          <div><label class="small text-muted">Month</label>
+            <input type="month" name="month" value="{{ first|date:'Y-m' }}" class="form-control form-control-sm" onchange="this.form.submit()"></div>
+          <a class="btn btn-sm btn-outline-secondary" href="?cohort={{ cohort.pk }}&month={{ prev_month|date:'Y-m' }}"><i class="bi bi-chevron-left"></i></a>
+          {% if next_month %}<a class="btn btn-sm btn-outline-secondary" href="?cohort={{ cohort.pk }}&month={{ next_month|date:'Y-m' }}"><i class="bi bi-chevron-right"></i></a>{% endif %}
+          {% if cohort %}<a class="btn btn-sm btn-primary ms-auto" href="{% url 'attendance:reports-csv' %}?cohort={{ cohort.pk }}&month={{ first|date:'Y-m' }}"><i class="bi bi-download me-1"></i>CSV</a>{% endif %}
+        </form>
+
+        {% if not cohort %}<p class="text-muted">No active classes.</p>
+        {% elif not rows %}<p class="text-muted">No learners in {{ cohort_name }}.</p>
+        {% else %}
+        <h6>{{ cohort_name }} · {{ first|date:"F Y" }}</h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered att-grid">
+            <thead><tr><th class="att-name">Learner</th>
+              {% for d in days %}<th title="{{ d|date:'l j F' }}">{{ d|date:"D"|slice:":2" }}<br>{{ d|date:"j" }}</th>{% endfor %}
+              <th>P</th><th>A</th><th>L</th><th>E</th><th>%</th></tr></thead>
+            <tbody>
+              {% for row in rows %}
+              <tr><td class="att-name"><a href="{% url 'attendance:learner' row.learner.pk %}">{{ row.learner }}</a></td>
+                {% for code in row.cells %}<td class="att-{{ code }}">{{ code|default:"·" }}</td>{% endfor %}
+                <td>{{ row.summary.present }}</td><td>{{ row.summary.absent }}</td><td>{{ row.summary.late }}</td>
+                <td>{{ row.summary.excused }}</td><td>{% if row.summary.pct is not None %}{{ row.summary.pct }}{% else %}—{% endif %}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="small text-muted mb-0">P present · A absent · L late · E excused · “·” no register taken. Attendance % counts late as attended.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

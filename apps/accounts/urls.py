@@ -21,6 +21,7 @@ urlpatterns = [
     path('register/checkout/', views.enrol_checkout, name='enrol-checkout'),
     # Invite-based single-page registration (role decided by the invite link).
     path('invite/<uuid:token>/', views.accept_invite, name='accept-invite'),
+    path('invite/<uuid:token>/accept/', views.invite_confirm, name='invite-confirm'),
     path('register/parent/', views.register_parent, name='register-parent'),
     path('register/educator/', views.register_educator, name='register-educator'),
     path('register/staff/', views.register_staff, name='register-staff'),   # team first-login profile

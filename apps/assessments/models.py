@@ -39,9 +39,9 @@ class Assessment(TimeStampedModel):
     KIND_MOCK_EXAM = 'mock_exam'
     KIND_CHOICES = [
         (KIND_QUIZ, 'Quiz'),
-        (KIND_TEST, 'Test'),
-        (KIND_MOCK_EXAM, 'Mock exam / past paper'),
-        (KIND_EXAM_SECTION, 'Exam section'),
+        (KIND_TEST, 'Class / controlled test'),
+        (KIND_MOCK_EXAM, 'Practice exam / past paper'),
+        (KIND_EXAM_SECTION, 'Examination paper'),
         (KIND_ASSIGNMENT, 'Assignment'),
     ]
 
@@ -146,7 +146,7 @@ class Assessment(TimeStampedModel):
     RELEASE_ON_CLOSE = 'on_close'
     RELEASE_MANUAL = 'manual'
     RELEASE_CHOICES = [
-        (RELEASE_ON_SUBMIT, 'As soon as the candidate submits'),
+        (RELEASE_ON_SUBMIT, 'As soon as the learner submits'),
         (RELEASE_ON_CLOSE, 'When the paper closes'),
         (RELEASE_MANUAL, 'Only when a teacher releases it'),
     ]

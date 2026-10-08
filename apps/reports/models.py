@@ -17,14 +17,18 @@ from django.utils import timezone
 from core import validators as v
 
 
-# A sensible default A–F scale (descending ``min`` percentages). Educators can
-# override it per module via ModuleWeighting.grade_scale.
+# The CAPS national 7-point achievement scale used on South African school
+# reports (Grade 1 – 12): the "letter" is the achievement level, 7 = outstanding
+# (80 – 100%) down to 1 = not achieved (0 – 29%). Teachers can override it per
+# subject via ModuleWeighting.grade_scale.
 DEFAULT_GRADE_SCALE = [
-    {'min': 80, 'letter': 'A'},
-    {'min': 70, 'letter': 'B'},
-    {'min': 60, 'letter': 'C'},
-    {'min': 50, 'letter': 'D'},
-    {'min': 0, 'letter': 'F'},
+    {'min': 80, 'letter': '7', 'label': 'Outstanding achievement'},
+    {'min': 70, 'letter': '6', 'label': 'Meritorious achievement'},
+    {'min': 60, 'letter': '5', 'label': 'Substantial achievement'},
+    {'min': 50, 'letter': '4', 'label': 'Adequate achievement'},
+    {'min': 40, 'letter': '3', 'label': 'Moderate achievement'},
+    {'min': 30, 'letter': '2', 'label': 'Elementary achievement'},
+    {'min': 0, 'letter': '1', 'label': 'Not achieved'},
 ]
 
 
@@ -180,3 +184,64 @@ class Certificate(models.Model):
         if not self.number:
             self.number = f'CERT-{uuid.uuid4().hex[:10].upper()}'
         super().save(*args, **kwargs)
+
+
+class TermResult(models.Model):
+    """One learner's result in one subject for one school term (GDE / CAPS).
+
+    * :attr:`auto_pct` — computed from the learner's quizzes, tests and
+      assignments in that subject dated within the term (automatic marking).
+    * :attr:`sba_pct` — the term's School-Based Assessment mark the educator
+      records (defaults to :attr:`auto_pct` when they accept it).
+    * :attr:`exam_pct` — the mid-year (Term 2) or final (Term 4) examination.
+    * :attr:`term_pct` — the reported term mark: SBA and exam weighted by the
+      phase's CAPS SBA weight (core.school.final_mark).
+
+    Learners and parents see a result only once the educator **publishes** it.
+    """
+    STATUS_DRAFT = 'draft'
+    STATUS_PUBLISHED = 'published'
+    STATUS_CHOICES = [(STATUS_DRAFT, 'Draft — educator only'), (STATUS_PUBLISHED, 'Published')]
+    TERM_CHOICES = [(1, 'Term 1'), (2, 'Term 2'), (3, 'Term 3'), (4, 'Term 4')]
+
+    student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                related_name='term_results')
+    module = models.ForeignKey('learning.ProgrammeModule', on_delete=models.CASCADE,
+                               related_name='term_results', verbose_name='Subject')
+    year = models.PositiveSmallIntegerField(db_index=True)
+    term = models.PositiveSmallIntegerField(choices=TERM_CHOICES, db_index=True)
+    auto_pct = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True,
+                                   help_text='From marked quizzes, tests and assignments this term.')
+    sba_pct = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True,
+                                  verbose_name='SBA %', help_text='School-Based Assessment mark for the term.')
+    exam_pct = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True,
+                                   verbose_name='Exam %', help_text='Mid-year (Term 2) / final (Term 4) exam.')
+    term_pct = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True,
+                                   verbose_name='Term mark %')
+    level = models.PositiveSmallIntegerField(null=True, blank=True, help_text='CAPS achievement level 1 – 7.')
+    comment = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_DRAFT, db_index=True)
+    entered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                   blank=True, related_name='+')
+    published_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['year', 'term', 'module__order']
+        constraints = [models.UniqueConstraint(fields=['student', 'module', 'year', 'term'],
+                                               name='uniq_term_result')]
+
+    def __str__(self):
+        return f'{self.student} · {self.module.code} · {self.year} T{self.term}: {self.term_pct}'
+
+    def recompute(self):
+        """Refresh :attr:`term_pct` and :attr:`level` from the SBA and exam marks."""
+        from core.school import achievement_level, final_mark
+        grade = self.module.programme.grade or 1
+        sba = float(self.sba_pct) if self.sba_pct is not None else (
+            float(self.auto_pct) if self.auto_pct is not None else None)
+        exam = float(self.exam_pct) if self.exam_pct is not None else None
+        mark = final_mark(grade, self.module.code, sba, exam)
+        self.term_pct = None if mark is None else round(mark, 1)
+        self.level = None if mark is None else achievement_level(mark)
+        return self.term_pct

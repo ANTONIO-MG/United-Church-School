@@ -138,7 +138,10 @@ def _dates(person):
         return ('You are not registered for a grade yet, so there are no dates on your '
                 'calendar. Finish registering on the platform and they will appear here.')
 
-    events = (CalendarEvent.objects
+    from apps.livesessions.academic import visible_events
+
+    # Whole-school dates plus their own grade's only (apps.livesessions.academic).
+    events = (visible_events(person.user, CalendarEvent.objects)
               .filter(is_published=True, calendar__institution_id__in=institution_ids,
                       start__gte=timezone.now())
               .select_related('programme_module', 'programme', 'calendar__institution')

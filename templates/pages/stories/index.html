@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title %}UCS Stories | {{ brand.name }}{% endblock %}
+
+{% block additional_css %}
+<link href="{% static 'css/landing-ucs.css' %}?v=2" rel="stylesheet">
+{% endblock additional_css %}
+
+{% block content %}
+{% include 'partials/navbar.html' with landing=True %}
+{% include 'pages/stories/_nav_fix.html' %}
+
+{% comment %}Every story from the school's Info Hub (core/stories.py), newest
+first. Same card as the landing page's stories section.{% endcomment %}
+<div class="ucs-landing">
+<main>
+  <section class="ucs-section ucs-stories-page" aria-labelledby="stories-title">
+    <div class="container">
+      <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'pages:landing' %}">Home</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Stories</li>
+        </ol>
+      </nav>
+      <div class="mb-4">
+        <span class="ucs-eyebrow">UCS Stories</span>
+        <h1 class="ucs-h2 mb-2" id="stories-title">Life at United Church School</h1>
+        <p class="ucs-muted mb-0">News, achievements and the people behind them — {{ stories|length }} stories from our community.</p>
+      </div>
+      <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-lg-3">
+        {% for story in stories %}
+        <div class="col"><article class="ucs-card ucs-story lift">
+          {% if story.image %}
+          <img src="{% static story.image %}" width="{{ story.image_width }}" height="{{ story.image_height }}" loading="lazy" alt="">
+          {% endif %}
+          <div class="body">
+            <p class="ucs-story-meta small mb-2">
+              {% if story.category and story.category != 'Uncategorized' %}<span class="ucs-story-cat">{{ story.category }}</span> · {% endif %}<time datetime="{{ story.date|date:'Y-m-d' }}">{{ story.date|date:"j F Y" }}</time>
+            </p>
+            <h2 class="h3"><a class="stretched-link text-reset text-decoration-none" href="{% url 'pages:story' story.slug %}">{{ story.title }}</a></h2>
+            <p class="small ucs-muted">{{ story.summary }}</p>
+            <span class="more small" aria-hidden="true">Read more →</span>
+          </div>
+        </article></div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+</main>
+{% include 'pages/stories/_footer.html' %}
+</div>
+{% endblock content %}

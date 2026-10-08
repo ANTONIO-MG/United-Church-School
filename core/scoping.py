@@ -151,18 +151,28 @@ def parent_contacts(user):
 
 
 def viewing_child(request):
-    """The child a parent's page is about: ``?student=<id>`` or their first.
+    """The child a parent's page is about: ``?student=<id>``, else the child
+    they last chose (remembered in the session, so the child selector applies
+    to every page), else their first.
 
     Resolved against :func:`children_of`, so a parent asking for somebody else's
     student gets their own child back rather than the stranger's data.
     """
     children = children_of(getattr(request, 'user', None))
+    session = getattr(request, 'session', None)
     requested = (request.GET.get('student') or '').strip()
     if requested.isdigit():
         child = children.filter(pk=int(requested)).first()
         if child is not None:
+            if session is not None:
+                session['viewing_child'] = child.pk
             return child
-    return children.first()
+    remembered = session.get('viewing_child') if session is not None else None
+    if remembered:
+        child = children.filter(pk=remembered).first()
+        if child is not None:
+            return child
+    return children.order_by('first_name', 'pk').first()
 
 
 # ---------------------------------------------------------------------------

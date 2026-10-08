@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title %}{{ story.title }} | {{ brand.name }}{% endblock %}
+
+{% block additional_css %}
+<link href="{% static 'css/landing-ucs.css' %}?v=2" rel="stylesheet">
+{% endblock additional_css %}
+
+{% block content %}
+{% include 'partials/navbar.html' with landing=True %}
+{% include 'pages/stories/_nav_fix.html' %}
+
+<div class="ucs-landing">
+<main>
+  <article class="ucs-section ucs-stories-page" aria-labelledby="story-title">
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-lg-8">
+          <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb small mb-0">
+              <li class="breadcrumb-item"><a href="{% url 'pages:landing' %}">Home</a></li>
+              <li class="breadcrumb-item"><a href="{% url 'pages:stories' %}">Stories</a></li>
+              <li class="breadcrumb-item active" aria-current="page">{{ story.title|truncatechars:48 }}</li>
+            </ol>
+          </nav>
+          <header class="mb-4">
+            {% if story.category and story.category != 'Uncategorized' %}<span class="ucs-eyebrow">{{ story.category }}</span>{% else %}<span class="ucs-eyebrow">UCS Stories</span>{% endif %}
+            <h1 class="ucs-h2 mb-2" id="story-title">{{ story.title }}</h1>
+            <p class="ucs-story-meta mb-0">
+              <time datetime="{{ story.date|date:'Y-m-d' }}">{{ story.date|date:"j F Y" }}</time>{% if story.author %} · by {{ story.author }}{% endif %}
+            </p>
+          </header>
+          {% if story.image %}
+          <figure class="ucs-story-hero mb-4">
+            <img class="img-fluid" src="{% static story.image %}" width="{{ story.image_width }}" height="{{ story.image_height }}" alt="{{ story.title }}">
+          </figure>
+          {% endif %}
+          <div class="ucs-story-body">
+            {% for block in blocks %}
+              {% if block.type == 'h' %}<h2 class="h4">{{ block.text }}</h2>
+              {% elif block.type == 'ul' %}<ul>{% for item in block.items %}<li>{{ item }}</li>{% endfor %}</ul>
+              {% else %}<p>{{ block.text }}</p>{% endif %}
+            {% endfor %}
+          </div>
+          <p class="small ucs-muted mt-4 mb-0">First published on the school's Info Hub, ucs.org.za.</p>
+          <a class="btn btn-ucs-outline rounded-pill px-4 mt-4" href="{% url 'pages:stories' %}"><i class="bi bi-arrow-left me-2" aria-hidden="true"></i>All stories</a>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  {% if others %}
+  <section class="ucs-section ucs-tint" aria-labelledby="more-title">
+    <div class="container">
+      <span class="ucs-eyebrow">Keep reading</span>
+      <h2 class="ucs-h2 mb-4" id="more-title">More stories</h2>
+      <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-lg-3">
+        {% for other in others %}
+        <div class="col"><article class="ucs-card ucs-story lift">
+          {% if other.image %}<img src="{% static other.image %}" width="{{ other.image_width }}" height="{{ other.image_height }}" loading="lazy" alt="">{% endif %}
+          <div class="body">
+            <p class="ucs-story-meta small mb-2"><time datetime="{{ other.date|date:'Y-m-d' }}">{{ other.date|date:"j F Y" }}</time></p>
+            <h3><a class="stretched-link text-reset text-decoration-none" href="{% url 'pages:story' other.slug %}">{{ other.title }}</a></h3>
+            <span class="more small" aria-hidden="true">Read more →</span>
+          </div>
+        </article></div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+</main>
+{% include 'pages/stories/_footer.html' %}
+</div>
+{% endblock content %}

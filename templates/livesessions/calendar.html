@@ -60,9 +60,9 @@ activated it, so `{{ x|time }}` is local without any per-view conversion.
 
   <div class="card mb-3"><div class="card-body">
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <a class="btn btn-sm btn-light" href="?m={{ prev_month }}"><i class="bi bi-chevron-left"></i></a>
+      <a class="btn btn-sm btn-light" href="?m={{ prev_month }}{{ grade_query }}"><i class="bi bi-chevron-left"></i></a>
       <h5 class="mb-0">{{ focus|date:"F Y" }}</h5>
-      <a class="btn btn-sm btn-light" href="?m={{ next_month }}"><i class="bi bi-chevron-right"></i></a>
+      <a class="btn btn-sm btn-light" href="?m={{ next_month }}{{ grade_query }}"><i class="bi bi-chevron-right"></i></a>
     </div>
 
     {% comment %}The legend doubles as the filter — every source can be toggled
@@ -70,13 +70,31 @@ activated it, so `{{ x|time }}` is local without any per-view conversion.
     <div class="cal-legend d-flex flex-wrap gap-2 mb-3">
       {% for item in legend %}
         <a class="cal-chip{% if not item.on %} off{% endif %}"
-           href="?m={{ focus|date:'Y-m' }}&show={{ item.kind }}"
+           href="?m={{ focus|date:'Y-m' }}&show={{ item.kind }}{{ grade_query }}"
            title="Show only {{ item.label|lower }}">
           <span class="cal-dot" style="background:{{ item.colour }}"></span>{{ item.label }}
         </a>
       {% endfor %}
-      <a class="cal-chip" href="?m={{ focus|date:'Y-m' }}">Show all</a>
+      <a class="cal-chip" href="?m={{ focus|date:'Y-m' }}{{ grade_query }}">Show all</a>
     </div>
+
+    {% comment %}School dates are per grade: a learner already sees only their own
+    grade's (plus the whole-school dates). Anyone with more than one grade on
+    their calendar — staff, a teacher, a parent of two — can narrow to one.{% endcomment %}
+    {% if grade_choices|length > 1 %}
+      <form method="get" class="d-flex flex-wrap align-items-center gap-2 mb-3" aria-label="Filter school dates by grade">
+        <input type="hidden" name="m" value="{{ focus|date:'Y-m' }}">
+        {% if selected_kinds %}<input type="hidden" name="show" value="{{ selected_kinds }}">{% endif %}
+        <label for="cal-grade" class="small text-muted mb-0">School dates for</label>
+        <select id="cal-grade" name="grade" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+          <option value="">Every grade</option>
+          {% for g in grade_choices %}
+            <option value="{{ g }}"{% if g == grade %} selected{% endif %}>Grade {{ g }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button class="btn btn-sm btn-light" type="submit">Apply</button></noscript>
+      </form>
+    {% endif %}
 
     <div class="cal-grid">
       <div class="cal-head">Mon</div><div class="cal-head">Tue</div><div class="cal-head">Wed</div>

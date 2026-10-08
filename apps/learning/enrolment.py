@@ -131,6 +131,9 @@ def activate_modules_for_invoice(invoice):
     """Unlock every module an invoice was raised for — called from the
     ``invoice_paid`` signal when the invoice settles (PayFast or a manual mark).
     Idempotent: activating an already-active module just extends it."""
+    if invoice.fee_months:              # school fees: the grade, for the months paid
+        from .fees import apply_paid_invoice
+        return apply_paid_invoice(invoice)
     rows = list(ModuleEnrolment.objects.filter(invoice_uid=invoice.public_id))
     for enrolment in rows:
         enrolment.activate(months=1)
@@ -146,47 +149,14 @@ def _open_invoice(public_id):
             .exclude(status=Invoice.STATUS_CANCELLED).first())
 
 
-@transaction.atomic
-def school_fees_invoice(person, programme, *, month=None):
-    """The month's school fees for ``person`` in ``programme`` (a grade).
-
-    One invoice line — the grade's :attr:`Programme.monthly_fee`, less the 5%
-    sibling discount when the learner's application declares a sibling at UCS
-    — linked to **every** subject the learner holds in the grade, so paying it
-    unlocks them all for the month. An unpaid school-fees invoice already linked
-    to those subjects is reused, so asking twice never bills twice. ``None``
-    when the grade charges no monthly fee."""
-    from django.utils import timezone
-
-    from apps.finance.models import Invoice, InvoiceItem
-
-    if not programme.monthly_fee:
-        return None
-    rows = list(ModuleEnrolment.objects.filter(person=person, programme_module__programme=programme))
-    for row in rows:
-        existing = _open_invoice(row.invoice_uid)
-        if existing is not None:
-            return existing
-
-    siblings = 0
-    try:
-        siblings = person.application.siblings_at_ucs
-    except Exception:                     # no application on file (e.g. added by the office)
-        pass
-    from core.school import SIBLING_DISCOUNT_PCT
-    month = month or timezone.now()
-    label = f'School fees — {month:%B %Y}, {programme.display_name}'
-    discount = SIBLING_DISCOUNT_PCT if siblings else Decimal('0')
-    if discount:
-        label += f' (sibling discount {discount:.0f}%)'
-    invoice = Invoice.objects.create(customer=person.user, created_by=person.user,
-                                     status=Invoice.STATUS_SENT)
-    InvoiceItem.objects.create(invoice=invoice, description=label[:255], quantity=1,
-                               unit_price=Decimal(programme.monthly_fee), discount_percent=discount)
-    invoice.recalc_total()
-    invoice.refresh_status()
-    ModuleEnrolment.objects.filter(pk__in=[r.pk for r in rows]).update(invoice_uid=invoice.public_id)
-    return invoice
+def school_fees_invoice(person, programme, *, months=1, month=None):
+    """The next unpaid month(s) of school fees for ``person`` in ``programme``
+    (a grade) — one invoice covering every subject in the grade. Delegates to
+    :func:`apps.learning.fees.raise_fees_invoice`; ``None`` when the grade
+    charges no monthly fee."""
+    from .fees import raise_fees_invoice
+    first = month.date().replace(day=1) if hasattr(month, 'date') else month
+    return raise_fees_invoice(person, programme, months=months, first=first)
 
 
 @transaction.atomic

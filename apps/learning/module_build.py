@@ -27,7 +27,9 @@ logger = logging.getLogger('apps')
 
 # How many weeks a freshly scaffolded block gets. A test block is a month's
 # work; an exam block is the run-up to the paper and is longer.
-DEFAULT_WEEKS = {models.ModulePhase.KIND_TEST: 4, models.ModulePhase.KIND_EXAM: 6}
+# GDE terms run 10 – 11 weeks; the teacher can add or remove weeks.
+DEFAULT_WEEKS = {models.ModulePhase.KIND_TERM: 11, models.ModulePhase.KIND_TEST: 4,
+                 models.ModulePhase.KIND_EXAM: 6}
 
 # The shop category every module material is published into.
 SHOP_CATEGORY = 'Study material'
@@ -96,12 +98,12 @@ def _meetings():
 
 
 # ---------------------------------------------------------------------------
-# Scaffolding — the six blocks in one click
+# Scaffolding — Term 1 – 4 in one click
 # ---------------------------------------------------------------------------
 @login_required
 @require_POST
 def module_scaffold(request, pk):
-    """Create the standard year — Test 1–4 then Exam 1–2 — with empty weeks.
+    """Create the standard school year — Term 1 – 4 — with empty weeks.
 
     Idempotent: blocks that already exist are left exactly as they are, so this
     is safe to press on a module that is half built.
@@ -115,14 +117,14 @@ def module_scaffold(request, pk):
               if cid and cid.isdigit() else None)
     created = scaffold_schedule(offering, cohort=cohort)
     if created:
-        flash.success(request, f'Added {created} preparation block{"" if created == 1 else "s"}.')
+        flash.success(request, f'Added {created} term{"" if created == 1 else "s"} to the year plan.')
     else:
         flash.info(request, 'The schedule is already scaffolded.')
     return redirect('learning:module-build', pk=offering.pk)
 
 
 def scaffold_schedule(offering, weeks_per_phase=None, cohort=None):
-    """Build the default six-block plan for ``offering``; returns blocks created.
+    """Build the default Term 1 – 4 plan for ``offering``; returns terms created.
 
     When ``cohort`` is given the blocks belong to that intake (Option B per-cohort
     content); ``None`` builds the shared template every cohort sees. Shared by the

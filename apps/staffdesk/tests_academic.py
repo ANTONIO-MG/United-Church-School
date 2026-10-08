@@ -28,7 +28,7 @@ class AcademicFixture(TestCase):
         cls.module.educators.add(cls.educator.profile)
         enrol(cls.student.profile, cls.module)
         cls.grade = Grade.objects.create(student=cls.student, module=cls.module, final_pct=Decimal('42'),
-                                         computed_pct=Decimal('42'), letter='F', passed=False)
+                                         computed_pct=Decimal('42'), letter='3', passed=False)
 
     def setUp(self):
         self.client.force_login(self.staff)
@@ -72,7 +72,7 @@ class GradeTests(AcademicFixture):
         grade = Grade.objects.get(pk=self.grade.pk)
         self.assertEqual(grade.final_pct, Decimal('65.00'))
         self.assertTrue(grade.passed)
-        self.assertEqual(grade.letter, 'C')
+        self.assertEqual(grade.letter, '5')          # CAPS level 5: 60 – 69%
         self.assertEqual(grade.overridden_by, self.staff)
 
         # Nothing is marked, so the computed mark is 0 — but the override stands.

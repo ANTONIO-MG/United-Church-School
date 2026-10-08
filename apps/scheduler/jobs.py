@@ -57,6 +57,14 @@ JOBS = [
     ),
     # --- Finance ---------------------------------------------------------
     Job(
+        name='school-fees-monthly',
+        every=6 * HOUR,
+        description="Raise the month's school-fees invoice (per grade) for every learner whose "
+                    'month is not yet paid and has no open fees invoice, and e-mail it. Subjects '
+                    'lock after FEES_GRACE_DAYS of an unpaid month.',
+        dotted='apps.learning.fees:run_monthly_billing',
+    ),
+    Job(
         name='finance-daily',
         every=6 * HOUR,
         description='Invoice reminders (3 days before, on the day, 7 days after), expire '
@@ -71,6 +79,14 @@ JOBS = [
                     'attendance threshold becomes absent and no-shows get a row.',
         command='finalise_attendance',
         options={'verbosity': 1},
+    ),
+    Job(
+        name='daily-register',
+        every=30 * MINUTE,
+        description='School days from 06:30 (Johannesburg): open each class\'s daily register '
+                    'with everyone present and ask the class teacher to mark who is absent; '
+                    'after 17:00, auto-submit registers left open (unmarked learners stay present).',
+        dotted='apps.attendance.services:run_daily',
     ),
     Job(
         name='sync-teams-meetings',

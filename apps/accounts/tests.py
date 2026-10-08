@@ -74,6 +74,14 @@ class SignupValidationTests(CacheIsolatedTestCase):
     def setUp(self):
         super().setUp()
         self.url = reverse('myhub:page-register')
+        # django-simple-captcha copies CAPTCHA_TEST_MODE into its own settings
+        # module at import time, so override_settings alone never reaches it.
+        from unittest import mock
+
+        from captcha.conf import settings as captcha_settings
+        patcher = mock.patch.object(captcha_settings, 'CAPTCHA_TEST_MODE', True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_valid_signup_creates_unverified_user_and_sends_mail(self):
         resp = self.client.post(self.url, signup_payload())

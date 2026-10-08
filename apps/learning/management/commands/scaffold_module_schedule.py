@@ -1,4 +1,4 @@
-"""Give module offerings their standard year: four test blocks then two exam blocks.
+"""Give every subject its standard school year: Term 1 – 4 (GDE calendar).
 
     python manage.py scaffold_module_schedule                     # every active offering
     python manage.py scaffold_module_schedule --institution UCS
@@ -22,7 +22,7 @@ from apps.learning.module_build import DEFAULT_WEEKS, scaffold_schedule
 
 
 class Command(BaseCommand):
-    help = 'Create the standard 4-test + 2-exam preparation schedule for module offerings.'
+    help = 'Create the standard Term 1 – 4 year plan for each subject.'
 
     def add_arguments(self, parser):
         parser.add_argument('--institution', help='Limit to one institution code, e.g. UCS.')

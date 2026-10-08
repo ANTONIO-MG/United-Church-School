@@ -91,7 +91,7 @@ class CalendarEntry:
 # The aggregate
 # ---------------------------------------------------------------------------
 #: Source name → the callable that produces its entries.
-def entries_for(user, start, end, *, kinds=None, limit_per_source=500):
+def entries_for(user, start, end, *, kinds=None, limit_per_source=500, grade=None):
     """Every calendar entry ``user`` may see between ``start`` and ``end``.
 
     ``kinds`` optionally restricts which sources run — the exported ``.ics``
@@ -113,7 +113,11 @@ def entries_for(user, start, end, *, kinds=None, limit_per_source=500):
         if name not in wanted:
             continue
         try:
-            collected.extend(source(user, start, end, limit_per_source) or [])
+            if name == 'academic':
+                found = source(user, start, end, limit_per_source, grade=grade)
+            else:
+                found = source(user, start, end, limit_per_source)
+            collected.extend(found or [])
         except Exception:       # one broken source must never blank the calendar
             logger.exception('calendar: source %r failed', name)
 
@@ -181,37 +185,60 @@ def _sessions(user, start, end, limit):
     return entries
 
 
-def _academic_dates(user, start, end, limit):
-    """The institution's published dates — tests, exams, deadlines, holidays."""
+def _academic_dates(user, start, end, limit, grade=None):
+    """The school's dates — term days, holidays, tests, exams, deadlines.
+
+    Scoped by :func:`apps.livesessions.academic.visible_events`: a learner sees
+    the whole-school dates plus their own grade's, a parent their children's
+    grades, an educator the grades they teach, staff everything. One date that
+    the seed wrote once per grade (the June exams for Grade 4 – 11) is folded
+    back into a single entry naming the grades, so nobody sees it eight times.
+    """
     from apps.learning.models import CalendarEvent
-    from core.roles import role_of_user
 
-    query = (CalendarEvent.objects
-             .filter(start__gte=start, start__lte=end)
-             .select_related('calendar__institution', 'programme', 'programme_module'))
+    from .academic import grades_label, visible_events
 
-    person = getattr(user, 'profile', None)
-    if role_of_user(user) not in ('admin', 'staff'):
-        query = query.filter(is_published=True)
-        # Scoped to the institutions they are actually registered with, so a
-        # learner is not shown another school's exam timetable. Someone with no
-        # enrolment yet sees every published date rather than a blank calendar.
-        institution_ids = list(person.programme_enrolments
-                               .values_list('programme__institution_id', flat=True)) if person else []
-        if institution_ids:
-            query = query.filter(calendar__institution_id__in=institution_ids)
+    query = visible_events(user, CalendarEvent.objects.filter(start__gte=start, start__lte=end),
+                           grade=grade)
+    query = (query.select_related('calendar__institution', 'programme',
+                                  'programme_module__programme')
+             .order_by('start', 'id'))
 
-    return [CalendarEntry(
-        kind='academic',
-        title=f'{event.get_kind_display()} · {event.label}',
-        start=event.start,
-        end=event.end,
-        all_day=event.all_day,
-        colour=event.colour,
-        detail=event.description,
-        location=event.location,
-        uid=f'academic-{event.pk}@ucs-lms',
-    ) for event in query.order_by('start')[:limit]]
+    folded, order = {}, []
+    for event in query[:limit * 4]:
+        if event.programme_id and not event.programme_module_id:
+            key = ('grades', event.calendar_id, event.kind, event.title, event.start, event.end)
+        else:
+            key = ('one', event.pk)
+        if key not in folded:
+            folded[key] = []
+            order.append(key)
+        folded[key].append(event)
+
+    entries = []
+    for key in order[:limit]:
+        events = folded[key]
+        event = events[0]
+        if key[0] == 'grades':
+            grades = grades_label(e.programme.grade for e in events)
+            label = f'{event.calendar.institution.label} {grades} | {event.title}'
+        else:
+            label = event.label
+            grades = ''
+        entries.append(CalendarEntry(
+            kind='academic',
+            title=f'{event.get_kind_display()} · {label}',
+            start=event.start,
+            end=event.end,
+            all_day=event.all_day,
+            colour=event.colour,
+            detail=event.description,
+            location=event.location,
+            uid=f'academic-{event.pk}@ucs-lms',
+            meta={'grades': grades, 'provisional': not event.is_published,
+                  'event_kind': event.kind},
+        ))
+    return entries
 
 
 def _events(user, start, end, limit):

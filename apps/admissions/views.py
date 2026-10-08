@@ -162,6 +162,13 @@ def office_detail(request, public_id):
             messages.success(request, f'Parent invitations sent to {", ".join(sent)}.' if sent
                              else 'No new parent invitations to send.')
             return redirect('admissions:office-detail', public_id=application.public_id)
+        if action == 'confirm-returning':
+            from . import promotion
+            invoice = promotion.confirm_returning(application, request.user)
+            messages.success(request, f'{application.learner_name} confirmed as returning for '
+                                      f'{application.year}' + (f'; invoice {invoice.number} raised.'
+                                                               if invoice else '.'))
+            return redirect('admissions:office-detail', public_id=application.public_id)
         if action in ('admit', 'decline'):
             status = (Application.STATUS_ADMITTED if action == 'admit'
                       else Application.STATUS_DECLINED)

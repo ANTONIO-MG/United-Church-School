@@ -1,0 +1,57 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+
+{% block content %}
+<div class="content-body">
+  <div class="container-fluid">
+    <div class="row page-titles mx-0">
+      <div class="col-sm-6 p-md-0"><div class="welcome-text"><h4>{{ page_title }}</h4>
+        <p class="mb-0 small text-muted">The daily school register.</p></div></div>
+      <div class="col-sm-6 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex align-items-center gap-3">
+        {% include 'partials/_child_switcher.html' %}
+      </div>
+    </div>
+
+    {% if no_child %}
+      <div class="alert alert-light">Your account is not linked to a learner yet — please contact the school office.</div>
+    {% else %}
+    {% if year.streak >= limit %}
+      <div class="alert alert-danger">{{ learner }} has been absent for <b>{{ year.streak }}</b> consecutive school days. Under the Department rule,
+        a learner absent for {{ limit }} consecutive school days is removed from the enrolment register — please contact the school.</div>
+    {% elif year.streak >= 3 %}
+      <div class="alert alert-warning">Absent for the last {{ year.streak }} school days.</div>
+    {% endif %}
+
+    <div class="row">
+      {% with s=month %}
+      <div class="col-md-6"><div class="card"><div class="card-body">
+        <h6 class="text-muted">This month</h6>
+        {% include 'attendance/_summary.html' %}
+      </div></div></div>
+      {% endwith %}
+      {% with s=year %}
+      <div class="col-md-6"><div class="card"><div class="card-body">
+        <h6 class="text-muted">This year</h6>
+        {% include 'attendance/_summary.html' %}
+      </div></div></div>
+      {% endwith %}
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h5 class="card-title mb-0">Days not marked present</h5></div>
+      <div class="card-body">
+        <ul class="list-group list-group-flush">
+          {% for m in exceptions %}
+          <li class="list-group-item d-flex justify-content-between flex-wrap gap-2">
+            <span>{{ m.register.date|date:"D j M Y" }}{% if m.reason %} <span class="text-muted small">— {{ m.reason }}</span>{% endif %}</span>
+            <span class="badge {% if m.status == 'absent' %}bg-danger{% elif m.status == 'late' %}bg-warning{% else %}bg-info{% endif %}">{{ m.get_status_display }}</span>
+          </li>
+          {% empty %}
+          <li class="list-group-item text-muted">Present every day the register was taken.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

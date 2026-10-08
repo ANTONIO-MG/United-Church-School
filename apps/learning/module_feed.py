@@ -55,7 +55,7 @@ MODULE_TABS = [
     ('notifications', 'Notifications', 'bi-bell'),
     ('documents', 'Documents', 'bi-folder2-open'),
     ('live', 'Live sessions', 'bi-camera-video'),
-    ('mocks', 'Mock exams', 'bi-file-earmark-ruled'),
+    ('mocks', 'Practice exams', 'bi-file-earmark-ruled'),
     ('blueprints', 'Assessment guides', 'bi-diagram-3'),
     ('assessments', 'Assessments', 'bi-ui-checks'),
 ]
@@ -320,7 +320,10 @@ def _header_meta(offering, gate):
     elif enrolment and enrolment.status == enrolment.STATUS_ACTIVE and enrolment.paid_until:
         rows.append({'icon': 'bi-check-circle', 'text': f'Paid to {enrolment.paid_until:%d %b %Y}'})
     elif not gate.module_open:
-        rows.append({'icon': 'bi-lock-fill', 'text': gate.module_status_label})
+        text = gate.module_status_label
+        if offering.programme.monthly_fee and not offering.price_per_month:
+            text = f'Locked — {timezone.localdate():%B} school fees unpaid'
+        rows.append({'icon': 'bi-lock-fill', 'text': text})
     return rows
 
 

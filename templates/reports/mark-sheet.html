@@ -1,0 +1,97 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body d-flex flex-wrap gap-3 justify-content-between align-items-start">
+    <div>
+      <p class="small text-muted mb-1"><a href="{% url 'reports:marks' %}?year={{ year }}">Mark sheets</a> /
+        {{ module.programme.name }}</p>
+      <h1 class="h4 mb-1">{{ module.display_name }} · {{ term_label }} {{ year }}</h1>
+      <p class="mb-0 small text-muted">{{ term_start|date:'j M' }} – {{ term_end|date:'j M Y' }} ·
+        {% if show_exam %}Term mark = SBA {{ sba_weight }}% + {{ exam_label }} {{ exam_weight }}%{% else %}Term mark = SBA (100%){% endif %}
+        · {{ published_count }} published, {{ draft_count }} draft</p>
+    </div>
+    <div class="d-flex flex-wrap gap-1">
+      {% for t in term_numbers %}<a class="btn btn-sm {% if t == term %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+        href="{% url 'reports:mark-sheet' module.pk year t %}">Term {{ t }}</a>{% endfor %}
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'reports:mark-sheet-csv' module.pk year term %}"><i class="bi bi-filetype-csv"></i> CSV</a>
+    </div>
+  </div>
+</div>
+
+<form method="post" class="card" id="markSheet" data-sba-weight="{{ sba_weight }}" data-show-exam="{{ show_exam|yesno:'1,0' }}">
+  {% csrf_token %}
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead><tr>
+          <th>Learner</th>
+          <th class="text-center" title="From quizzes, tests and assignments marked on the platform this term">Automatic %</th>
+          <th style="width:8rem">SBA %</th>
+          {% if show_exam %}<th style="width:8rem">{{ exam_label }} %</th>{% endif %}
+          <th class="text-center">Term mark</th>
+          <th class="text-center">Level</th>
+          <th>Comment</th>
+          <th>Status</th>
+        </tr></thead>
+        <tbody>
+        {% for row in rows %}
+          <tr class="ms-row" data-auto="{{ row.result.auto_pct|default_if_none:'' }}" data-auto-exam="{{ row.auto_exam|default_if_none:'' }}">
+            <td><strong>{{ row.student|person_name }}</strong></td>
+            <td class="text-center">{% if row.result.auto_pct is not None %}{{ row.result.auto_pct }}%{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td><input class="form-control form-control-sm ms-sba" name="sba_{{ row.student.pk }}" value="{{ row.sba_value }}"
+                       inputmode="decimal" placeholder="{% if row.result.auto_pct is not None %}{{ row.result.auto_pct }}{% else %}—{% endif %}" aria-label="SBA % for {{ row.student|person_name }}"></td>
+            {% if show_exam %}
+            <td><input class="form-control form-control-sm ms-exam" name="exam_{{ row.student.pk }}" value="{{ row.exam_value }}"
+                       inputmode="decimal" placeholder="{% if row.auto_exam is not None %}{{ row.auto_exam }}{% else %}—{% endif %}" aria-label="Exam % for {{ row.student|person_name }}"></td>
+            {% endif %}
+            <td class="text-center"><strong class="ms-term">{% if row.result.term_pct is not None %}{{ row.result.term_pct }}%{% else %}—{% endif %}</strong></td>
+            <td class="text-center"><span class="ms-level badge bg-primary bg-opacity-10 text-primary">{{ row.result.level|default:'—' }}</span></td>
+            <td><textarea class="form-control form-control-sm" rows="1" name="comment_{{ row.student.pk }}" aria-label="Comment for {{ row.student|person_name }}">{{ row.comment_value }}</textarea></td>
+            <td>{% if row.result.status == 'published' %}<span class="badge bg-success bg-opacity-10 text-success">Published</span>{% else %}<span class="badge bg-secondary bg-opacity-10 text-secondary">Draft</span>{% endif %}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-4">No learners are enrolled in this subject yet.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% if rows %}
+  <div class="card-footer d-flex flex-wrap gap-2 justify-content-between align-items-center">
+    <span class="small text-muted">Leave SBA{% if show_exam %} or exam{% endif %} blank to accept the automatic mark. Levels: CAPS 7 (80%+) … 1 (0 – 29%).</span>
+    <span class="d-flex gap-2">
+      {% if published_count %}<button class="btn btn-sm btn-outline-danger" name="action" value="unpublish"
+          onclick="return confirm('Withdraw these results? Learners and parents will no longer see them.')">Unpublish</button>{% endif %}
+      <button class="btn btn-sm btn-outline-primary" name="action" value="save">Save draft</button>
+      <button class="btn btn-sm btn-primary" name="action" value="publish"
+          onclick="return confirm('Publish to learners and parents? They will be notified.')">Publish</button>
+    </span>
+  </div>
+  {% endif %}
+</form>
+
+<script>
+(function () {
+  var form = document.getElementById('markSheet');
+  if (!form) return;
+  var w = parseFloat(form.dataset.sbaWeight), showExam = form.dataset.showExam === '1';
+  function num(v) { v = (v || '').trim().replace(',', '.'); return v === '' || isNaN(v) ? null : parseFloat(v); }
+  function level(p) { var b = [[80,7],[70,6],[60,5],[50,4],[40,3],[30,2]]; for (var i = 0; i < b.length; i++) if (p >= b[i][0]) return b[i][1]; return 1; }
+  function update(row) {
+    var sba = num(row.querySelector('.ms-sba').value); if (sba === null) sba = num(row.dataset.auto);
+    var exam = null;
+    if (showExam) { exam = num(row.querySelector('.ms-exam').value); if (exam === null) exam = num(row.dataset.autoExam); }
+    var mark = null;
+    if (sba !== null && exam !== null && w < 100) mark = Math.round((sba * w + exam * (100 - w))) / 100;
+    else mark = sba !== null ? sba : exam;
+    row.querySelector('.ms-term').textContent = mark === null ? '—' : (Math.round(mark * 10) / 10) + '%';
+    row.querySelector('.ms-level').textContent = mark === null ? '—' : level(mark);
+  }
+  form.querySelectorAll('.ms-row').forEach(function (row) {
+    row.querySelectorAll('input').forEach(function (i) { i.addEventListener('input', function () { update(row); }); });
+    update(row);
+  });
+})();
+</script>
+{% endblock %}

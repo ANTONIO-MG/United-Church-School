@@ -1,0 +1,41 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% block content %}
+<div class="card">
+  <div class="card-header border-0 pb-0">
+    <a class="text-sm" href="{% url 'admissions:promotion' %}?year={{ year }}"><i class="bi bi-arrow-left me-1"></i>All grades</a>
+    <h1 class="h4 card-title mb-1 mt-1">{{ programme.display_name }} · promotion {{ year }}</h1>
+    <p class="text-sm text-muted mb-0">The recommendation applies the CAPS promotion requirements for the {{ programme.get_level_display }}
+      to each learner's final marks (SBA and examination, weighted per CAPS). Confirm or change each outcome — promoted learners are
+      pre-registered for {% if next_grade %}{{ next_grade.display_name }}{% else %}the next year{% endif %} {{ year|add:1 }}, retained learners for
+      {{ programme.display_name }} {{ year|add:1 }}.</p>
+  </div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="table-responsive"><table class="table align-middle">
+        <thead><tr class="text-xs text-uppercase text-muted"><th>Learner</th><th>Final marks</th><th>Requirements</th><th>Recommended</th><th>Decision</th><th>Note</th></tr></thead>
+        <tbody>
+        {% for d in decisions %}
+        <tr>
+          <td class="text-sm fw-bold">{{ d.person.first_name }} {{ d.person.last_name }}</td>
+          <td class="text-xs">{% for code, pct in d.final_marks.items %}<span class="badge bg-light text-dark me-1 mb-1">{{ code }} {{ pct|floatformat:0 }}%</span>{% empty %}<span class="text-muted">no marks yet</span>{% endfor %}</td>
+          <td class="text-xs">{% for check in d.checks %}<div class="{% if check.1 %}text-success{% else %}text-danger{% endif %}">{% if check.1 %}✔{% else %}✘{% endif %} {{ check.0 }} <span class="text-muted">({{ check.2 }})</span></div>{% endfor %}</td>
+          <td class="text-sm">{{ d.get_recommended_display }}</td>
+          <td>
+            <select name="outcome_{{ d.pk }}" class="form-control form-select form-select-sm">
+              {% for value, label in outcomes %}<option value="{{ value }}" {% if d.outcome == value or d.outcome == 'pending' and value == d.recommended %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+            {% if d.next_application %}<div class="text-xs text-success mt-1">Pre-registered: {{ d.next_application.programme.display_name }} {{ d.next_application.year }} · {{ d.next_application.get_status_display|truncatewords:3 }}</div>{% endif %}
+          </td>
+          <td><input class="form-control form-control-sm" name="note_{{ d.pk }}" value="{{ d.note }}" placeholder="Optional"></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No learners in this class for {{ year }}.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+      {% if decisions %}<button class="btn bg-gradient-info mb-0">Save decisions &amp; pre-register</button>{% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -65,21 +65,25 @@ def activity_for(modules, limit=8, *, user=None):
     items = []
     module_ids = [s.id for s in modules] if modules else []
 
-    # --- xAPI learning records ---
+    # --- xAPI learning records (only when an LRS app is installed) ---
     try:
         from apps.lrs.models import XapiStatement
-        qs = (XapiStatement.objects.filter(module__in=modules, voided=False)
-              .select_related('local_user')[:limit])
-        icons = {'passed': 'bi-check-circle', 'failed': 'bi-x-circle', 'completed': 'bi-flag',
-                 'experienced': 'bi-eye', 'answered': 'bi-pencil'}
-        for s in qs:
-            items.append({
-                'icon': icons.get(s.verb_display, 'bi-dot'),
-                'text': f'{s.actor_name or "Someone"} {s.verb_display}',
-                'when': s.stored, 'url': '', 'media': [],
-            })
-    except Exception:  # pragma: no cover
-        logger.exception('profiles: activity lookup failed')
+    except ImportError:
+        XapiStatement = None
+    if XapiStatement is not None:
+        try:
+            qs = (XapiStatement.objects.filter(module__in=modules, voided=False)
+                  .select_related('local_user')[:limit])
+            icons = {'passed': 'bi-check-circle', 'failed': 'bi-x-circle', 'completed': 'bi-flag',
+                     'experienced': 'bi-eye', 'answered': 'bi-pencil'}
+            for s in qs:
+                items.append({
+                    'icon': icons.get(s.verb_display, 'bi-dot'),
+                    'text': f'{s.actor_name or "Someone"} {s.verb_display}',
+                    'when': s.stored, 'url': '', 'media': [],
+                })
+        except Exception:  # pragma: no cover
+            logger.exception('profiles: activity lookup failed')
 
     # --- Wall posts + their attachments ---
     try:
@@ -358,7 +362,7 @@ def documents_for(*, modules=None, user=None, include_private=True, limit=120):
         from apps.communication.models import MessageAttachment
         q = MessageAttachment.objects.select_related('message__sender', 'message__group').filter(file__gt='')
         if modules:
-            q = q.filter(message__group__module__in=modules)
+            q = q.filter(message__group__programme_module__in=modules)   # the subject's chat
         elif user is not None and include_private:
             # "personal chat only": files the person shared in their direct chats.
             # Gated by include_private — a direct chat is between two people, so

@@ -281,51 +281,32 @@
           <span class="ucs-eyebrow">UCS Stories</span>
           <h2 class="ucs-h2 mb-0" id="stories-title">Life at United Church School</h2>
         </div>
-        {% if brand.links.website_stories %}
         <div class="col-md-4 text-md-end">
-          <a class="btn btn-ucs-outline rounded-pill px-4" href="{{ brand.links.website_stories }}" target="_blank" rel="noopener">
-            All stories<i class="bi bi-box-arrow-up-right ms-2" aria-hidden="true"></i><span class="visually-hidden"> (opens ucs.org.za in a new tab)</span></a>
+          <a class="btn btn-ucs-outline rounded-pill px-4" href="{% url 'pages:stories' %}">
+            All stories<i class="bi bi-arrow-right ms-2" aria-hidden="true"></i></a>
         </div>
-        {% endif %}
       </div>
+      {% comment %}The most recent stories from core/stories.py (the school's Info
+         Hub, imported) — each "Read more" opens the full story on our own site.{% endcomment %}
       <div class="row g-4 row-cols-1 row-cols-sm-2 row-cols-lg-4">
+        {% for story in stories %}
         <div class="col"><article class="ucs-card ucs-story lift">
-          <img src="{% static 'images/school/lrc-heads-2025.jpg' %}" width="960" height="1280" loading="lazy"
-               style="object-position:center 20%" alt="The four 2025 LRC heads in their UCS blazers">
+          {% if story.image %}
+          <img src="{% static story.image %}" width="{{ story.image_width }}" height="{{ story.image_height }}" loading="lazy"
+               {% if forloop.first %}style="object-position:center 20%" {% endif %}alt="">
+          {% endif %}
           <div class="body">
-            <h3>2025 LRC Heads</h3>
-            <p class="small ucs-muted">Congratulations to our new LRC heads for 2025…</p>
-            {% if brand.links.website_stories %}<a class="more small" href="{{ brand.links.website_stories }}" target="_blank" rel="noopener">Read more<span class="visually-hidden"> about the 2025 LRC heads</span> →</a>{% endif %}
+            <h3>{{ story.title }}</h3>
+            <p class="small ucs-muted">{{ story.summary|truncatechars:110 }}</p>
+            <a class="more small" href="{% url 'pages:story' story.slug %}">Read more<span class="visually-hidden"> — {{ story.title }}</span> →</a>
           </div>
         </article></div>
-        <div class="col"><article class="ucs-card ucs-story lift">
-          <img src="{% static 'images/school/bongani-matlebe.jpg' %}" width="1600" height="1067" loading="lazy"
-               alt="Black and white portrait of former UCS learner Bongani Matlebe">
-          <div class="body">
-            <h3>Success at UCS: Lifted up to where he belongs</h3>
-            <p class="small ucs-muted">The story of former learner Bongani Matlebe.</p>
-            {% if brand.links.website_stories %}<a class="more small" href="{{ brand.links.website_stories }}" target="_blank" rel="noopener">Read more<span class="visually-hidden"> about Bongani Matlebe</span> →</a>{% endif %}
-          </div>
-        </article></div>
-        <div class="col"><article class="ucs-card ucs-story lift">
-          <img src="{% static 'images/school/learners-and-staff.jpg' %}" width="1600" height="1200" loading="lazy"
-               alt="A large group of UCS learners and staff outdoors">
-          <div class="body">
-            <h3>Leadership at UCS</h3>
-            <p class="small ucs-muted">Building tomorrow's movers and shakers at UCS.</p>
-            {% if brand.links.website_stories %}<a class="more small" href="{{ brand.links.website_stories }}" target="_blank" rel="noopener">Read more<span class="visually-hidden"> about leadership at UCS</span> →</a>{% endif %}
-          </div>
-        </article></div>
-        <div class="col"><article class="ucs-card ucs-story lift">
-          <img src="{% static 'images/school/nasa-astronaut-visit.jpg' %}" width="666" height="374" loading="lazy"
-               alt="A NASA astronaut speaking to UCS maths learners">
-          <div class="body">
-            <h3>NASA Astronaut Inspires Maths Learners</h3>
-            <p class="small ucs-muted">A visit from a NASA astronaut for our maths learners.</p>
-            {% if brand.links.website_stories %}<a class="more small" href="{{ brand.links.website_stories }}" target="_blank" rel="noopener">Read more<span class="visually-hidden"> about the NASA astronaut visit</span> →</a>{% endif %}
-          </div>
-        </article></div>
+        {% endfor %}
       </div>
+      {% if brand.links.website_stories %}
+      <p class="small ucs-muted mt-4 mb-0">First published on the school's
+        <a class="ucs-accent" href="{{ brand.links.website_stories }}" target="_blank" rel="noopener">Info Hub at ucs.org.za<span class="visually-hidden"> (opens in a new tab)</span></a>.</p>
+      {% endif %}
     </div>
   </section>
 

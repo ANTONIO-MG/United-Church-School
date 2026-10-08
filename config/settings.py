@@ -223,6 +223,7 @@ INSTALLED_APPS = [
     'apps.finance',               # invoicing & payment tracking (due payments, receipts)
     'apps.tasks',                 # assignable tasks (per-user / group / subject / course)
     'apps.admissions',            # UCS application for admission: family, medical, documents, office checklist
+    'apps.attendance',            # daily school register: everyone present, teacher marks absentees
 
     # --------------------
     # My Learning Hub (learning-lifecycle platform)
@@ -348,6 +349,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.branding',          # brand / UI strings (.strings.json)
                 'core.context_processors.ui_chrome',         # resolved theme + language
+                'core.context_processors.parent_children',   # a parent's children + the one viewed
                 'django.template.context_processors.i18n',   # LANGUAGES / LANGUAGE_CODE
                 'core.roles.user_roles',                     # role flags (is_student/parent/educator/admin…)
                 'apps.myhub.context_processors.get_dashboard_data',  # aggregated dashboard data
@@ -864,7 +866,7 @@ LANGUAGES = [
     ('pt', 'Português'),
 ]
 LOCALE_PATHS = [BASE_DIR / 'locale']
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Africa/Johannesburg'   # SAST (UTC+2), no daylight saving
 USE_I18N = True
 USE_TZ = True
 
@@ -1275,6 +1277,10 @@ SHOP_COLLECTION = {
 ENROLLMENT_MODE = os.getenv('ENROLLMENT_MODE', 'manual').strip().lower()
 if ENROLLMENT_MODE not in ('auto', 'manual'):
     ENROLLMENT_MODE = 'manual'
+
+# School fees are paid per grade, per calendar month, in advance. A grade's
+# subjects lock this many days into a month that has not been paid.
+FEES_GRACE_DAYS = env_int('FEES_GRACE_DAYS', 7)
 
 
 # ---------------------------------------------------------

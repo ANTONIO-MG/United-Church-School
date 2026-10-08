@@ -106,10 +106,11 @@ class CertificateDataTests(CertificateFixtureMixin):
         self.assertEqual(certificates.render_data(self.cert)['final_mark'], '67%')
 
     def test_the_grade_letter_follows_the_default_scale(self):
-        for mark, letter in ((88, 'A'), (74, 'B'), (63, 'C'), (55, 'D'), (30, 'F')):
+        # CAPS achievement levels 7 (80%+) down to 1 (below 30%).
+        for mark, letter in ((88, '7'), (74, '6'), (63, '5'), (55, '4'), (45, '3'), (30, '2'), (12, '1')):
             self.cert.final_mark = mark
             self.assertEqual(certificates.render_data(self.cert)['grade_letter'], letter,
-                             f'{mark}% should be a {letter}')
+                             f'{mark}% should be level {letter}')
 
     def test_the_grade_letter_honours_a_modules_own_scale(self):
         models.ModuleWeighting.objects.create(

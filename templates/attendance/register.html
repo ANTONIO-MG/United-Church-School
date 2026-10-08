@@ -1,0 +1,111 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}{% load static %}
+
+{% block content %}
+<style>
+  .att-row { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; padding:.6rem 0; border-bottom:1px solid rgba(0,0,0,.06); }
+  .att-row .att-who { display:flex; align-items:center; gap:.6rem; flex:1 1 12rem; min-width:0; }
+  .att-row .att-who img { width:40px; height:40px; border-radius:50%; object-fit:cover; }
+  .att-row .att-reason { flex:1 1 100%; display:none; }
+  .att-row.is-off .att-reason { display:block; }
+  .att-row.is-absent { background:rgba(220,53,69,.06); }
+  .att-row.is-late { background:rgba(255,193,7,.08); }
+  .att-row.is-excused { background:rgba(13,202,240,.07); }
+  .att-toggle .btn { min-width:4.5rem; }
+  @media (max-width: 575px) { .att-toggle { width:100%; display:flex; } .att-toggle .btn { flex:1; min-width:0; } }
+</style>
+<div class="content-body">
+  <div class="container-fluid">
+    <div class="row page-titles mx-0">
+      <div class="col-sm-8 p-md-0">
+        <div class="welcome-text">
+          <h4>{{ register.cohort_label }} · {{ register.date|date:"l j F Y" }}</h4>
+          <p class="mb-0 small text-muted">
+            {% if register.is_open %}Everyone is marked present. Tap <b>Absent</b>, <b>Late</b> or <b>Excused</b> for the exceptions, then submit.
+            {% elif register.auto_submitted %}Auto-submitted at the end of the day — nobody submitted it, so unmarked learners were kept present.
+            {% else %}Submitted{% if register.submitted_by %} by {{ register.submitted_by }}{% endif %} at {{ register.submitted_at|date:"H:i, j M" }}.{% endif %}
+          </p>
+        </div>
+      </div>
+      <div class="col-sm-4 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'attendance:index' %}?date={{ register.date|date:'Y-m-d' }}">Daily register</a></li>
+          <li class="breadcrumb-item active"><a href="javascript:void(0);">{{ register.cohort_label }}</a></li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex gap-3 small mb-2 flex-wrap" id="attCounts">
+          <span class="text-success"><b data-count="present">{{ counts.present }}</b> present</span>
+          <span class="text-danger"><b data-count="absent">{{ counts.absent }}</b> absent</span>
+          <span class="text-warning"><b data-count="late">{{ counts.late }}</b> late</span>
+          <span class="text-info"><b data-count="excused">{{ counts.excused }}</b> excused</span>
+          <span class="text-muted">of {{ counts.total }}</span>
+        </div>
+        <form method="post">{% csrf_token %}
+          {% for m in marks %}
+          <div class="att-row is-{{ m.status }}{% if m.status != 'present' %} is-off{% endif %}" data-row>
+            <div class="att-who">
+              <img src="{{ m.learner.avatar_url }}" alt="">
+              <div class="text-truncate">
+                <div class="fw-semibold text-truncate">{{ m.learner }}</div>
+                {% if m.marked_by and m.status != 'present' %}<div class="small text-muted">marked by {{ m.marked_by }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="btn-group btn-group-sm att-toggle" role="group" aria-label="Status for {{ m.learner }}">
+              {% for value, label in statuses %}
+              <input type="radio" class="btn-check" name="status_{{ m.pk }}" id="s{{ m.pk }}{{ value }}" value="{{ value }}"
+                     {% if m.status == value %}checked{% endif %}{% if not editable %} disabled{% endif %} autocomplete="off">
+              <label class="btn btn-outline-{% if value == 'present' %}success{% elif value == 'absent' %}danger{% elif value == 'late' %}warning{% else %}info{% endif %}"
+                     for="s{{ m.pk }}{{ value }}">{{ label }}</label>
+              {% endfor %}
+            </div>
+            <div class="att-reason">
+              <input type="text" name="reason_{{ m.pk }}" value="{{ m.reason }}" maxlength="200" class="form-control form-control-sm"
+                     placeholder="Reason / note (optional) — e.g. sick, family" {% if not editable %}disabled{% endif %}>
+            </div>
+          </div>
+          {% empty %}
+          <p class="text-muted">No learners are enrolled in this class.</p>
+          {% endfor %}
+
+          {% if editable and marks %}
+          <div class="d-flex gap-2 mt-3 flex-wrap">
+            {% if register.is_open %}
+            <button type="submit" name="action" value="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i>Submit register</button>
+            <button type="submit" name="action" value="save" class="btn btn-outline-secondary">Save, submit later</button>
+            {% else %}
+            <button type="submit" name="action" value="submit" class="btn btn-primary">Save changes</button>
+            {% endif %}
+          </div>
+          <p class="small text-muted mt-2 mb-0">Parents of learners marked <b>absent</b> are notified when the register is submitted (once a day).</p>
+          {% elif not editable %}
+          <p class="small text-muted mt-3 mb-0">This register is read-only for you. Teachers can change their own registers during the same week; the office can change any.</p>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  function refresh() {
+    var counts = {present: 0, absent: 0, late: 0, excused: 0};
+    document.querySelectorAll('[data-row]').forEach(function (row) {
+      var checked = row.querySelector('input[type=radio]:checked');
+      var v = checked ? checked.value : 'present';
+      counts[v] = (counts[v] || 0) + 1;
+      row.className = 'att-row is-' + v + (v !== 'present' ? ' is-off' : '');
+    });
+    Object.keys(counts).forEach(function (k) {
+      var el = document.querySelector('[data-count="' + k + '"]');
+      if (el) el.textContent = counts[k];
+    });
+  }
+  document.querySelectorAll('[data-row] input[type=radio]').forEach(function (el) {
+    el.addEventListener('change', refresh);
+  });
+})();
+</script>
+{% endblock %}

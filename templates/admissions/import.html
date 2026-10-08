@@ -1,0 +1,119 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load static %}
+{% comment %}Bulk learner import for the school office: download the template,
+upload a filled-in sheet, read the dry-run preview row by row, confirm.
+apps/admissions/views_bulk.py · bulk_import{% endcomment %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <a class="text-sm" href="{% url 'admissions:office-list' %}"><i class="bi bi-arrow-left me-1"></i>Admissions</a>
+    <h1 class="h4 mb-0 mt-1">Import learners</h1>
+    <p class="text-sm text-muted mb-0">Add or update learners, their parents and their enrolment from an Excel sheet.</p>
+  </div>
+  <a class="btn btn-sm btn-outline-secondary mb-0" href="{% url 'admissions:bulk-export' %}"><i class="bi bi-download me-1"></i>Export learners</a>
+</div>
+
+{% if not report or report.fatal %}
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card"><div class="card-body">
+      <h6>1 · Download the template</h6>
+      <p class="text-sm">One row per learner. Gold headers are required; hover a header in Excel for help. The grey <strong>EXAMPLE</strong> rows show how to fill it in and are never imported. The <em>Instructions</em> sheet explains every column and the <em>Subjects</em> sheet lists the subjects per grade.</p>
+      <a class="btn bg-gradient-info btn-sm mb-4" href="{% url 'admissions:bulk-template' %}"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Download the import template (.xlsx)</a>
+
+      <h6>2 · Upload the filled-in sheet</h6>
+      {% if report.fatal %}<div class="alert alert-danger text-white text-sm">{{ report.fatal }}</div>{% endif %}
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="preview">
+        <input type="file" name="file" accept=".xlsx" class="form-control mb-3" required>
+        <div class="form-check mb-1">
+          <input class="form-check-input" type="checkbox" name="create_parent_accounts" id="opt-parents" value="1" {% if options.create_parent_accounts %}checked{% endif %}>
+          <label class="form-check-label text-sm" for="opt-parents">Create parent accounts and link them to their children (a parent already on the platform is linked, not duplicated)</label>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" name="send_invites" id="opt-invites" value="1" {% if options.send_invites %}checked{% endif %}>
+          <label class="form-check-label text-sm" for="opt-invites">Instead, e-mail each parent an invitation to register a linked parent account</label>
+        </div>
+        <button class="btn bg-gradient-info mb-0"><i class="bi bi-eye me-1"></i>Preview (dry run)</button>
+        <span class="text-xs text-muted ms-2">Nothing is saved until you confirm.</span>
+      </form>
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card"><div class="card-body text-sm">
+      <h6>How the import works</h6>
+      <ul class="ps-3 mb-0">
+        <li>A learner is matched on the login e-mail, else the ID / birth certificate number, else name + date of birth — re-importing updates, it never duplicates.</li>
+        <li>Blank cells keep what is already recorded.</li>
+        <li>No learner e-mail? A login like <code>name.surname.1@{{ generated_domain }}</code> is generated and listed in the report.</li>
+        <li>Learners are enrolled in their grade and class; Grade 10 – 12 subject choices are checked against the CAPS rules.</li>
+        <li>Subjects stay <strong>locked</strong> until fees are paid, unless <em>Fees paid up to (month)</em> is filled in.</li>
+        <li>Each row is saved on its own: a row with errors is skipped and the rest still import.</li>
+      </ul>
+    </div></div>
+  </div>
+</div>
+{% else %}
+<div class="card mb-4"><div class="card-body">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div>
+      <h6 class="mb-1">{% if done %}Import complete{% else %}Preview — dry run{% endif %}{% if filename %} · <span class="text-muted">{{ filename }}</span>{% endif %}</h6>
+      <p class="text-sm mb-0">{{ report.summary }}</p>
+    </div>
+    <div class="d-flex gap-2">
+      <span class="badge bg-gradient-success">{{ report.counts.created }} new</span>
+      <span class="badge bg-gradient-info">{{ report.counts.updated }} updated</span>
+      <span class="badge bg-gradient-secondary">{{ report.counts.skipped }} skipped</span>
+      <span class="badge bg-gradient-danger">{{ report.counts.error }} errors</span>
+    </div>
+  </div>
+  {% for w in report.warnings %}<div class="text-xs text-warning mt-2"><i class="bi bi-exclamation-triangle me-1"></i>{{ w }}</div>{% endfor %}
+  {% if not done %}
+  <form method="post" class="mt-3 d-flex flex-wrap align-items-center gap-3">
+    {% csrf_token %}
+    <div class="form-check mb-0">
+      <input class="form-check-input" type="checkbox" name="create_parent_accounts" id="c-parents" value="1" {% if options.create_parent_accounts %}checked{% endif %}>
+      <label class="form-check-label text-sm" for="c-parents">Create parent accounts</label>
+    </div>
+    <div class="form-check mb-0">
+      <input class="form-check-input" type="checkbox" name="send_invites" id="c-invites" value="1" {% if options.send_invites %}checked{% endif %}>
+      <label class="form-check-label text-sm" for="c-invites">Send parent invitations</label>
+    </div>
+    <button class="btn bg-gradient-success mb-0" name="action" value="import" {% if not report.counts.created and not report.counts.updated %}disabled{% endif %}>
+      <i class="bi bi-check2-circle me-1"></i>Import {{ report.counts.created|add:report.counts.updated }} learner(s){% if report.counts.error %} and skip {{ report.counts.error }} row(s) with errors{% endif %}</button>
+    <button class="btn btn-outline-secondary mb-0" name="action" value="cancel" formnovalidate>Cancel</button>
+  </form>
+  {% else %}
+  <a class="btn btn-sm btn-outline-info mt-3 mb-0" href="{% url 'admissions:bulk-import' %}">Import another file</a>
+  <a class="btn btn-sm btn-outline-secondary mt-3 mb-0" href="{% url 'admissions:office-list' %}">Back to admissions</a>
+  {% endif %}
+</div></div>
+
+<div class="card"><div class="card-body pt-2">
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr class="text-xs text-uppercase text-muted">
+        <th>Row</th><th>Learner</th><th>Grade</th><th>Result</th><th>Details</th>
+      </tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="{% if r.action == 'error' %}table-danger{% elif r.action == 'skipped' %}text-muted{% endif %}">
+          <td class="text-sm">{{ r.row }}</td>
+          <td class="text-sm"><strong>{{ r.name|default:"—" }}</strong><div class="text-xs text-muted">{{ r.email }}</div></td>
+          <td class="text-sm">{{ r.grade|default:"—" }}</td>
+          <td><span class="badge {% if r.action == 'created' %}bg-gradient-success{% elif r.action == 'updated' %}bg-gradient-info{% elif r.action == 'error' %}bg-gradient-danger{% else %}bg-gradient-secondary{% endif %}">{% if r.action == 'created' %}{% if report.dry_run %}will be created{% else %}created{% endif %}{% elif r.action == 'updated' %}{% if report.dry_run %}will be updated{% else %}updated{% endif %}{% elif r.action == 'error' %}error — not imported{% else %}skipped{% endif %}</span></td>
+          <td class="text-xs">
+            {% for column, message in r.errors %}<div class="text-danger"><i class="bi bi-x-circle me-1"></i>{% if column %}<strong>{{ column }}:</strong> {% endif %}{{ message }}</div>{% endfor %}
+            {% for column, message in r.warnings %}<div class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>{% if column %}<strong>{{ column }}:</strong> {% endif %}{{ message }}</div>{% endfor %}
+            {% for note in r.notes %}<div class="text-muted">{{ note }}</div>{% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div></div>
+{% endif %}
+{% endblock %}

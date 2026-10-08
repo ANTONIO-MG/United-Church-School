@@ -637,8 +637,21 @@ def register_review(request):
     if not application.guardians.exists():
         return redirect('accounts:register-family')
 
+    def _months(raw):
+        try:
+            return max(1, int(raw))
+        except (TypeError, ValueError):
+            return application.months_prepaid or 1
+    months = _months(request.POST.get('fee_months') or request.GET.get('months'))
     fees = admissions.fee_summary(programme, new_learner=application.is_new_learner,
-                                  siblings=application.siblings_at_ucs)
+                                  siblings=application.siblings_at_ucs, months=months,
+                                  application=application, person=person)
+    allowed = [o['months'] for o in fees['options']] or [1]
+    if months not in allowed:
+        months = min(allowed, key=lambda m: abs(m - months))
+        fees = admissions.fee_summary(programme, new_learner=application.is_new_learner,
+                                      siblings=application.siblings_at_ucs, months=months,
+                                      application=application, person=person)
     form = aforms.DeclarationsForm(request.POST or None, instance=application, prefix='decl')
 
     if request.method == 'POST':
@@ -649,6 +662,7 @@ def register_review(request):
             application = form.save(commit=False)
             application.sign(request, form.cleaned_data['signed_by'],
                              form.cleaned_data.get('signed_relationship', ''))
+            application.months_prepaid = months
             application.save()
 
             enrolments = enrol.register_modules(
@@ -661,7 +675,8 @@ def register_review(request):
                 logging.getLogger('accounts').exception('accounts: welcome pack failed')
 
             with capture('FIN-8002', request):
-                invoice = admissions.raise_enrolment_invoice(person, application, enrolments)
+                invoice = admissions.raise_enrolment_invoice(person, application, enrolments,
+                                                             months=months)
             admissions.submit(application)
             try:
                 admissions.invite_guardians(application, invited_by=request.user)
@@ -781,6 +796,18 @@ def accept_invite(request, token):
     # fill in a sign-up form that could never have worked.
     User = get_user_model()
     existing = User.objects.filter(email__iexact=invite.email).first()
+    existing_person = getattr(existing, 'profile', None) if existing else None
+    # An existing PARENT invited for another child: one parent account, many
+    # children. They sign in (if they are not already) and accept the request.
+    if (existing is not None and invite.role == invite.ROLE_PARENT
+            and existing_person is not None and existing_person.user_type == 'parent'):
+        confirm_url = reverse('accounts:invite-confirm', args=[invite.token])
+        if request.user.is_authenticated and request.user.pk == existing.pk:
+            return redirect(confirm_url)
+        if request.user.is_authenticated:
+            logout(request)
+        messages.info(request, f'Sign in as {invite.email} to accept the invitation.')
+        return redirect(f"{reverse('myhub:page-login')}?next={confirm_url}")
     if existing is not None and not (request.user.is_authenticated
                                      and request.user.pk == existing.pk):
         note('USER-2002', request, kind='invite-email-taken', role=invite.role)
@@ -800,6 +827,54 @@ def accept_invite(request, token):
         return redirect('myhub:index')
     request.session['invite_token'] = str(invite.token)
     return redirect(f"{reverse('myhub:page-register')}?email={invite.email}")
+
+
+@login_required
+def invite_confirm(request, token):
+    """An existing parent accepts (or declines) being linked to another child.
+
+    One e-mail address, one parent account, any number of children: each
+    invitation adds a child after the parent confirms it. A learner may have at
+    most ``ParentLink.MAX_PER_STUDENT`` linked parents."""
+    invite = (models.Invitation.objects.filter(token=token, role=models.Invitation.ROLE_PARENT)
+              .select_related('student__user').first())
+    if invite is None or not invite.is_open:
+        return render(request, 'accounts/invite-invalid.html', {'invite': invite}, status=410)
+    if (request.user.email or '').lower() != invite.email.lower():
+        messages.error(request, f'This invitation is for {invite.email}. Sign in with that address.')
+        return redirect('myhub:index')
+    student = invite.student
+    already = bool(student and student.user_id and models.ParentLink.objects.filter(
+        parent=request.user, student=student.user).exists())
+    full = bool(student and student.user_id and not already
+                and not models.ParentLink.can_add_parent(student.user))
+    if request.method == 'POST':
+        if request.POST.get('action') == 'decline':
+            invite.status = invite.STATUS_REVOKED
+            invite.save(update_fields=['status'])
+            messages.info(request, 'Invitation declined.')
+            return redirect('myhub:index')
+        if full:
+            messages.error(request, 'This learner already has the maximum number of linked parents. '
+                                    'Please contact the school office.')
+            return redirect('myhub:index')
+        if student and student.user_id:
+            models.ParentLink.objects.get_or_create(
+                parent=request.user, student=student.user,
+                defaults={'relationship': (request.POST.get('relationship') or '').strip()[:60]})
+        invite.accept(request.user)
+        if student:
+            request.session['viewing_child'] = student.user_id
+        name = f'{student.first_name} {student.last_name}'.strip() if student else 'the learner'
+        messages.success(request, f'You are now linked to {name}. Use the child selector to switch '
+                                  'between your children.')
+        return redirect('myhub:index')
+    return render(request, 'accounts/invite-confirm.html', {
+        'page_title': 'Parent invitation', 'invite': invite, 'student': student,
+        'already': already, 'full': full,
+        'children': [link.student for link in models.ParentLink.objects.filter(
+            parent=request.user).select_related('student__profile')],
+    })
 
 
 @login_required

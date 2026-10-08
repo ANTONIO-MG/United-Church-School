@@ -56,6 +56,7 @@ def get_current_request():
 #   /static/, /media/ — public assets
 #   /reports/verify/ — public certificate verification (QR links)
 #   /social/landing/ — the public landing page (the platform's front door)
+#   /social/stories/ — the school's stories, linked from the landing page
 #   /finance/pay/ — tokenised invoice pay-link (e-mailed; may not be logged in)
 #   /finance/payfast/ — PayFast return/cancel + server-to-server ITN webhook
 # ``/calendar/feed/`` is the subscribable .ics: Google, Outlook and Apple fetch
@@ -66,6 +67,7 @@ _EXEMPT_PREFIXES = ('/static/', '/media/', '/admin/', '/api/', '/accounts/',
                     '/calendar/feed/',
                     '/captcha/',  # sign-up math-CAPTCHA image/refresh — served to anonymous visitors
                     '/reports/verify/', '/social/landing/', '/social/privacy-and-terms/',
+                    '/social/stories/',  # the school's public stories (core/stories.py)
                     '/finance/pay/', '/finance/payfast/', '/community/parents/',
                     '/communication/whatsapp/',  # Meta's webhook — signature-checked, no session
                     '/community/invite/')   # invite links open before the invitee has an account
@@ -317,11 +319,18 @@ _PARENT_ALLOWED_PREFIXES = (
     # it (the office pages under /admissions/office/ stay closed).
     '/admissions/my-application/', '/admissions/documents/',
 
+    # Their child's daily school register record.
+    '/attendance/my/',
+
     # When things happen.
     '/myhub/events/', '/myhub/event-management/', '/myhub/events-feed/',
 
-    # Their own account.
-    '/community/profile/', '/community/settings/',
+    # Their own account, and invitations to be another child's parent.
+    '/community/profile/', '/community/settings/', '/community/invite/',
+
+    # The school's public stories, and the school calendar's day pages (the
+    # calendar shows a parent their children's grades — apps.livesessions.academic).
+    '/social/stories/', '/calendar/day/',
 )
 
 # Individual pages inside otherwise-closed sections. Exact paths, not prefixes,
@@ -343,6 +352,9 @@ _PARENT_ALLOWED_EXACT = frozenset({
                                     # refused page rather than a dead account.
     '/social/privacy-and-terms/',   # terms and the cookie/privacy notice are
     '/social/landing/',             # everybody's, whatever their role
+    # The school calendar (whole-school dates + their children's grades), its
+    # JSON feed and the .ics download. Session pages under /calendar/ stay closed.
+    '/calendar/', '/calendar/feed.json', '/calendar/school-calendar.ics',
 })
 
 

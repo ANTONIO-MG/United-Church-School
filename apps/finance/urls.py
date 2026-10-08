@@ -2,12 +2,13 @@
 
 from django.urls import path
 
-from . import views, views_books as books, views_reports as dash
+from . import views, views_books as books, views_fees, views_reports as dash
 
 app_name = 'finance'
 
 urlpatterns = [
     path('', views.invoices, name='invoices'),
+    path('school-fees/', views_fees.school_fees, name='school-fees'),   # pay the grade's monthly fees
     path('due/', views.due_payments, name='due-payments'),
     path('payments/', views.payment_history, name='payment-history'),
     # Proof of payment + manual access granting (admin/staff)

@@ -118,6 +118,8 @@ class Institution(TimeStampedModel):
 
     class Meta:
         ordering = ['order', 'name']
+        verbose_name = 'School'
+        verbose_name_plural = 'Schools'
 
     def __str__(self):
         return self.display_name
@@ -236,6 +238,8 @@ class Programme(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(fields=['institution', 'code'], name='uniq_programme_code_per_institution'),
         ]
+        verbose_name = 'Grade'
+        verbose_name_plural = 'Grades'
 
     def __str__(self):
         """``UCS · Grade 5`` — what every dropdown, autocomplete and admin list shows."""
@@ -336,8 +340,14 @@ class Cohort(TimeStampedModel):
     """
 
     programme = models.ForeignKey(Programme, on_delete=models.CASCADE, related_name='cohorts')
-    code = models.CharField(max_length=30, help_text='e.g. "P25F".')
-    name = models.CharField(max_length=120, blank=True, help_text='e.g. "2025 first intake".')
+    code = models.CharField(max_length=30, help_text='e.g. "2026" (the year) or "10A".')
+    name = models.CharField(max_length=120, blank=True, help_text='e.g. "Grade 10 · 2026".')
+    # The class (register) teacher: takes the daily register and confirms the
+    # class's year-end promotion decisions.
+    class_teacher = models.ForeignKey(
+        'accounts.Person', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='classes_taught', limit_choices_to={'user_type__in': ['educator', 'staff', 'admin']},
+        help_text='Class teacher: takes the daily register and records promotion decisions.')
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
@@ -347,6 +357,8 @@ class Cohort(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(fields=['programme', 'code'], name='uniq_cohort_code_per_programme'),
         ]
+        verbose_name = 'Class'
+        verbose_name_plural = 'Classes'
 
     def __str__(self):
         return f'{self.programme.full_code} · {self.code}'
@@ -373,6 +385,8 @@ class Module(TimeStampedModel):
 
     class Meta:
         ordering = ['order', 'name']
+        verbose_name = 'Subject'
+        verbose_name_plural = 'Subjects'
 
     def __str__(self):
         return f'{self.code} — {self.name}' if self.code else self.name
@@ -451,7 +465,7 @@ class ProgrammeModule(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(fields=['programme', 'code'], name='uniq_module_code_per_programme'),
         ]
-        verbose_name = 'Programme module'
+        verbose_name = 'Grade subject'
 
     def __str__(self):
         return self.reference
@@ -652,7 +666,7 @@ class CalendarEvent(TimeStampedModel):
                                   related_name='calendar_events')
     programme_module = models.ForeignKey(ProgrammeModule, on_delete=models.CASCADE, null=True, blank=True,
                                          related_name='calendar_events',
-                                         verbose_name='Module offering')
+                                         verbose_name='Subject')
     cohort = models.ForeignKey(Cohort, on_delete=models.CASCADE, null=True, blank=True,
                                related_name='calendar_events')
 
@@ -738,7 +752,7 @@ class ProgrammeEnrolment(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(fields=['person', 'programme'], name='uniq_programme_enrolment_per_person'),
         ]
-        verbose_name = 'Programme enrolment'
+        verbose_name = 'Grade enrolment'
 
     def __str__(self):
         return f'{self.person} · {self.programme.full_code}'
@@ -785,7 +799,7 @@ class ModuleEnrolment(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(fields=['person', 'programme_module'], name='uniq_module_enrolment_per_person'),
         ]
-        verbose_name = 'Module enrolment'
+        verbose_name = 'Subject enrolment'
 
     def __str__(self):
         return f'{self.person} · {self.programme_module.code} ({self.status})'
@@ -812,11 +826,21 @@ class ModuleEnrolment(TimeStampedModel):
             return 0
         return delta.days + (1 if (delta.seconds or delta.microseconds) else 0)
 
+    @staticmethod
+    def grace_days():
+        from django.conf import settings as dj_settings
+        from core.school import FEES_GRACE_DAYS
+        return getattr(dj_settings, 'FEES_GRACE_DAYS', FEES_GRACE_DAYS)
+
     @property
     def is_unlocked(self):
-        """True when the student may open the module — paid & current, or on a live trial."""
+        """True when the learner may open the subject — school fees paid up to
+        the current month (allowing the grace period into an unpaid month), or
+        on a live trial."""
         if self.status == self.STATUS_ACTIVE:
-            return self.paid_until is None or self.paid_until >= timezone.now().date()
+            if self.paid_until is None:
+                return True
+            return self.paid_until + timedelta(days=self.grace_days()) >= timezone.now().date()
         return self.is_trial_valid
 
     def start_trial(self, now=None):
@@ -828,13 +852,27 @@ class ModuleEnrolment(TimeStampedModel):
         self.save(update_fields=['status', 'started_at', 'trial_ends_at', 'updated_at'])
         return self
 
-    def activate(self, months=1, now=None):
-        """Unlock as paid (called by the payment hook) and extend access by ``months``."""
+    def activate(self, months=1, now=None, start=None):
+        """Unlock as paid (called by the payment hook) for ``months`` whole
+        **calendar months**: fees are paid per month, in advance.
+
+        Access runs to the last day of the final month paid. Without ``start``
+        the months follow on from what is already paid (or begin with the
+        current month); with ``start`` (the first month an invoice covers) they
+        cover exactly those months — never shortening access already paid."""
+        from core.school import add_months, month_end, month_start
         now = now or timezone.now()
-        start = self.paid_until if (self.paid_until and self.paid_until > now.date()) else now.date()
+        today = timezone.localdate(now) if timezone.is_aware(now) else now.date()
+        if start is None:
+            if self.paid_until and self.paid_until >= today:
+                start = self.paid_until + timedelta(days=1)
+            else:
+                start = today
+        first = month_start(start)
+        until = month_end(add_months(first, max(int(months or 1), 1) - 1))
         self.status = self.STATUS_ACTIVE
         self.started_at = self.started_at or now
-        self.paid_until = start + timedelta(days=30 * months)
+        self.paid_until = max(until, self.paid_until) if self.paid_until else until
         self.save(update_fields=['status', 'started_at', 'paid_until', 'updated_at'])
         return self
 
@@ -1857,26 +1895,27 @@ class ModulePhase(TimeStampedModel):
     date the institution actually published.
     """
 
+    KIND_TERM = 'term'
     KIND_TEST = 'test'
     KIND_EXAM = 'exam'
     KIND_SUPPLEMENTARY = 'supp'
     KIND_OTHER = 'other'
     KIND_CHOICES = [
+        (KIND_TERM, 'School term'),
         (KIND_TEST, 'Test preparation'),
         (KIND_EXAM, 'Examination preparation'),
-        (KIND_SUPPLEMENTARY, 'Supplementary preparation'),
+        (KIND_SUPPLEMENTARY, 'Supplementary / revision'),
         (KIND_OTHER, 'Other'),
     ]
 
-    # The default year: four tests then two exams. `scaffold_module_schedule`
-    # builds exactly this, and an educator edits from there.
-    DEFAULT_PLAN = [
-        (KIND_TEST, 1), (KIND_TEST, 2), (KIND_TEST, 3), (KIND_TEST, 4),
-        (KIND_EXAM, 1), (KIND_EXAM, 2),
-    ]
+    # The default subject year follows the GDE school calendar: Term 1 – 4,
+    # each with its weeks (Term 2 ends with the mid-year exams, Term 4 with the
+    # final exams). `scaffold_module_schedule` builds exactly this, and the
+    # teacher edits from there.
+    DEFAULT_PLAN = [(KIND_TERM, 1), (KIND_TERM, 2), (KIND_TERM, 3), (KIND_TERM, 4)]
 
     programme_module = models.ForeignKey(ProgrammeModule, on_delete=models.CASCADE,
-                                         related_name='phases', verbose_name='Module offering')
+                                         related_name='phases', verbose_name='Subject')
     # Per-cohort content: each intake (P25F, P26S …) can run its own schedule —
     # its own weeks, materials, blueprints, mocks and tests. Blank = a shared
     # template shown to every cohort; set = this cohort only. The weeks/materials
@@ -1886,9 +1925,9 @@ class ModulePhase(TimeStampedModel):
         help_text='Which intake this block is for. Blank = shared by every cohort of the module.')
     kind = models.CharField(max_length=8, choices=KIND_CHOICES, default=KIND_TEST, db_index=True)
     sequence = models.PositiveSmallIntegerField(
-        default=1, help_text='Which test/exam this prepares for — 1–4 for tests, 1–2 for exams.')
+        default=1, help_text='Which term (1–4), or which test/exam this prepares for.')
     title = models.CharField(max_length=160, blank=True,
-                             help_text='Blank = built from kind + sequence ("Test 2 preparation").')
+                             help_text='Blank = built from kind + sequence ("Term 2").')
     summary = models.CharField(max_length=300, blank=True,
                                help_text='One line on what this block covers.')
     # The institution's own date for the assessment this block prepares for.
@@ -1908,7 +1947,7 @@ class ModulePhase(TimeStampedModel):
             models.UniqueConstraint(fields=['programme_module', 'kind', 'sequence'],
                                     name='uniq_phase_per_module'),
         ]
-        verbose_name = 'Module phase'
+        verbose_name = 'Subject term / block'
 
     def __str__(self):
         return f'{self.programme_module.label} | {self.display_title}'
@@ -1920,7 +1959,9 @@ class ModulePhase(TimeStampedModel):
 
     @staticmethod
     def build_title(kind, sequence):
-        """``Test 2 preparation`` / ``Exam 1 preparation``."""
+        """``Term 2`` / ``Test 2 preparation`` / ``Exam 1 preparation``."""
+        if kind == ModulePhase.KIND_TERM:
+            return f'Term {sequence}'
         noun = {ModulePhase.KIND_TEST: 'Test', ModulePhase.KIND_EXAM: 'Exam',
                 ModulePhase.KIND_SUPPLEMENTARY: 'Supplementary'}.get(kind, 'Block')
         return f'{noun} {sequence} preparation'
@@ -1932,7 +1973,7 @@ class ModulePhase(TimeStampedModel):
     @property
     def short_label(self):
         """``Test 2`` — for chips and countdowns, where "preparation" is noise."""
-        noun = {self.KIND_TEST: 'Test', self.KIND_EXAM: 'Exam',
+        noun = {self.KIND_TERM: 'Term', self.KIND_TEST: 'Test', self.KIND_EXAM: 'Exam',
                 self.KIND_SUPPLEMENTARY: 'Supp'}.get(self.kind, 'Block')
         return f'{noun} {self.sequence}'
 
@@ -1996,7 +2037,7 @@ class ModuleWeek(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(fields=['phase', 'number'], name='uniq_week_per_phase'),
         ]
-        verbose_name = 'Module week'
+        verbose_name = 'Subject week'
 
     def __str__(self):
         return f'{self.phase.display_title} · {self.display_title}'
@@ -2092,7 +2133,7 @@ class ModuleMaterial(TimeStampedModel):
         (KIND_STUDY_GUIDE, 'Topic study guide'),
         (KIND_QUESTIONS, 'Questions'),
         (KIND_ANSWERS, 'Answers / solutions'),
-        (KIND_MOCK_EXAM, 'Mock exam / past paper'),
+        (KIND_MOCK_EXAM, 'Practice exam / past paper'),
         (KIND_ASSESSMENT, 'Assessment'),
         (KIND_LIVE, 'Live session'),
         (KIND_RECORDING, 'Recording'),
@@ -2172,7 +2213,7 @@ class ModuleMaterial(TimeStampedModel):
         indexes = [
             models.Index(fields=['phase', 'kind'], name='learning_material_phase_kind'),
         ]
-        verbose_name = 'Module material'
+        verbose_name = 'Subject material'
 
     def __str__(self):
         return f'{self.get_kind_display()} · {self.title}'

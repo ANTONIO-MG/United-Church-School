@@ -80,6 +80,47 @@ def _delete(request, model, pk, list_url, label):
 # ===========================================================================
 # Dashboards
 # ===========================================================================
+def _child_card(child_user):
+    """What a parent's dashboard shows for one child."""
+    from apps.admissions.models import Application
+    from apps.learning import fees
+
+    person = getattr(child_user, 'profile', None)
+    if person is None:
+        return None
+    card = {'user': child_user, 'person': person,
+            'name': f'{person.first_name} {person.last_name}'.strip() or child_user.get_username(),
+            'fees': None, 'application': None, 'results': []}
+    try:
+        card['fees'] = fees.fee_status(person)
+    except Exception:  # pragma: no cover - a dashboard card must never break the page
+        logger.exception('parent home: fees status failed')
+    card['application'] = Application.objects.filter(person=person).order_by('-year').first()
+    try:
+        from apps.reports.models import TermResult
+        latest = (TermResult.objects.filter(student=child_user, status=TermResult.STATUS_PUBLISHED)
+                  .order_by('-year', '-term').first())
+        if latest is not None:
+            card['term'] = (latest.year, latest.term)
+            card['results'] = list(TermResult.objects.filter(
+                student=child_user, status=TermResult.STATUS_PUBLISHED, year=latest.year,
+                term=latest.term).select_related('module__module'))
+    except Exception:  # pragma: no cover
+        logger.exception('parent home: term results failed')
+    return card
+
+
+def parent_home(request):
+    """A parent's dashboard: one card per linked child, and the child selector."""
+    from core.scoping import children_of, viewing_child
+    children = list(children_of(request.user).select_related('profile').order_by('first_name', 'pk'))
+    selected = viewing_child(request)
+    cards = [card for card in (_child_card(child) for child in children) if card]
+    return render(request, 'myhub/parent-home.html', {
+        'page_title': 'My children', 'cards': cards, 'selected': selected,
+    })
+
+
 def index(request):
     """Home dashboard: an academic-journey summary strip, module progress,
     study analytics, the events/live-session lists, a notice board and a right
@@ -102,6 +143,8 @@ def index(request):
             return redirect('staffdesk:home')
         if role == 'educator':
             return redirect('staffdesk:teaching')
+        if role == 'parent':
+            return parent_home(request)
     now = _tz.now()
     announcements, my_tasks, recent_activity = [], [], []
 
@@ -616,7 +659,14 @@ def page_landing(request):
     return render(request, 'pages/landing.html', {
         'page_title': 'Welcome',
         'school_facts': _landing_school_facts(),
+        'stories': _landing_stories(),
     })
+
+
+def _landing_stories(count=4):
+    """The most recent school stories for the landing page (core.stories)."""
+    from core import stories
+    return stories.recent(count)
 
 
 def page_privacy_terms(request):

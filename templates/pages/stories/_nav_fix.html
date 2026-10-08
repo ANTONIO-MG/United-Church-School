@@ -1,0 +1,12 @@
+{% comment %}The landing navbar's links are in-page anchors (#about, #fees — see
+strings.landing.nav). On a story page those sections live on the landing page,
+so point the anchors there.{% endcomment %}
+<script>
+  (function () {
+    var home = "{% url 'pages:landing' %}";
+    document.querySelectorAll('.navbar-nav a.nav-link[href^="#"]').forEach(function (a) {
+      var h = a.getAttribute('href');
+      if (h.length > 1) { a.setAttribute('href', home + h); }
+    });
+  })();
+</script>

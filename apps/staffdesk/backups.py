@@ -71,12 +71,36 @@ def backup_root():
     return root
 
 
+def _version_key(path):
+    """Sort key putting the newest PostgreSQL install first (``.../18/bin``)."""
+    import re
+    numbers = re.findall(r'(\d+)(?:\.\d+)?', str(path))
+    return tuple(int(n) for n in numbers[-1:]) or (0,)
+
+
+def _install_dirs():
+    """Where PostgreSQL's client tools live when they are not on PATH — the EDB
+    installer (/Library/PostgreSQL/<v>/bin), Homebrew's keg-only formulae,
+    Postgres.app and the Debian/Ubuntu packages. Newest first, because pg_dump
+    must be at least as new as the server it dumps."""
+    import glob
+    found = []
+    for pattern in ('/Library/PostgreSQL/*/bin', '/opt/homebrew/opt/postgresql@*/bin',
+                    '/usr/local/opt/postgresql@*/bin', '/usr/lib/postgresql/*/bin'):
+        found += sorted(glob.glob(pattern), key=_version_key, reverse=True)
+    found += ['/Applications/Postgres.app/Contents/Versions/latest/bin',
+              '/opt/homebrew/opt/postgresql/bin', '/usr/local/opt/postgresql/bin']
+    return found
+
+
 def _tool(name):
     bin_dir = getattr(settings, 'PG_BIN_DIR', '') or os.environ.get('PG_BIN_DIR', '')
-    path = os.path.join(bin_dir, name) if bin_dir else shutil.which(name)
-    if not path or not os.path.exists(path):
-        raise BackupError(f'{name} is not installed on this server.', code='BKP-7001')
-    return path
+    candidates = [os.path.join(bin_dir, name)] if bin_dir else (
+        [os.path.join(d, name) for d in _install_dirs()] + [shutil.which(name) or ''])
+    for path in candidates:
+        if path and os.path.exists(path):
+            return path
+    raise BackupError(f'{name} is not installed on this server.', code='BKP-7001')
 
 
 def _db():

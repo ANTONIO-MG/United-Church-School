@@ -1,0 +1,78 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load humanize %}
+{% comment %}School fees — paid per grade, per calendar month, in advance. One
+payment opens every subject in the grade for the months it covers; an unpaid
+month locks them (after the grace period) until it is paid.{% endcomment %}
+
+{% block content %}
+<div class="card mb-4">
+  <div class="card-header border-0 pb-0 d-flex flex-wrap justify-content-between align-items-start gap-2">
+    <div>
+      <h1 class="h4 card-title mb-1">School fees</h1>
+      <p class="text-sm text-muted mb-0">Fees are paid per grade, monthly in advance on the 1st (January to December).
+        Paying a month opens every subject in the grade for that month.</p>
+    </div>
+    {% if children|length > 1 %}
+    <form method="get" class="d-flex align-items-center gap-2">
+      <label class="text-sm text-muted mb-0" for="childPick">Child</label>
+      <select id="childPick" name="student" class="form-control form-select form-select-sm" onchange="this.form.submit()">
+        {% for child in children %}<option value="{{ child.user_id }}" {% if child.pk == person.pk %}selected{% endif %}>{{ child.first_name }} {{ child.last_name }}</option>{% endfor %}
+      </select>
+    </form>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {% if not status %}
+      <p class="text-sm text-muted mb-0">{% if person %}{{ person.first_name }} is not enrolled in a grade yet.{% else %}There is no learner linked to this account.{% endif %}</p>
+    {% else %}
+    <div class="row g-3 mb-4">
+      <div class="col-md-3"><div class="border rounded-3 p-3 h-100"><div class="text-xs text-muted text-uppercase">Learner · grade</div>
+        <div class="fw-bold">{{ person.first_name }} {{ person.last_name }}</div><div class="text-sm">{{ status.programme.display_name }}</div></div></div>
+      <div class="col-md-3"><div class="border rounded-3 p-3 h-100"><div class="text-xs text-muted text-uppercase">Monthly school fees</div>
+        <div class="h5 mb-0">R {{ status.monthly|floatformat:2|intcomma }}</div></div></div>
+      <div class="col-md-3"><div class="border rounded-3 p-3 h-100"><div class="text-xs text-muted text-uppercase">Paid up to</div>
+        <div class="h5 mb-0">{% if status.paid_until %}{{ status.paid_until|date:"j F Y" }}{% else %}—{% endif %}</div></div></div>
+      <div class="col-md-3"><div class="border rounded-3 p-3 h-100 {% if status.locked %}border-danger{% endif %}"><div class="text-xs text-muted text-uppercase">Subjects</div>
+        {% if status.locked %}<div class="h6 mb-0 text-danger"><i class="bi bi-lock-fill me-1"></i>Locked — {{ status.first_unpaid|date:"F" }} unpaid</div>
+        {% elif status.current_month_paid %}<div class="h6 mb-0 text-success"><i class="bi bi-unlock-fill me-1"></i>Open</div>
+        {% else %}<div class="h6 mb-0 text-warning">Open — {{ status.first_unpaid|date:"F" }} due (grace {{ status.grace_days }} days)</div>{% endif %}</div></div>
+    </div>
+
+    {% if status.open_invoice %}
+    <div class="alert alert-info text-sm d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span>Invoice {{ status.open_invoice.number }} for {{ status.open_invoice.fee_months }} month{{ status.open_invoice.fee_months|pluralize }} (from {{ status.open_invoice.fee_start|date:"F Y" }}) — R {{ status.open_invoice.balance|floatformat:2|intcomma }} outstanding.</span>
+      <a class="btn btn-sm bg-gradient-info mb-0" href="{% url 'finance:pay' public_id=status.open_invoice.public_id %}">Pay this invoice</a>
+    </div>
+    {% endif %}
+
+    {% if status.options %}
+    <h6 class="mb-2">Pay school fees from {{ status.first_unpaid|date:"F Y" }}</h6>
+    <form method="post">
+      {% csrf_token %}
+      <div class="row g-2 mb-3">
+        {% for option in status.options %}
+        <div class="col-6 col-md-4 col-xl-2">
+          <label class="border rounded-3 p-3 d-block h-100 fee-opt" for="o{{ option.months }}">
+            <input class="form-check-input me-1" type="radio" name="months" id="o{{ option.months }}" value="{{ option.months }}" {% if forloop.first %}checked{% endif %}>
+            <span class="fw-bold">{% if option.rest_of_year %}Rest of the year{% else %}{{ option.months }} month{{ option.months|pluralize }}{% endif %}</span>
+            <span class="d-block text-xs text-muted">{{ option.label }}</span>
+            <span class="d-block">R {{ option.amount|floatformat:2|intcomma }}</span>
+            {% if option.saving %}<span class="badge bg-gradient-success">save R {{ option.saving|floatformat:0|intcomma }}</span>{% endif %}
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn bg-gradient-info mb-0" name="action" value="pay"><i class="bi bi-credit-card-2-front me-1"></i>Pay now online</button>
+        <button class="btn btn-outline-secondary mb-0" name="action" value="eft"><i class="bi bi-bank me-1"></i>E-mail me the invoice (EFT / school office)</button>
+      </div>
+      <p class="text-xs text-muted mt-3 mb-0">{{ brand.banking.bank }} · {{ brand.banking.account_name }} · account {{ brand.banking.account_number }} · branch {{ brand.banking.branch_code }}. {{ brand.banking.reference_hint }}
+        Pay the full year by 31 January for a 5% discount on school fees; the sibling discount (5%) applies from the second child.</p>
+    </form>
+    {% else %}
+      <p class="text-sm text-success mb-0"><i class="bi bi-check-circle-fill me-1"></i>School fees are paid to the end of the year.</p>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

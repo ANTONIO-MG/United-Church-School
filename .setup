@@ -436,6 +436,8 @@ if [ "$CHECK_ONLY" -eq 0 ]; then
       || fail "seed_school_structure failed"
     python manage.py seed_shop --quiet && ok "school shop: uniform and additional fees" || fail "seed_shop failed"
     python manage.py import_seed_packs >/dev/null 2>&1 && ok "bundled content packs imported" || warn "content packs not imported"
+    python manage.py seed_lessons >/dev/null 2>&1 && ok "demo lessons: 3 days per subject in every grade (Term 1 Week 1)" \
+      || warn "demo lessons not seeded (python manage.py seed_lessons)"
     HAS_USERS="$(python - <<'PY' 2>/dev/null
 import os, django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')

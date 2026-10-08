@@ -124,6 +124,17 @@ class Invoice(TimeStampedModel):
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_DRAFT)
 
+    # School fees: which grade and which calendar months this invoice pays for.
+    # Paying it unlocks every subject in ``fee_programme`` for ``fee_months``
+    # months starting with ``fee_start`` (see apps.learning.fees).
+    fee_programme = models.ForeignKey(
+        'learning.Programme', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='fee_invoices', verbose_name='Grade (school fees)')
+    fee_start = models.DateField(null=True, blank=True,
+                                 help_text='First month of school fees this invoice covers.')
+    fee_months = models.PositiveSmallIntegerField(
+        default=0, help_text='Months of school fees this invoice covers (0 = not a fees invoice).')
+
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     discount_total = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,

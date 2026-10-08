@@ -14,6 +14,7 @@ unlocks every subject in the grade for the month — the same unlock path the
 rest of the platform uses (``apps.learning.enrolment.activate_modules_for_invoice``).
 """
 import logging
+from datetime import date
 from decimal import Decimal
 
 from django.db import transaction
@@ -26,80 +27,124 @@ from .models import Application, Guardian
 logger = logging.getLogger('admissions')
 
 
-def application_for(person, *, create=True):
-    """The learner's application (created as a draft on first use)."""
+def application_for(person, *, create=True, year=None):
+    """The learner's application for ``year`` (default: the most recent one;
+    a draft for the school year is created on first use)."""
     if person is None:
         return None
-    application = Application.objects.filter(person=person).first()
+    qs = Application.objects.filter(person=person)
+    application = (qs.filter(year=year) if year else qs).order_by('-year').first()
     if application is None and create:
         application = Application.objects.create(
-            person=person, year=school.YEAR, gender=person.gender or '')
+            person=person, year=year or school.YEAR, gender=person.gender or '')
     return application
 
 
-def fee_lines(programme, *, new_learner=True, siblings=0, month_label=None):
-    """``[(description, amount, discount_percent)]`` due on enrolment in ``programme``."""
+def first_fee_month(application, today=None):
+    """The first month of school fees an enrolment pays for: this month, or
+    January when the application is for a later school year."""
+    today = today or timezone.localdate()
+    if application is not None and application.year and application.year > today.year:
+        return date(application.year, 1, 1)
+    return today.replace(day=1)
+
+
+def fee_lines(programme, *, new_learner=True, siblings=0, months=1, first=None, today=None,
+              person=None):
+    """``[(description, unit_price, discount_percent, quantity)]`` due on enrolment
+    in ``programme``: registration (new learners), the levy and ``months`` of
+    school fees from ``first``."""
+    from apps.learning.fees import fee_lines as month_lines
+
     if programme is None:
         return []
+    today = today or timezone.localdate()
+    first = first or today.replace(day=1)
     grade = programme.display_name
-    month_label = month_label or timezone.now().strftime('%B %Y')
     lines = []
     if new_learner and programme.registration_fee:
         lines.append((f'Registration fee — new learner, {grade} (non-refundable)',
-                      Decimal(programme.registration_fee), Decimal('0')))
+                      Decimal(programme.registration_fee), Decimal('0'), 1))
     if programme.annual_levy:
-        lines.append((f'Annual levy {school.YEAR} — {grade}', Decimal(programme.annual_levy),
-                      Decimal('0')))
-    if programme.monthly_fee:
-        discount = school.SIBLING_DISCOUNT_PCT if siblings else Decimal('0')
-        label = f'School fees — {month_label}, {grade}'
-        if discount:
-            label += f' (sibling discount {discount:.0f}%)'
-        lines.append((label, Decimal(programme.monthly_fee), discount))
-    return lines
+        lines.append((f'Annual levy {first.year} — {grade}', Decimal(programme.annual_levy),
+                      Decimal('0'), 1))
+    fees = month_lines(programme, first, months, person=person, today=today)
+    if siblings and fees and not fees[0][2]:
+        label, unit, _pct, qty = fees[0]
+        fees = [(f'{label} (sibling discount {school.SIBLING_DISCOUNT_PCT:.0f}%)', unit,
+                 school.SIBLING_DISCOUNT_PCT, qty)]
+    return lines + fees
 
 
-def fee_summary(programme, *, new_learner=True, siblings=0):
-    """What the review step shows: the lines, the total due now and the year."""
-    lines = fee_lines(programme, new_learner=new_learner, siblings=siblings)
-    due = sum((amount - (amount * pct / 100) for _, amount, pct in lines), Decimal('0'))
+def _net(unit, pct, qty):
+    return (unit * qty * (100 - pct) / 100).quantize(Decimal('0.01'))
+
+
+def fee_summary(programme, *, new_learner=True, siblings=0, months=1, application=None,
+                person=None):
+    """What the review step shows: the lines, the total due now, the month
+    options and the year."""
+    from apps.learning.fees import fee_options
+
+    first = first_fee_month(application)
+    lines = fee_lines(programme, new_learner=new_learner, siblings=siblings, months=months,
+                      first=first, person=person)
+    once_off = sum((_net(unit, pct, qty) for label, unit, pct, qty in lines
+                    if not label.startswith('School fees')), Decimal('0'))
+    options = []
+    for option in fee_options(programme, first, person=person):
+        fees_only = fee_lines(programme, new_learner=False, siblings=siblings,
+                              months=option['months'], first=first, person=person)
+        fees_net = sum((_net(unit, pct, qty) for label, unit, pct, qty in fees_only
+                        if label.startswith('School fees')), Decimal('0'))
+        options.append({**option, 'total_now': once_off + fees_net})
     return {
-        'lines': [{'label': label, 'amount': amount, 'discount_pct': pct,
-                   'net': (amount - amount * pct / 100).quantize(Decimal('0.01'))}
-                  for label, amount, pct in lines],
-        'due_now': due.quantize(Decimal('0.01')),
+        'lines': [{'label': label, 'amount': unit * qty, 'unit': unit, 'quantity': qty,
+                   'discount_pct': pct, 'net': _net(unit, pct, qty)}
+                  for label, unit, pct, qty in lines],
+        'due_now': sum((_net(unit, pct, qty) for _label, unit, pct, qty in lines), Decimal('0')),
         'monthly': Decimal(programme.monthly_fee or 0),
         'annual': programme.annual_fees,
         'annual_new': programme.annual_fees_new_learner,
         'registration': Decimal(programme.registration_fee or 0),
         'levy': Decimal(programme.annual_levy or 0),
+        'months': months, 'first_month': first, 'options': options,
     }
 
 
 @transaction.atomic
-def raise_enrolment_invoice(person, application, enrolments):
-    """One invoice for registration + levy + first month, linked to every
-    subject enrolment and the application. ``None`` when nothing is due."""
+def raise_enrolment_invoice(person, application, enrolments, *, months=None):
+    """One invoice for registration + levy + the months of school fees chosen
+    (``application.months_prepaid`` by default), tagged with the grade and the
+    months it pays for and linked to every subject enrolment and the
+    application. ``None`` when nothing is due."""
     from apps.finance.models import Invoice, InvoiceItem
+    from apps.learning.fees import tag_fees
     from apps.learning.models import ModuleEnrolment
 
+    months = max(1, int(months or application.months_prepaid or 1))
+    first = first_fee_month(application)
     lines = fee_lines(application.programme, new_learner=application.is_new_learner,
-                      siblings=application.siblings_at_ucs)
+                      siblings=application.siblings_at_ucs, months=months, first=first,
+                      person=person)
     if not lines:
         return None
     invoice = Invoice.objects.create(customer=person.user, created_by=person.user,
-                                     status=Invoice.STATUS_SENT)
+                                     status=Invoice.STATUS_SENT, due_date=first)
     invoice.summary = f'Enrolment at United Church School — {application.programme.display_name}'
     invoice.save(update_fields=['summary'])
-    for label, amount, pct in lines:
-        InvoiceItem.objects.create(invoice=invoice, description=label[:255], quantity=1,
-                                   unit_price=amount, discount_percent=pct)
+    for label, unit, pct, qty in lines:
+        InvoiceItem.objects.create(invoice=invoice, description=label[:255], quantity=qty,
+                                   unit_price=unit, discount_percent=pct)
     invoice.recalc_total()
     invoice.refresh_status()
+    if application.programme.monthly_fee:
+        tag_fees(invoice, application.programme, first, months)
     ModuleEnrolment.objects.filter(pk__in=[e.pk for e in enrolments]).update(
         invoice_uid=invoice.public_id)
     application.invoice_uid = invoice.public_id
-    application.save(update_fields=['invoice_uid', 'updated_at'])
+    application.months_prepaid = months
+    application.save(update_fields=['invoice_uid', 'months_prepaid', 'updated_at'])
     return invoice
 
 

@@ -231,6 +231,11 @@ def module_unlock(request, module_id):
     if module.is_unlocked_for(person):
         messages.info(request, f'{module.display_name} is already unlocked.')
         return redirect('learning:my-modules')
+    if module.programme.monthly_fee and not module.price_per_month:
+        # School fees are per grade, per month: one payment opens every subject.
+        messages.info(request, f'{module.display_name} opens when the month\'s '
+                               f'{module.programme.display_name} school fees are paid.')
+        return redirect('finance:school-fees')
 
     if request.method == 'POST':
         action = request.POST.get('action')

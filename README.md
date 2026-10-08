@@ -95,9 +95,7 @@ application is pending until payment is received".
 **After submitting**: parents with an e-mail address are invited to a linked parent account; the
 family follows the application, uploads missing documents and pays under **My application**
 (`/admissions/my-application/`). Paying the invoice unlocks every subject in the grade for the month
-and moves the application to the office. When a month lapses, opening a locked subject raises that
-month's school-fees invoice (one invoice for the whole grade); the office can also record an EFT /
-card payment and grant months from Finance.
+and moves the application to the office.
 
 **The school office** works applications at **Admissions** (`/admissions/office/`): filters by
 status and grade, every detail the family entered, document verification, the page-1 *office use
@@ -110,6 +108,23 @@ cap and badge (R160), blazer buttons (R5), blazers (R700 – R1 100 by size), ma
 additional fees: report reprint (R90), drug test (R90), LRC badge replacement (R50).
 
 ---
+
+## 🏫 Running the school year (GDE / CAPS)
+
+| Area | How it works | Where |
+|---|---|---|
+| **Monthly school fees** | Fees are per **grade**, per calendar month, paid in advance — never per subject. On enrolment the family chooses to pay 1 month or more (up to the rest of the year; 5% off the full year paid by 31 January, 5% sibling discount on school fees). One payment opens **every subject in the grade** for those months; a month left unpaid locks them after `FEES_GRACE_DAYS` (default 7). A job raises each month's invoice on the 1st. | *School fees* `/finance/school-fees/` · `apps/learning/fees.py` |
+| **Parents with several children** | One parent account (one e-mail) can be linked to any number of children. Each invitation is **accepted** on a confirmation page (an existing parent signs in first); the dashboard shows a card per child and a child selector, and the chosen child is remembered on every page. | `/community/invite/…` · `/myhub/` |
+| **Terms, marks & report cards** | Four GDE terms. Quizzes, tests and assignments mark themselves (*auto %*); the subject teacher records the term's **SBA**, the mid-year (Term 2) and final (Term 4) exam, and a comment, then **publishes** — only then do learners and parents see it. Term mark and final mark use the CAPS SBA/exam weighting per phase (FP 100/0, IP 75/25, SP 40/60, FET 25/75; FET LO 100% SBA) and the CAPS 7-level scale. The report card shows days absent. | *Mark sheets* `/reports/marks/` · *Report card* `/reports/report-card/` · *Term reports* `/reports/terms/` |
+| **Promotion** | The CAPS promotion requirements per phase (`core/school.py` `PROMOTION_RULES`: e.g. Senior Phase HL 50%, FAL 40%, Maths 40%, one other 50%, three others 30%; FET HL 40%, two others 40%, three others 30%) give each learner a recommendation; the **class teacher** confirms or changes it. Promoted / retained learners are **pre-registered** for next year; the office confirms who is returning (admits + January invoice) and then **starts the new school year** (new grade, new class, old enrolments closed). | *Year-end promotion* `/admissions/promotion/` · *Next school year* `/admissions/new-year/` |
+| **Daily register** | Every school day a register opens for each class with everyone **present**; the class teacher is asked who is absent and marks only them. Parents are notified of an absence; 10 consecutive absences are flagged. | *Daily register* `/attendance/` · *School attendance* `/attendance/reports/` |
+| **School calendar** | The gazetted DBE/GDE calendars for **2026 and 2027** (terms, holidays, public holidays, NSC, prelims, exam windows, admissions), from `core/school_calendar.py`. Each learner sees whole-school dates plus their own grade's; parents their children's grades; teachers the grades they teach. | `/calendar/` |
+| **Bulk import / export** | An Excel template (`static/documents/UCS-learner-import-template.xlsx`, 101 columns — everything the application form asks) imports learners, parents, applications and enrolments with a dry-run preview; export writes the same format. | *Admissions → Import / export* · `learners_template`, `learners_export` |
+| **Demo lessons** | `python manage.py seed_lessons` — three days of Term 1 Week 1 lessons for every subject in every grade, each with notes, a YouTube video, a PDF worksheet, a quiz and homework. | `core/seed_lessons/` |
+| **Stories** | The school's full stories from ucs.org.za on our own pages. | `/social/stories/` |
+
+Class teachers are set on each grade's class (*Academic structure → grade → classes*); they take the
+daily register and decide promotion. The time zone is **Africa/Johannesburg**.
 
 ## ✨ Features
 

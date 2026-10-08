@@ -147,7 +147,8 @@ class ProgrammeForm(_StyledModelForm):
 class CohortForm(_StyledModelForm):
     class Meta:
         model = models.Cohort
-        fields = ['code', 'name', 'start_date', 'end_date', 'is_active']
+        fields = ['code', 'name', 'class_teacher', 'start_date', 'end_date', 'is_active']
+        labels = {'code': 'Class code (e.g. 2026)', 'name': 'Class name'}
         widgets = {
             'start_date': forms.DateInput(attrs={'type': 'date'}),
             'end_date': forms.DateInput(attrs={'type': 'date'}),

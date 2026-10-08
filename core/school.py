@@ -319,3 +319,179 @@ BANKING = {
     'reference': "the learner's name and grade",
     'proof_to': 'uchs@unitedcs.co.za',
 }
+
+
+# --------------------------------------------------------------------------
+# Monthly school fees — paid per GRADE, per calendar month, in advance.
+# --------------------------------------------------------------------------
+#: Months of school fees in a year (January to December, holidays included).
+FEE_MONTHS_PER_YEAR = 12
+
+#: Days into an unpaid month before the grade's subjects lock. The prospectus
+#: makes fees due on the 1st; a short grace period covers EFTs in transit.
+#: Override with the FEES_GRACE_DAYS setting.
+FEES_GRACE_DAYS = 7
+
+
+def month_start(day):
+    """The first day of ``day``'s month."""
+    return day.replace(day=1)
+
+
+def add_months(day, months):
+    """``day`` moved ``months`` calendar months on (day clamped to month end)."""
+    import calendar
+    month_index = day.month - 1 + months
+    year = day.year + month_index // 12
+    month = month_index % 12 + 1
+    return day.replace(year=year, month=month,
+                       day=min(day.day, calendar.monthrange(year, month)[1]))
+
+
+def month_end(day):
+    """The last day of ``day``'s month."""
+    import calendar
+    return day.replace(day=calendar.monthrange(day.year, day.month)[1])
+
+
+def months_label(first, months):
+    """``January 2026`` or ``January – March 2026 (3 months)``."""
+    last = add_months(month_start(first), months - 1)
+    if months == 1:
+        return f'{first:%B %Y}'
+    if first.year == last.year:
+        return f'{first:%B} – {last:%B %Y} ({months} months)'
+    return f'{first:%B %Y} – {last:%B %Y} ({months} months)'
+
+
+# --------------------------------------------------------------------------
+# Terms and assessment (GDE / CAPS)
+# --------------------------------------------------------------------------
+#: The four school terms. Formal assessment (SBA) is recorded per term; the
+#: mid-year examination falls in Term 2 and the final examination in Term 4.
+TERM_NUMBERS = (1, 2, 3, 4)
+EXAM_TERMS = (2, 4)
+
+#: CAPS weighting of School-Based Assessment (SBA) against the end-of-year
+#: examination in the final (promotion) mark, per phase. Foundation Phase is
+#: assessed continuously (100% SBA). In the FET phase Life Orientation is 100%
+#: SBA. Source: CAPS / National Protocol for Assessment Grades R – 12.
+SBA_WEIGHT = {PHASE_FOUNDATION: 100, PHASE_INTERMEDIATE: 75, PHASE_SENIOR: 40, PHASE_FET: 25}
+SBA_ONLY_SUBJECTS = {PHASE_FET: {'LO'}}
+
+
+def sba_weight(grade, subject_code=''):
+    """Percentage of the final mark that comes from SBA for this grade/subject."""
+    phase = phase_for(grade)['code']
+    if subject_code in SBA_ONLY_SUBJECTS.get(phase, set()):
+        return 100
+    return SBA_WEIGHT[phase]
+
+
+# --------------------------------------------------------------------------
+# Pass marks and promotion (National Policy pertaining to the Programme and
+# Promotion Requirements of the National Curriculum Statement Grades R – 12).
+#
+# Subjects are grouped as the policy names them: the Home Language, the First
+# Additional Language, Mathematics (or Mathematical Literacy) and "other"
+# subjects. Each phase sets a minimum for the named subjects and a count of
+# other subjects that must reach a level.
+# --------------------------------------------------------------------------
+HOME_LANGUAGES = {'ENG-HL'}
+ADDITIONAL_LANGUAGES = {'ZUL-FAL', 'AFR-FAL'}
+MATHEMATICS = {'MATH', 'MLIT'}
+
+#: phase → {'home_language': %, 'additional_language': %, 'mathematics': %,
+#:          'others': [(%, how many other subjects), …]}
+PROMOTION_RULES = {
+    PHASE_FOUNDATION: {'home_language': 50, 'additional_language': 40, 'mathematics': 40,
+                       'others': []},
+    PHASE_INTERMEDIATE: {'home_language': 50, 'additional_language': 40, 'mathematics': 40,
+                         'others': [(30, 2)]},
+    PHASE_SENIOR: {'home_language': 50, 'additional_language': 40, 'mathematics': 40,
+                   'others': [(50, 1), (30, 3)]},
+    # FET (and the NSC): 40% in the Home Language and two other subjects, 30%
+    # in three more — so a learner may fail one of the seven subjects.
+    PHASE_FET: {'home_language': 40, 'additional_language': None, 'mathematics': None,
+                'others': [(40, 2), (30, 3)]},
+}
+
+
+def subject_category(code):
+    if code in HOME_LANGUAGES:
+        return 'home_language'
+    if code in ADDITIONAL_LANGUAGES:
+        return 'additional_language'
+    if code in MATHEMATICS:
+        return 'mathematics'
+    return 'other'
+
+
+def pass_mark(grade, subject_code):
+    """The subject pass mark (%) a learner must reach in ``grade``."""
+    rules = PROMOTION_RULES[phase_for(grade)['code']]
+    category = subject_category(subject_code)
+    named = rules.get(category) if category != 'other' else None
+    if named:
+        return named
+    return 30 if phase_for(grade)['code'] != PHASE_FOUNDATION else 40
+
+
+def evaluate_promotion(grade, marks):
+    """Apply the promotion rule for ``grade`` to final marks ``{subject code: %}``.
+
+    Returns ``{'meets': bool, 'outcome': 'promote'|'retain'|'complete',
+    'checks': [(requirement, met, detail)], 'missing': [codes without a mark]}``.
+    Grade 12 learners who meet the requirement are 'complete' (they write the
+    NSC); the school's own decision is recorded separately by the educator.
+    """
+    phase = phase_for(grade)['code']
+    rules = PROMOTION_RULES[phase]
+    checks, used = [], set()
+    labels = {'home_language': 'Home Language', 'additional_language': 'First Additional Language',
+              'mathematics': 'Mathematics / Mathematical Literacy'}
+    for category in ('home_language', 'additional_language', 'mathematics'):
+        minimum = rules.get(category)
+        if not minimum:
+            continue
+        candidates = {code: pct for code, pct in marks.items() if subject_category(code) == category}
+        if not candidates:
+            checks.append((f'{labels[category]} ≥ {minimum}%', False, 'no mark recorded'))
+            continue
+        code, pct = max(candidates.items(), key=lambda item: item[1])
+        used.add(code)
+        checks.append((f'{labels[category]} ≥ {minimum}%', pct >= minimum, f'{code} {pct:.0f}%'))
+    others = sorted(((pct, code) for code, pct in marks.items() if code not in used), reverse=True)
+    for minimum, count in rules['others']:
+        reached = [(pct, code) for pct, code in others if pct >= minimum][:count]
+        for item in reached:
+            others.remove(item)
+        checks.append((f'{count} other subject{"s" if count > 1 else ""} ≥ {minimum}%',
+                       len(reached) >= count,
+                       ', '.join(f'{code} {pct:.0f}%' for pct, code in reached) or 'none'))
+    meets = all(met for _label, met, _detail in checks)
+    if meets:
+        outcome = 'complete' if grade == 12 else 'promote'
+    else:
+        outcome = 'retain'
+    return {'meets': meets, 'outcome': outcome, 'checks': checks}
+
+
+def final_mark(grade, subject_code, sba_pct=None, exam_pct=None):
+    """The final (promotion) mark from the year's SBA and the final exam."""
+    weight = sba_weight(grade, subject_code)
+    if sba_pct is None and exam_pct is None:
+        return None
+    if weight == 100 or exam_pct is None:
+        return sba_pct if sba_pct is not None else exam_pct
+    if sba_pct is None:
+        return exam_pct
+    return round((sba_pct * weight + exam_pct * (100 - weight)) / 100, 1)
+
+
+def achievement_level(pct):
+    """CAPS achievement level 1 – 7 for a percentage."""
+    for minimum, level in ((80, 7), (70, 6), (60, 5), (50, 4), (40, 3), (30, 2)):
+        if pct >= minimum:
+            return level
+    return 1

@@ -49,3 +49,30 @@ def ui_chrome(request):
         'ui_theme_attr': '' if theme == 'auto' else theme,
         'ui_language': getattr(request, 'LANGUAGE_CODE', 'en'),
     }
+
+
+def parent_children(request):
+    """For a parent: their linked children and the one they are viewing, so
+    every page can show the child selector (``?student=<id>`` switches, and the
+    choice is remembered — see core.scoping.viewing_child)."""
+    user = getattr(request, 'user', None)
+    if not (user and user.is_authenticated):
+        return {}
+    from core.scoping import children_of, is_parent, viewing_child
+    if not is_parent(user):
+        return {}
+    children = list(children_of(user).select_related('profile').order_by('first_name', 'pk'))
+    if not children:
+        return {'parent_children': []}
+    child = viewing_child(request)
+    profile = getattr(child, 'profile', None)
+    return {
+        'parent_children': [{
+            'id': c.pk,
+            'name': (f'{c.profile.first_name} {c.profile.last_name}'.strip()
+                     if getattr(c, 'profile', None) else c.get_username()),
+            'grade': getattr(getattr(c, 'profile', None), 'enrolled_class', ''),
+        } for c in children],
+        'child': child,
+        'child_name': (f'{profile.first_name} {profile.last_name}'.strip() if profile else ''),
+    }

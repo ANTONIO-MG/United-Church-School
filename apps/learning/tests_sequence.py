@@ -28,7 +28,7 @@ class WeekFixture(TestCase):
     def setUp(self):
         super().setUp()
         self.programme = make_programme('UCS', 'GR10')
-        self.offering = make_module('Taxation', 'TAXA', programme=self.programme)
+        self.offering = make_module('Mathematics', 'MATH', programme=self.programme)
 
         self.student = self._user('sam@example.com', 'student')
         enrol(self.student.profile, self.offering)
@@ -36,11 +36,14 @@ class WeekFixture(TestCase):
         self.offering.educators.add(self.educator.profile)
 
         self.topic = models.Topic.objects.create(
-            programme_module=self.offering, code='T5', title='Estate duty')
+            programme_module=self.offering, code='ALG', title='Algebraic expressions')
         self.phase = models.ModulePhase.objects.create(
             programme_module=self.offering, kind=models.ModulePhase.KIND_TEST, sequence=1)
         self.week = models.ModuleWeek.objects.create(
-            phase=self.phase, number=1, topic=self.topic, title='Estate duty')
+            phase=self.phase, number=1, title='Algebraic expressions')
+        # A week covers its topics through WeekTopic (the single ``topic`` FK
+        # was replaced by this ordered series in migration 0027).
+        models.WeekTopic.objects.create(week=self.week, topic=self.topic, order=0)
 
         self.lesson = models.Lesson.objects.create(
             module=self.offering, topic=self.topic, title='Topic 5 guide',

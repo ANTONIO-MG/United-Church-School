@@ -5,6 +5,7 @@ status, grade and a search across names, ID numbers and account numbers.{% endco
 {% block content %}
 <div class="card">
   <div class="card-header border-0 pb-0">
+    <a class="btn btn-sm btn-outline-info float-end mb-0" href="{% url 'admissions:bulk-import' %}"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Import / export learners</a>
     <h1 class="h4 card-title mb-1">Admissions</h1>
     <p class="text-sm text-muted mb-3">Online applications for {{ brand.name }}. Open one to work the office checklist and decide.</p>
     <div class="d-flex flex-wrap gap-2 mb-3">

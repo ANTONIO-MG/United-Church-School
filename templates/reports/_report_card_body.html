@@ -1,0 +1,70 @@
+{% load static %}{% comment %}
+The report card itself — shared by the screen view (inside a card) and the PDF.
+Context: brand, learner_name, programme, class_name, year, term_label, rows,
+is_final, promotion, outcome_label, published_only, exam_label.
+{% endcomment %}
+<table class="rc-head" style="width:100%">
+  <tr>
+    <td style="width:70px; vertical-align:top">{% if brand.crest %}<img src="{% static brand.crest %}" alt="" style="height:64pt; width:auto">{% endif %}</td>
+    <td style="vertical-align:top">
+      <div class="rc-school">{{ brand.name|default:'United Church School' }}</div>
+      <div class="rc-sub">Learner report · {{ term_label }} {{ year }}{% if is_final %} · End of year{% endif %}</div>
+    </td>
+  </tr>
+</table>
+<table class="rc-meta" style="width:100%">
+  <tr><th>Learner</th><td>{{ learner_name }}</td><th>Grade</th><td>{{ programme.name|default:'—' }}</td></tr>
+  <tr><th>Class</th><td>{{ class_name|default:'—' }}</td><th>Year / term</th><td>{{ year }} · {{ term_label }}</td></tr>
+  <tr><th>Days absent</th><td>{% if attendance %}{{ attendance.absent }} (of {{ attendance.total }} school days{% if attendance.late %}; late {{ attendance.late }}{% endif %}{% if attendance.excused %}; excused {{ attendance.excused }}{% endif %}){% else %}—{% endif %}</td>
+      <th>Attendance</th><td>{% if attendance and attendance.pct is not None %}{{ attendance.pct|floatformat:0 }}%{% else %}—{% endif %}</td></tr>
+</table>
+
+<table class="rc-table" style="width:100%">
+  <thead>
+    <tr>
+      <th style="text-align:left">Subject</th>
+      {% if is_final %}<th>Term 1</th><th>Term 2</th><th>Term 3</th><th>Term 4</th><th>SBA</th><th>Final exam</th><th>Final mark</th><th>Level</th><th>Result</th>
+      {% else %}<th>Term mark</th><th>Level</th><th style="text-align:left">Descriptor</th>{% endif %}
+      <th style="text-align:left">Educator comment</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td style="text-align:left"><strong>{{ row.name }}</strong>
+        {% if row.result and row.result.status == 'draft' %}<span class="rc-draft">draft</span>{% endif %}</td>
+      {% if is_final %}
+        {% for r in row.term_list %}<td>{% if r and r.term_pct is not None %}{{ r.term_pct|floatformat:0 }}%{% else %}—{% endif %}</td>{% endfor %}
+        <td>{% if row.sba is not None %}{{ row.sba|floatformat:0 }}%{% else %}—{% endif %}</td>
+        <td>{% if row.exam is not None %}{{ row.exam|floatformat:0 }}%{% elif row.sba_weight == 100 %}n/a{% else %}—{% endif %}</td>
+        <td><strong>{% if row.final is not None %}{{ row.final|floatformat:0 }}%{% else %}—{% endif %}</strong></td>
+        <td>{{ row.level|default:'—' }}{% if row.descriptor %}<div class="rc-small">{{ row.descriptor }}</div>{% endif %}</td>
+        <td>{% if row.passed is None %}—{% elif row.passed %}<span class="rc-pass">Pass</span>{% else %}<span class="rc-fail">Not achieved</span>{% endif %}
+          <div class="rc-small">min {{ row.pass_mark }}%</div></td>
+      {% else %}
+        <td><strong>{% if row.result.term_pct is not None %}{{ row.result.term_pct|floatformat:0 }}%{% else %}—{% endif %}</strong>
+          {% if row.show_exam and row.result.exam_pct is not None %}<div class="rc-small">SBA {{ row.result.sba_pct|default_if_none:row.result.auto_pct|floatformat:0 }}% · {{ exam_label }} {{ row.result.exam_pct|floatformat:0 }}%</div>{% endif %}</td>
+        <td>{{ row.result.level|default:'—' }}</td>
+        <td style="text-align:left">{{ row.descriptor_term }}</td>
+      {% endif %}
+      <td style="text-align:left" class="rc-comment">{{ row.result.comment|default:''|linebreaksbr }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if is_final and promotion %}
+<div class="rc-promo">
+  <div class="rc-promo-title">Promotion requirements (National Policy, Grades R – 12): <strong>{{ outcome_label }}</strong>
+    {% if not summary.complete %}<span class="rc-small">— provisional, some subjects have no final mark yet</span>{% endif %}</div>
+  <table style="width:100%" class="rc-checks">
+    {% for label, met, detail in promotion.checks %}
+    <tr><td style="width:44pt">{% if met %}<span class="rc-pass">Met</span>{% else %}<span class="rc-fail">Not met</span>{% endif %}</td><td style="text-align:left">{{ label }}</td><td style="text-align:left" class="rc-small">{{ detail }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<table class="rc-scale" style="width:100%">
+  <tr>{% for level, minimum, label in scale %}<td><strong>{{ level }}</strong> {{ label }} ({{ minimum }}%+)</td>{% endfor %}</tr>
+</table>

@@ -23,6 +23,7 @@ from django.views.decorators.http import require_POST
 
 from apps.communication.models import MeetingRoom
 
+from . import academic
 from . import audience as aud
 from . import forms, services, sources
 from .models import LiveSessionSettings, SessionArtifact
@@ -43,7 +44,9 @@ def calendar(request):
     # One aggregation for every surface — see apps.livesessions.sources on why
     # the platform no longer has two calendars that disagree.
     selected = _selected_kinds(request)
-    entries = sources.entries_for(request.user, window_start, window_end, kinds=selected)
+    grade = _selected_grade(request)
+    entries = sources.entries_for(request.user, window_start, window_end, kinds=selected,
+                                  grade=grade)
     by_day = sources.group_by_day(entries)
 
     weeks = [[_cell(day, focus, by_day) for day in week]
@@ -62,6 +65,9 @@ def calendar(request):
                     'on': kind in selected}
                    for kind, (label, colour, icon) in sources.KINDS.items()],
         'selected_kinds': ','.join(sorted(selected)),
+        'grade': grade,
+        'grade_choices': academic.grade_choices(request.user),
+        'grade_query': f'&grade={grade}' if grade else '',
         'can_schedule': aud.can_manage(request.user),
         'sees_everything': aud.sees_whole_calendar(request.user),
         'user_timezone': getattr(request, 'ui_timezone', ''),
@@ -97,7 +103,8 @@ def feed(request):
     """The calendar as JSON, for the month grid's client-side navigation."""
     start = _parse_iso(request.GET.get('from')) or timezone.now() - timedelta(days=30)
     end = _parse_iso(request.GET.get('to')) or timezone.now() + timedelta(days=90)
-    entries = sources.entries_for(request.user, start, end, kinds=_selected_kinds(request))
+    entries = sources.entries_for(request.user, start, end, kinds=_selected_kinds(request),
+                                  grade=_selected_grade(request))
     return JsonResponse({'entries': [{
         'title': entry.title,
         'start': timezone.localtime(entry.start).isoformat() if entry.start else None,
@@ -117,7 +124,8 @@ def feed(request):
 def ics(request):
     """Download the visible calendar as a one-off ``.ics`` file."""
     start, end = sources.window_around()
-    entries = sources.entries_for(request.user, start, end, kinds=_exportable_kinds(request))
+    entries = sources.entries_for(request.user, start, end, kinds=_exportable_kinds(request),
+                                  grade=_selected_grade(request))
     return _ics_response(entries, filename='school-calendar.ics')
 
 
@@ -632,6 +640,15 @@ def _selected_kinds(request):
         return set(sources.KINDS)
     wanted = {chunk.strip() for chunk in raw.split(',') if chunk.strip()}
     return (wanted & set(sources.KINDS)) or set(sources.KINDS)
+
+
+def _selected_grade(request):
+    """The grade filter, via ``?grade=12`` — ``None`` for every grade."""
+    try:
+        grade = int(request.GET.get('grade') or 0)
+    except (TypeError, ValueError):
+        return None
+    return grade if 1 <= grade <= 12 else None
 
 
 def _exportable_kinds(request):

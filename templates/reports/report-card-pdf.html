@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Report card · {{ learner_name }}</title>
+<style>
+  @page { size: a4 portrait; margin: 1.4cm; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 9pt; color: #1d2433; }
+  .rc-school { font-size: 16pt; font-weight: bold; color: #00498B; }
+  .rc-sub { color: #5b6474; font-size: 10pt; }
+  .rc-meta { margin: 8pt 0; }
+  .rc-meta th { color: #5b6474; text-align: left; width: 14%; padding: 2pt; }
+  .rc-meta td { padding: 2pt; }
+  .rc-table th { background-color: #00498B; color: #ffffff; padding: 4pt 3pt; font-size: 8pt; text-align: center; }
+  .rc-table td { border-bottom: 0.5pt solid #c9ced8; padding: 4pt 3pt; text-align: center; vertical-align: top; }
+  .rc-small { font-size: 7pt; color: #5b6474; }
+  .rc-pass { color: #157347; font-weight: bold; } .rc-fail { color: #b02a37; font-weight: bold; }
+  .rc-draft { font-size: 7pt; background-color: #fff3cd; }
+  .rc-promo { margin-top: 10pt; padding: 6pt; border: 0.5pt solid #c9ced8; background-color: #f7f9fc; }
+  .rc-scale { margin-top: 10pt; font-size: 7pt; color: #5b6474; }
+  .rc-foot { margin-top: 18pt; font-size: 8pt; color: #5b6474; }
+</style></head>
+<body>
+{% include 'reports/_report_card_body.html' %}
+<table class="rc-foot" style="width:100%"><tr>
+  <td>Class teacher: ____________________</td><td>Principal: ____________________</td><td>Issued {{ today|date:'j F Y' }}</td>
+</tr></table>
+</body></html>

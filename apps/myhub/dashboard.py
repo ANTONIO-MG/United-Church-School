@@ -1836,10 +1836,15 @@ def exam_countdown(user, window_days=400, cache=None):
                           kind__in=[CalendarEvent.KIND_EXAM, CalendarEvent.KIND_TEST],
                           start__gte=now - timedelta(days=window_days),
                           start__lte=now + timedelta(days=window_days))
-                  .select_related('calendar')
+                  .select_related('calendar', 'programme_module')
                   .order_by('start'))
+        # Whole-school dates and the candidate's own grade only — another
+        # grade's exam (or a subject test in another grade) is not their countdown.
+        mine = enrolment.programme_id
         rows = [e for e in window
-                if e.programme_id in (None, enrolment.programme_id)]
+                if e.programme_id == mine
+                or (e.programme_id is None
+                    and (e.programme_module_id is None or e.programme_module.programme_id == mine))]
         upcoming = [e for e in rows if e.start >= now]
         if not upcoming:
             return None

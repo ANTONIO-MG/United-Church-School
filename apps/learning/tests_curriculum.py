@@ -141,12 +141,74 @@ class SchoolSeedTests(TestCase):
         term4 = calendar.events.get(title='Term 4 ends')
         self.assertEqual((term4.start.month, term4.start.day), (12, 11))
 
-    def test_exam_windows_are_unpublished_templates(self):
+    def test_ucs_closes_term_4_on_its_own_date_not_the_public_one(self):
+        calendar = AcademicCalendar.objects.get(year=2026)
+        self.assertEqual(calendar.events.get(title='Term 4 ends').start.date().isoformat(),
+                         '2026-12-11')
+
+    def test_exam_dates_are_written_per_grade(self):
         exams = CalendarEvent.objects.filter(kind=CalendarEvent.KIND_EXAM)
         self.assertTrue(exams.exists())
-        self.assertFalse(exams.filter(is_published=True).exists())
-        self.assertTrue(exams.filter(programme__grade=12, title__startswith='NSC').exists())
+        # No examination is a whole-school date, and Foundation Phase writes none.
+        self.assertFalse(exams.filter(programme__isnull=True).exists())
         self.assertFalse(exams.filter(programme__grade__lte=3).exists())
+        nsc = exams.filter(title__startswith='NSC', calendar__year=2026)
+        self.assertEqual(list(nsc.values_list('programme__grade', flat=True)), [12])
+        mid_year = exams.filter(title='Mid-year examinations', calendar__year=2026)
+        self.assertEqual(sorted(mid_year.values_list('programme__grade', flat=True)),
+                         list(range(4, 13)))
+        finals = exams.filter(title='Final examinations', calendar__year=2026)
+        self.assertEqual(sorted(finals.values_list('programme__grade', flat=True)),
+                         list(range(4, 12)))
+        foundation = CalendarEvent.objects.filter(title__startswith='Foundation Phase assessment')
+        self.assertEqual(set(foundation.values_list('programme__grade', flat=True)), {1, 2, 3})
+
+    def test_published_exam_dates_are_official_and_estimates_are_not(self):
+        nsc = CalendarEvent.objects.get(calendar__year=2026, title='NSC (matric) final examinations')
+        self.assertTrue(nsc.is_published)
+        self.assertEqual((nsc.start.date().isoformat(), nsc.end.date().isoformat()),
+                         ('2026-10-13', '2026-11-26'))
+        prelims = CalendarEvent.objects.get(calendar__year=2026,
+                                            title='Preliminary (trial) examinations')
+        self.assertTrue(prelims.is_published)
+        self.assertEqual(prelims.start.date().isoformat(), '2026-08-25')
+        # The school's own exam windows are not published anywhere: estimates.
+        estimates = CalendarEvent.objects.filter(title='Mid-year examinations')
+        self.assertFalse(estimates.filter(is_published=True).exists())
+        self.assertIn('Estimated date', estimates.first().description)
+
+    def test_public_holidays_include_observed_and_once_off_days(self):
+        days = dict((e.title, e.start.date().isoformat()) for e in
+                    CalendarEvent.objects.filter(calendar__year=2026,
+                                                 kind=CalendarEvent.KIND_HOLIDAY))
+        self.assertEqual(days["National Women's Day (observed)"], '2026-08-10')
+        self.assertEqual(days['Local Government Elections Day'], '2026-11-04')
+        self.assertEqual(days['Good Friday'], '2026-04-03')
+        self.assertEqual(days['Special school holiday'], '2026-06-15')
+
+    def test_the_2027_calendar_is_preloaded_from_the_gazette(self):
+        calendar = AcademicCalendar.objects.get(year=2027)
+        events = {e.title: e for e in calendar.events.filter(programme__isnull=True)}
+        self.assertEqual(events['Term 1 begins'].start.date().isoformat(), '2027-01-13')
+        self.assertTrue(events['Term 1 begins'].is_published)
+        self.assertEqual(events['Term 4 ends'].start.date().isoformat(), '2027-12-08')
+        self.assertEqual(events['Human Rights Day (observed)'].start.date().isoformat(),
+                         '2027-03-22')
+        self.assertEqual(events['Family Day'].start.date().isoformat(), '2027-03-29')
+        nsc = calendar.events.get(title='NSC (matric) final examinations')
+        self.assertEqual(nsc.programme.grade, 12)
+        self.assertFalse(nsc.is_published)        # the 2027 timetable is not out yet
+
+    def test_the_year_end_holiday_runs_into_the_next_year(self):
+        gap = CalendarEvent.objects.get(calendar__year=2026, title='School holidays after Term 4')
+        self.assertEqual((gap.start.date().isoformat(), gap.end.date().isoformat()),
+                         ('2026-12-12', '2027-01-12'))
+
+    def test_a_given_list_of_years_can_be_seeded(self):
+        academic_spine.seed(calendar_years=[2028], verbose=False, logos=False)
+        calendar = AcademicCalendar.objects.get(year=2028)
+        self.assertTrue(calendar.events.filter(title='Term 1 begins').exists())
+        self.assertFalse(calendar.events.filter(title='Term 1 begins', is_published=True).exists())
 
     def test_seeding_twice_changes_nothing(self):
         counts = (Programme.objects.count(), ProgrammeModule.objects.count(),

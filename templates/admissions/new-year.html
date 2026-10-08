@@ -1,0 +1,44 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% block content %}
+<div class="card mb-4">
+  <div class="card-header border-0 pb-0">
+    <h1 class="h4 card-title mb-1">School year {{ year }}</h1>
+    <p class="text-sm text-muted mb-0">1) Confirm each pre-registered learner is returning — this admits them and raises their January invoice
+      (levy and January school fees; no registration fee). 2) In January, start the school year: every admitted learner is enrolled in
+      their grade and class for {{ year }}, last year's enrolments are closed and any fees already paid are applied.</p>
+  </div>
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      {% for status, n in counts %}<span class="badge bg-light text-dark">{{ status }}: {{ n }}</span>{% endfor %}
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <h6>Pre-registered — awaiting confirmation ({{ preregistered|length }})</h6>
+      <div class="table-responsive"><table class="table align-middle">
+        <thead><tr class="text-xs text-uppercase text-muted"><th><input type="checkbox" class="form-check-input" onclick="document.querySelectorAll('.pre-pick').forEach(c=>c.checked=this.checked)"></th><th>Learner</th><th>From</th><th>To</th><th></th></tr></thead>
+        <tbody>
+          {% for a in preregistered %}
+          <tr><td><input type="checkbox" class="form-check-input pre-pick" name="application" value="{{ a.pk }}"></td>
+            <td class="text-sm">{{ a.learner_name }}</td>
+            <td class="text-sm">{{ a.previous.programme.display_name|default:"—" }}</td>
+            <td class="text-sm fw-bold">{{ a.programme.display_name }}</td>
+            <td class="text-end"><a class="btn btn-sm btn-link mb-0" href="{% url 'admissions:office-detail' public_id=a.public_id %}">Details</a></td></tr>
+          {% empty %}<tr><td colspan="5" class="text-muted text-center">Nobody is waiting for confirmation.</td></tr>{% endfor %}
+        </tbody>
+      </table></div>
+      {% if preregistered %}
+      <div class="d-flex gap-2 mb-4">
+        <button class="btn bg-gradient-success mb-0" name="action" value="confirm">Confirm selected as returning</button>
+        <button class="btn btn-outline-danger mb-0" name="action" value="not-returning" onclick="return confirm('Mark the selected learners as not returning?')">Not returning</button>
+      </div>
+      {% endif %}
+    </form>
+    <h6>Confirmed for {{ year }} ({{ admitted|length }})</h6>
+    <p class="text-sm text-muted">{% for a in admitted|slice:":20" %}{{ a.learner_name }} ({{ a.programme.display_name }}){% if not forloop.last %}, {% endif %}{% endfor %}{% if admitted|length > 20 %} …{% endif %}</p>
+    <form method="post" onsubmit="return confirm('Start the {{ year }} school year now? Learners move to their new grades and classes.')">
+      {% csrf_token %}
+      <button class="btn bg-gradient-info mb-0" name="action" value="start" {% if not admitted %}disabled{% endif %}>Start the {{ year }} school year</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

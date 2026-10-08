@@ -286,3 +286,18 @@ html { scroll-behavior: smooth; }
 .ucs-footer .logo-dark { display: none; }
 [data-bs-theme="dark"] .ucs-footer .logo-light { display: none; }
 [data-bs-theme="dark"] .ucs-footer .logo-dark { display: inline-block; }
+
+/* ---- Story pages (templates/pages/stories/) -------------------------------
+   The landing page's story card, plus the index and the full-story layout. */
+.ucs-landing .ucs-stories-page { padding-top: 7.5rem; }
+.ucs-landing .ucs-stories-page .breadcrumb a { color: var(--ucs-accent-text); }
+.ucs-landing .ucs-story { position: relative; }
+.ucs-landing .ucs-story h2.h3 { font-size: 1.1rem; font-weight: 700; }
+.ucs-landing .ucs-story-meta { color: var(--ucs-muted); }
+.ucs-landing .ucs-story-cat { color: var(--ucs-green-ink); font-weight: 600; }
+.ucs-landing .ucs-story-hero img { width: 100%; height: auto; max-height: 34rem; object-fit: cover;
+  border-radius: 1rem; }
+.ucs-landing .ucs-story-body { font-size: 1.05rem; line-height: 1.75; }
+.ucs-landing .ucs-story-body p { margin-bottom: 1.1rem; }
+.ucs-landing .ucs-story-body h2 { margin: 2rem 0 .75rem; color: var(--ucs-ink); }
+.ucs-landing .ucs-story-body ul { padding-left: 1.25rem; margin-bottom: 1.1rem; }

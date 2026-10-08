@@ -128,7 +128,7 @@ class ApplicationWizardTests(TestCase):
         self.step4()
         response = self.client.get(reverse('accounts:register-review'))
         self.assertContains(response, 'Registration fee')
-        self.assertContains(response, 'R 4,550.00')
+        self.assertContains(response, '4,550.00')
 
     def test_a_grade_10_application_bills_registration_levy_and_the_first_month(self):
         response = self.walk()

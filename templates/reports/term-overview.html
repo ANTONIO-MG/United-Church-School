@@ -1,0 +1,62 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+
+{% block additional_css %}
+<style>
+  .to-cell{ font-size:.8rem; white-space:nowrap; }
+  .to-done{ background:#d1e7dd; } .to-partial{ background:#fff3cd; } .to-outstanding{ background:#f8d7da; } .to-none{ color:#9aa1ad; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-body d-flex flex-wrap gap-3 justify-content-between align-items-start">
+    <div>
+      <h1 class="h4 mb-1"><i class="bi bi-clipboard-check text-primary me-2"></i>Term reports · {{ year }}</h1>
+      <p class="mb-0 small text-muted">Mark sheets per grade, subject and term: <span class="badge to-done text-dark">published</span>
+        <span class="badge to-partial text-dark">in progress</span> <span class="badge to-outstanding text-dark">outstanding</span>.
+        Each cell reads <em>published / draft / not started</em> learners.</p>
+    </div>
+    <form method="get"><select name="year" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="Year">
+      {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}</select></form>
+  </div>
+  <div class="card-body pt-0">
+    <div class="row g-2">
+      {% for t in totals %}
+      <div class="col-6 col-md-3"><div class="border rounded p-2{% if t.term == current_term %} border-primary{% endif %}">
+        <div class="small text-muted">{{ t.label }}</div>
+        <div><strong>{{ t.published }}</strong> published · {{ t.draft }} draft · <span class="{% if t.missing %}text-danger{% endif %}">{{ t.missing }} not started</span></div>
+      </div></div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% for g in grades %}
+<div class="card">
+  <div class="card-header"><h6 class="mb-0">{{ g.programme.name }}</h6></div>
+  <div class="card-body p-0"><div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Subject</th><th>Educator(s)</th><th class="text-center">Learners</th>
+        {% for t in term_numbers %}<th class="text-center{% if t == current_term %} table-primary{% endif %}">Term {{ t }}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for row in g.rows %}
+        <tr>
+          <td>{{ row.module.display_name }} <span class="small text-muted">{{ row.module.code }}</span></td>
+          <td class="small">{{ row.educators|default:'— unassigned —' }}</td>
+          <td class="text-center">{{ row.enrolled }}</td>
+          {% for c in row.cells %}
+          <td class="text-center to-cell to-{{ c.state }}">
+            <a class="text-reset text-decoration-none" href="{% url 'reports:mark-sheet' row.module.pk year c.term %}">
+              {% if c.state == 'none' %}—{% else %}{{ c.published }} / {{ c.draft }} / {{ c.missing }}{% endif %}</a>
+          </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</div>
+{% empty %}
+<div class="card"><div class="card-body text-muted">No subjects set up yet.</div></div>
+{% endfor %}
+{% endblock %}

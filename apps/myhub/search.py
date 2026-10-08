@@ -185,7 +185,11 @@ def _events(request, q, scope):
             'url': reverse('myhub:event-detail', args=[e.pk])}
            for e in Event.objects.filter(title__icontains=q)[:PER]]
 
-    dates = (CalendarEvent.objects.filter(title__icontains=q, is_published=True)
+    from apps.livesessions.academic import visible_events
+
+    # Whole-school dates plus the reader's own grade(s) — see apps.livesessions.academic.
+    dates = (visible_events(request.user, CalendarEvent.objects.filter(title__icontains=q))
+             .filter(is_published=True)
              .select_related('calendar__institution'))
     if scope is not None:
         dates = dates.filter(calendar__institution_id__in=scope['institutions'])

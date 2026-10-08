@@ -1,0 +1,59 @@
+{% extends 'myhub/elements/layouts/admin.html' %}{% load people %}
+
+{% block content %}
+<div class="content-body">
+  <div class="container-fluid">
+    <div class="row page-titles mx-0">
+      <div class="col-sm-7 p-md-0">
+        <div class="welcome-text">
+          <h4>{{ page_title }}</h4>
+          <p class="mb-0 small text-muted">Everyone starts the day marked <b>present</b>. Mark who is absent or late, then submit.
+            Registers nobody submits are closed automatically at 17:00 with everyone else present.</p>
+        </div>
+      </div>
+      <div class="col-sm-5 p-md-0 justify-content-sm-end mt-2 mt-sm-0 d-flex align-items-center gap-2 flex-wrap">
+        <a class="btn btn-sm btn-outline-secondary" href="?date={{ prev_day|date:'Y-m-d' }}"><i class="bi bi-chevron-left"></i></a>
+        <form method="get" class="d-inline"><input type="date" name="date" value="{{ day|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}"
+               class="form-control form-control-sm" onchange="this.form.submit()"></form>
+        {% if next_day %}<a class="btn btn-sm btn-outline-secondary" href="?date={{ next_day|date:'Y-m-d' }}"><i class="bi bi-chevron-right"></i></a>{% endif %}
+        {% if flags.is_admin_staff %}<a class="btn btn-sm btn-primary" href="{% url 'attendance:reports' %}"><i class="bi bi-bar-chart me-1"></i>Reports</a>{% endif %}
+      </div>
+    </div>
+
+    <h5 class="mb-3">{{ day|date:"l j F Y" }}{% if is_today %} <span class="badge bg-info bg-opacity-10 text-info">Today</span>{% endif %}</h5>
+
+    {% if not has_classes %}
+      <div class="alert alert-light">You are not the class teacher of any class yet. The office sets class teachers on each grade's class.</div>
+    {% elif not rows %}
+      <div class="alert alert-light">{% if school_day %}No registers for this day.{% else %}Not a school day — no register is taken (weekend, public holiday or school holiday).{% endif %}</div>
+    {% endif %}
+
+    <div class="row">
+      {% for row in rows %}{% with r=row.register c=row.counts %}
+      <div class="col-xl-4 col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <h5 class="mb-1"><a href="{{ r.get_absolute_url }}">{{ r.cohort_label }}</a></h5>
+              {% if r.is_open %}<span class="badge bg-warning">Open</span>
+              {% elif r.auto_submitted %}<span class="badge bg-secondary" title="Nobody submitted it; closed by the end-of-day job">Auto-submitted</span>
+              {% else %}<span class="badge bg-success">Submitted</span>{% endif %}
+            </div>
+            <p class="small text-muted mb-2">Class teacher: {% if r.cohort.class_teacher %}{{ r.cohort.class_teacher }}{% else %}not set{% endif %}</p>
+            <div class="d-flex gap-3 small mb-3">
+              <span class="text-success"><b>{{ c.present }}</b> present</span>
+              <span class="text-danger"><b>{{ c.absent }}</b> absent</span>
+              <span class="text-warning"><b>{{ c.late }}</b> late</span>
+              <span class="text-info"><b>{{ c.excused }}</b> excused</span>
+            </div>
+            {% if r.submitted_at %}<p class="small text-muted mb-2">{% if r.submitted_by %}By {{ r.submitted_by }}, {% endif %}{{ r.submitted_at|date:"H:i" }}</p>{% endif %}
+            <a href="{{ r.get_absolute_url }}" class="btn btn-sm {% if r.is_open %}btn-primary{% else %}btn-outline-primary{% endif %} w-100">
+              {% if r.is_open %}Take the register{% elif row.can_edit %}Review / edit{% else %}View{% endif %}</a>
+          </div>
+        </div>
+      </div>
+      {% endwith %}{% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

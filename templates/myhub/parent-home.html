@@ -1,0 +1,60 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% load humanize %}
+{% comment %}A parent's dashboard: one card per linked child. "View" switches the
+child the rest of the platform shows (remembered across pages).{% endcomment %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-0">My children</h1>
+    <p class="text-sm text-muted mb-0">{{ cards|length }} child{{ cards|length|pluralize:"ren" }} linked to your account.
+      Choose a child to see their subjects, results, attendance and fees.</p>
+  </div>
+</div>
+{% if not cards %}
+  <div class="card"><div class="card-body text-sm text-muted">No learners are linked to your account yet. When the school invites you for a child,
+    open the invitation e-mail and accept it — each child you accept appears here.</div></div>
+{% endif %}
+<div class="row g-4">
+  {% for card in cards %}
+  <div class="col-lg-6">
+    <div class="card h-100 {% if selected and selected.pk == card.user.pk %}border border-2 border-info{% endif %}">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+          <div>
+            <h5 class="mb-0">{{ card.name }}</h5>
+            <span class="text-sm text-muted">{{ card.fees.programme.display_name|default:card.person.enrolled_class|default:"Not enrolled yet" }}</span>
+          </div>
+          {% if selected and selected.pk == card.user.pk %}<span class="badge bg-gradient-info">Viewing</span>
+          {% else %}<a class="btn btn-sm btn-outline-info mb-0" href="?student={{ card.user.pk }}">View</a>{% endif %}
+        </div>
+        <ul class="list-unstyled text-sm mb-3">
+          {% if card.fees %}
+          <li class="mb-1"><i class="bi bi-cash-coin me-2"></i>School fees:
+            {% if card.fees.locked %}<span class="text-danger fw-bold">{{ card.fees.first_unpaid|date:"F" }} unpaid — subjects locked</span>
+            {% elif card.fees.paid_until %}paid to {{ card.fees.paid_until|date:"j F Y" }}
+            {% else %}nothing paid yet{% endif %}
+            (R {{ card.fees.monthly|floatformat:0|intcomma }} / month)</li>
+          {% endif %}
+          {% if card.application %}
+          <li class="mb-1"><i class="bi bi-person-vcard me-2"></i>Application {{ card.application.year }}: {{ card.application.get_status_display }}</li>
+          {% endif %}
+          {% if card.results %}
+          <li class="mb-1"><i class="bi bi-file-earmark-text me-2"></i>Term {{ card.term.1 }} {{ card.term.0 }} results published</li>
+          {% endif %}
+        </ul>
+        {% if card.results %}
+        <div class="table-responsive mb-3"><table class="table table-sm mb-0">
+          <tbody>{% for r in card.results %}<tr><td class="text-sm">{{ r.module.display_name }}</td><td class="text-sm text-end">{{ r.term_pct|floatformat:0 }}%{% if r.level %} · L{{ r.level }}{% endif %}</td></tr>{% endfor %}</tbody>
+        </table></div>
+        {% endif %}
+        <div class="d-flex flex-wrap gap-2">
+          <a class="btn btn-sm bg-gradient-info mb-0" href="{% url 'finance:school-fees' %}?student={{ card.user.pk }}">School fees</a>
+          <a class="btn btn-sm btn-outline-secondary mb-0" href="{% url 'admissions:my-application' %}?student={{ card.user.pk }}">Application</a>
+          <a class="btn btn-sm btn-outline-secondary mb-0" href="/reports/progress/?student={{ card.user.pk }}">Progress</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

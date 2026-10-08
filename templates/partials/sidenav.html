@@ -102,13 +102,16 @@ sub-menus so a long teaching list stays scannable.
                         <li class="nav-item"><a class="nav-link" href="{% url 'revision:home' %}"><i class="bi bi-arrow-repeat"></i><span>Revision</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/reports/progress/"><i class="bi bi-graph-up"></i><span>My Progress</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/reports/"><i class="bi bi-patch-check"></i><span>Reports &amp; Certificates</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'reports:report-card' %}"><i class="bi bi-file-earmark-text"></i><span>Report card</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/communication/workspaces/"><i class="bi bi-folder2-open"></i><span>Workspaces</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/tasks/"><i class="bi bi-check2-square"></i><span>My Tasks</span>{% if dynamic.badges.pending_tasks|default:True and task_stats.my_pending %}<span class="side-badge">{{ task_stats.my_pending }}</span>{% endif %}</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'attendance:my' %}"><i class="bi bi-clipboard2-check"></i><span>My attendance</span></a></li>
                     </ul>
 
                     <hr><p class="side-heading">Account</p>
                     <ul class="nav flex-column gap-1">
                         <li class="nav-item"><a class="nav-link" href="{% url 'admissions:my-application' %}"><i class="bi bi-person-vcard"></i><span>My application</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'finance:school-fees' %}"><i class="bi bi-cash-coin"></i><span>School fees</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'finance:my-finances' %}"><i class="bi bi-pie-chart"></i><span>My finances</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/finance/"><i class="bi bi-receipt"></i><span>Invoices</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'finance:statement' %}"><i class="bi bi-journal-text"></i><span>Statement</span></a></li>
@@ -129,12 +132,24 @@ sub-menus so a long teaching list stays scannable.
                     the control.
                     {% endcomment %}
                     {% if is_parent %}
-                    <hr><p class="side-heading">{% if child_name %}{{ child_name }}{% else %}My child{% endif %}</p>
+                    <hr>
+                    {% if parent_children|length > 1 %}
+                    <form method="get" class="px-3 mb-2" aria-label="Choose a child">
+                      <label class="side-heading d-block mb-1" for="sideChild">Viewing</label>
+                      <select id="sideChild" name="student" class="form-select form-select-sm" onchange="this.form.submit()">
+                        {% for c in parent_children %}<option value="{{ c.id }}" {% if child and c.id == child.pk %}selected{% endif %}>{{ c.name }}{% if c.grade %} · {{ c.grade }}{% endif %}</option>{% endfor %}
+                      </select>
+                    </form>
+                    {% else %}
+                    <p class="side-heading">{% if child_name %}{{ child_name }}{% else %}My child{% endif %}</p>
+                    {% endif %}
                     <ul class="nav flex-column gap-1">
                         <li class="nav-item"><a class="nav-link" href="/reports/progress/"><i class="bi bi-graph-up"></i><span>Progress &amp; analytics</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/reports/"><i class="bi bi-patch-check"></i><span>Results &amp; certificates</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'reports:report-card' %}{% if child %}?student={{ child.pk }}{% endif %}"><i class="bi bi-file-earmark-text"></i><span>Report card</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/assessments/"><i class="bi bi-ui-checks"></i><span>Assessments</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/communication/attendance/"><i class="bi bi-person-check"></i><span>Attendance</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'attendance:my' %}{% if child %}?student={{ child.id }}{% endif %}"><i class="bi bi-clipboard2-check"></i><span>School attendance</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/tasks/"><i class="bi bi-check2-square"></i><span>Tasks</span></a></li>
                     </ul>
 
@@ -153,6 +168,7 @@ sub-menus so a long teaching list stays scannable.
                     <hr><p class="side-heading">Account</p>
                     <ul class="nav flex-column gap-1">
                         <li class="nav-item"><a class="nav-link" href="{% url 'admissions:my-application' %}"><i class="bi bi-person-vcard"></i><span>Application</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'finance:school-fees' %}"><i class="bi bi-cash-coin"></i><span>School fees</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/finance/"><i class="bi bi-receipt"></i><span>Fees &amp; invoices</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'finance:payment-history' %}"><i class="bi bi-clock-history"></i><span>Payments</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/shop/"><i class="bi bi-bag"></i><span>Shop</span></a></li>
@@ -167,6 +183,9 @@ sub-menus so a long teaching list stays scannable.
                     <hr><p class="side-heading">Teaching</p>
                     <ul class="nav flex-column gap-1">
                         <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:teaching' %}"><i class="bi bi-easel"></i><span>My teaching desk</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'admissions:promotion' %}"><i class="bi bi-arrow-up-circle"></i><span>Promotion (my classes)</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'reports:marks' %}"><i class="bi bi-journal-check"></i><span>Mark sheets</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'attendance:index' %}"><i class="bi bi-clipboard2-check"></i><span>Daily register</span></a></li>
 
                         {# Content — what the educator authors and delivers #}
                         <li class="nav-item sidenav-group">
@@ -225,6 +244,8 @@ sub-menus so a long teaching list stays scannable.
                     <hr><p class="side-heading">Administration</p>
                     <ul class="nav flex-column gap-1">
                         <li class="nav-item"><a class="nav-link" href="{% url 'admissions:office-list' %}"><i class="bi bi-person-vcard"></i><span>Admissions</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'admissions:promotion' %}"><i class="bi bi-arrow-up-circle"></i><span>Year-end promotion</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'admissions:new-year' %}"><i class="bi bi-calendar-plus"></i><span>Next school year</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/community/members/"><i class="bi bi-people-fill"></i><span>Members &amp; enrolment</span></a></li>
                         {% if user.is_superuser %}<li class="nav-item"><a class="nav-link" href="{% url 'accounts:staff-create' %}"><i class="bi bi-person-plus-fill"></i><span>Create team account</span></a></li>{% endif %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'accounts:closed-accounts' %}"><i class="bi bi-person-x"></i><span>Closed accounts</span></a></li>
@@ -261,6 +282,8 @@ sub-menus so a long teaching list stays scannable.
                                 <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:teaching' %}">Educator desks</a></li>
                                 <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:at-risk' %}">At-risk students</a></li>
                                 <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:grades' %}">Grades &amp; certificates</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'reports:term-overview' %}">Term reports</a></li>
+                                <li class="nav-item"><a class="nav-link" href="{% url 'reports:marks' %}">Mark sheets</a></li>
                                 <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:imports' %}">Content imports</a></li>
                                 <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:ai-reports' %}">AI reports</a></li>
                                 <li class="nav-item"><a class="nav-link" href="{% url 'staffdesk:ops-invitations' %}">Invitations</a></li>
@@ -331,6 +354,7 @@ sub-menus so a long teaching list stays scannable.
 
                         <li class="nav-item"><a class="nav-link" href="{% url 'livesessions:calendar' %}"><i class="bi bi-calendar3"></i><span>Calendar</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/communication/attendance/"><i class="bi bi-person-check"></i><span>Attendance</span></a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'attendance:reports' %}"><i class="bi bi-clipboard2-check"></i><span>School attendance</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/communication/workspaces/"><i class="bi bi-folder2-open"></i><span>Workspaces</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/assessments/"><i class="bi bi-ui-checks"></i><span>Assessments</span></a></li>
                         <li class="nav-item"><a class="nav-link" href="/reports/"><i class="bi bi-clipboard-data"></i><span>Reports &amp; Certificates</span></a></li>

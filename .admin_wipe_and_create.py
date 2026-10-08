@@ -481,6 +481,13 @@ def seed_academic_spine():
           "(term dates published; exam windows unpublished until confirmed)")
     print("  → school shop: uniform and additional fees (2026 prices) ...")
     call_command('seed_shop', '--quiet')
+    print("  → demo lessons: Term 1 Week 1, three days per subject in every grade ...")
+    try:
+        call_command('seed_lessons', verbosity=0)
+        from apps.learning.models import Lesson
+        print(f"    {Lesson.objects.count()} lesson(s) with quizzes, homework, worksheets and videos")
+    except Exception as exc:  # noqa: BLE001 — demo content must never abort a reset
+        print(f"    (lessons skipped: {exc})")
     return result
 
 
@@ -511,6 +518,10 @@ def place_accounts_on_spine(people):
         seed_application(student, programme, people.get("parent"))
     if educator is not None:
         academic_spine.assign_educator(educator, offerings)
+        cohort = programme.cohorts.order_by('-code').first()
+        if cohort is not None:
+            cohort.class_teacher = educator
+            cohort.save(update_fields=['class_teacher', 'updated_at'])
         print(f"  → {educator.user.email} teaches {programme.display_name} "
               f"({', '.join(o.code for o in offerings)})")
 

@@ -1,0 +1,10 @@
+<div class="d-flex align-items-baseline gap-2 mb-2">
+  <span class="fs-3 fw-bold">{% if s.pct is not None %}{{ s.pct }}%{% else %}—{% endif %}</span>
+  <span class="small text-muted">attendance over {{ s.total }} school day{{ s.total|pluralize }}</span>
+</div>
+<div class="d-flex gap-3 small flex-wrap">
+  <span class="text-success"><b>{{ s.present }}</b> present</span>
+  <span class="text-danger"><b>{{ s.absent }}</b> absent</span>
+  <span class="text-warning"><b>{{ s.late }}</b> late</span>
+  <span class="text-info"><b>{{ s.excused }}</b> excused</span>
+</div>

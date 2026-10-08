@@ -1,0 +1,40 @@
+{% extends 'myhub/elements/layouts/admin.html' %}
+{% block content %}
+<div class="card">
+  <div class="card-header border-0 pb-0 d-flex flex-wrap justify-content-between gap-2">
+    <div>
+      <h1 class="h4 card-title mb-1">Year-end promotion · {{ year }}</h1>
+      <p class="text-sm text-muted mb-0">Each grade's class teacher applies the CAPS promotion requirements to the learners'
+        final marks. Promoted and retained learners are pre-registered for {{ year|add:1 }}; the office then confirms who is returning.</p>
+    </div>
+    <div class="d-flex gap-2 align-items-start">
+      <form method="get"><select name="year" class="form-control form-select form-select-sm" onchange="this.form.submit()">
+        {% for y in "012"|make_list %}{% with option=year|add:-1|add:y %}<option value="{{ option }}" {% if option == year %}selected{% endif %}>{{ option }}</option>{% endwith %}{% endfor %}
+      </select></form>
+      {% if is_office %}<a class="btn btn-sm bg-gradient-info mb-0" href="{% url 'admissions:new-year' %}?year={{ year|add:1 }}">School year {{ year|add:1 }}</a>{% endif %}
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive"><table class="table align-middle">
+      <thead><tr class="text-xs text-uppercase text-muted"><th>Grade</th><th>Class teacher</th><th>Learners</th><th>Decided</th><th>Promoted</th><th>Retained</th><th>Completed / leaving</th><th></th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td class="text-sm fw-bold">{{ row.programme.display_name }}</td>
+          <td class="text-sm">{{ row.class_teacher|default:"—" }}</td>
+          <td class="text-sm">{{ row.learners }}</td>
+          <td class="text-sm">{{ row.decided }} / {{ row.learners }}</td>
+          <td class="text-sm">{{ row.promoted }}</td>
+          <td class="text-sm">{{ row.retained }}</td>
+          <td class="text-sm">{{ row.finished }}</td>
+          <td class="text-end"><a class="btn btn-sm btn-outline-info mb-0" href="{% url 'admissions:promotion-class' programme_id=row.programme.pk year=year %}">Open</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">You are not the class teacher of a grade for {{ year }}. The office sets class
+          teachers on each grade's class (Academic structure → grade → classes).</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+</div>
+{% endblock %}

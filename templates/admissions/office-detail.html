@@ -147,6 +147,13 @@ the admission decision.{% endcomment %}
     <div class="card mb-4"><div class="card-body">
       <h6>Deputy approval of admission</h6>
       {% if app.decided_by %}<p class="text-xs text-muted">{{ app.get_status_display }} by {{ app.decided_by.get_full_name|default:app.decided_by.email }} on {{ app.decided_at|date:"j M Y" }}{% if app.decision_note %} — {{ app.decision_note }}{% endif %}</p>{% endif %}
+      {% if app.status == 'preregistered' %}
+      <div class="alert alert-light border text-xs">Pre-registered by the year-end promotion{% if app.previous %} (from {{ app.previous.programme.display_name }} {{ app.previous.year }}){% endif %}.
+        Confirm once you know the learner is returning: it admits them and raises the January invoice (levy + January fees).</div>
+      <form method="post" class="mb-2">{% csrf_token %}
+        <button class="btn bg-gradient-success w-100 mb-0" name="action" value="confirm-returning">Confirm returning for {{ app.year }}</button>
+      </form>
+      {% endif %}
       <form method="post">
         {% csrf_token %}
         <textarea class="form-control mb-2" name="decision_note" rows="2" placeholder="Note (optional)"></textarea>
